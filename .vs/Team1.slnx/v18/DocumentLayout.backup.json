@@ -3,28 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ControlsScreen.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\ControlsScreen.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\Application.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\Application.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\Application.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\Application.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Game.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\logic\\Game.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Players.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\logic\\Players.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ApplicationScreens.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\ApplicationScreens.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ControlsScreen.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\ControlsScreen.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ControlsScreen.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -58,7 +42,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 11,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Bookmark",
@@ -70,72 +54,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "Game.h",
-              "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Game.h",
-              "RelativeDocumentMoniker": "src\\logic\\Game.h",
-              "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Game.h",
-              "RelativeToolTip": "src\\logic\\Game.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T19:38:36.522Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "Players.h",
-              "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Players.h",
-              "RelativeDocumentMoniker": "src\\logic\\Players.h",
-              "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Players.h",
-              "RelativeToolTip": "src\\logic\\Players.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T19:38:34.8Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "Application.h",
-              "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\Application.h",
-              "RelativeDocumentMoniker": "src\\presentation\\Application.h",
-              "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\Application.h",
-              "RelativeToolTip": "src\\presentation\\Application.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAC0AAAASAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T19:38:30.185Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "ApplicationScreens.cpp",
-              "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ApplicationScreens.cpp",
-              "RelativeDocumentMoniker": "src\\presentation\\ApplicationScreens.cpp",
-              "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ApplicationScreens.cpp",
-              "RelativeToolTip": "src\\presentation\\ApplicationScreens.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:38:25.37Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "Application.cpp",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\Application.cpp",
               "RelativeDocumentMoniker": "src\\presentation\\Application.cpp",
               "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\Application.cpp",
               "RelativeToolTip": "src\\presentation\\Application.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2026-10-22T19:38:22.632Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 3,
               "Title": "Players.cpp",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Players.cpp",
               "RelativeDocumentMoniker": "src\\logic\\Players.cpp",
@@ -143,12 +75,11 @@
               "RelativeToolTip": "src\\logic\\Players.cpp",
               "ViewState": "AgIAAB4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:38:20.043Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:38:20.043Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 4,
               "Title": "Game.cpp",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\logic\\Game.cpp",
               "RelativeDocumentMoniker": "src\\logic\\Game.cpp",
@@ -156,12 +87,11 @@
               "RelativeToolTip": "src\\logic\\Game.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:38:14.162Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:38:14.162Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 5,
               "Title": "MazeData.h",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\data\\MazeData.h",
               "RelativeDocumentMoniker": "src\\data\\MazeData.h",
@@ -169,12 +99,11 @@
               "RelativeToolTip": "src\\data\\MazeData.h",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T19:37:45.976Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:37:45.976Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 6,
               "Title": "MazeData.cpp",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\data\\MazeData.cpp",
               "RelativeDocumentMoniker": "src\\data\\MazeData.cpp",
@@ -182,12 +111,11 @@
               "RelativeToolTip": "src\\data\\MazeData.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:36:15.925Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:36:15.925Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "ControlsScreen.h",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ControlsScreen.h",
               "RelativeDocumentMoniker": "src\\presentation\\ControlsScreen.h",
@@ -195,12 +123,11 @@
               "RelativeToolTip": "src\\presentation\\ControlsScreen.h",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T19:31:19.911Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:31:19.911Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 2,
               "Title": "ControlsScreen.cpp",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\ControlsScreen.cpp",
               "RelativeDocumentMoniker": "src\\presentation\\ControlsScreen.cpp",
@@ -208,12 +135,11 @@
               "RelativeToolTip": "src\\presentation\\ControlsScreen.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAA8AAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:30:41.853Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:30:41.853Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 7,
               "Title": "main.cpp",
               "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\main.cpp",
               "RelativeDocumentMoniker": "src\\main.cpp",
@@ -221,8 +147,7 @@
               "RelativeToolTip": "src\\main.cpp",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:26:09.741Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-22T19:26:09.741Z"
             }
           ]
         }
