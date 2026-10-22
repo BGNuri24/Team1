@@ -3,13 +3,17 @@
 #include <utility>
 
 MazeData::MazeData(int size) : n(size), grid(size * size, '#') {
-    carve(0, 0);                                   // start at (0,0)
+    // start at (0,0)
+    carve(0, 0);  
 
+    // even size: connect the corner
     if (n % 2 == 0) {
-        grid[(n - 2) * n + n - 1] = '.';           // even size: connect the corner
+        grid[(n - 2) * n + n - 1] = '.'; 
         steps.push_back({n - 2, n - 1});
     }
-    grid[(n - 1) * n + n - 1] = 'E';               // exit, bottom-right
+
+    // exit, bottom-right
+    grid[(n - 1) * n + n - 1] = 'E';  
     steps.push_back({n - 1, n - 1});
 }
 

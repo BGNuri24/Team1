@@ -11,7 +11,8 @@ public:
     explicit MazeData(int size);
 
     int size() const;
-    char cell(int r, int c) const;   // '#' wall, '.' path, 'E' exit
+    // '#' wall, '.' path, 'E' exit
+    char cell(int r, int c) const;
     const std::vector<MazeStep>& generationSteps() const;
 private:
     void carve(int r, int c);
