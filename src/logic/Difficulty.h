@@ -28,4 +28,4 @@ inline float customSeconds(int size) {
 // validation of a typed maze size
 inline bool isValidSize(int size) {
     return size >= MIN_SIZE && size <= MAX_SIZE;
-}
+}   
