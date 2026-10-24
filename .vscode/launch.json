@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run MazeGame",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-vs/x64/Debug/MazeGame.exe",
+            "cwd": "${workspaceFolder}/",
+            "args": [],
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "preLaunchTask": "Build MazeGame (MSBuild)"
+        }
+    ]
+}
