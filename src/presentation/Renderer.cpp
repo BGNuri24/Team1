@@ -47,7 +47,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::draw(const Game& game) {
-    cam.position = {game.x(), game.y(), game.z()};
+    cam.position = game.position();
     Vector3 direction = game.cameraDirection();
     cam.target = {cam.position.x + direction.x,
                   cam.position.y + direction.y,
@@ -156,8 +156,9 @@ void Renderer::drawMinimap(const Game& game) {
             DrawRectangle(ox + c * cell, oy + r * cell, cell, cell, col);
         }
 
-    float mx = ox + (game.x() + 0.5f) * cell;   // player marker
-    float my = oy + (game.z() + 0.5f) * cell;
+    Vector3 position = game.position();
+    float mx = ox + (position.x + 0.5f) * cell;   // player marker
+    float my = oy + (position.z + 0.5f) * cell;
     float rad = cell / 2.0f < 2.0f ? 2.0f : cell / 2.0f;
     DrawCircle((int)mx, (int)my, rad, RED);
     DrawLine((int)mx, (int)my,

@@ -2,28 +2,28 @@
 #include "Input.h"
 #include "raylib.h"
 
-Screen Application::updateMainMenu() {
-    Screen next = mainMenu.update();
+template <typename Draw>
+static void drawFrame(Draw draw) {
     BeginDrawing();
-    mainMenu.draw();
+    draw();
     EndDrawing();
+}
+
+template <typename Menu>
+static Screen updateMenu(Menu& menu) {
+    Screen next = menu.update();
+    drawFrame([&] { menu.draw(); });
     return next;
 }
 
-Screen Application::updateControls() {
-    Screen next = controls.update();
-    BeginDrawing();
-    controls.draw();
-    EndDrawing();
-    return next;
-}
+Screen Application::updateMainMenu() { return updateMenu(mainMenu); }
+Screen Application::updateControls() { return updateMenu(controls); }
+Screen Application::updatePlayerSelect() { return updateMenu(playerSelect); }
 
-Screen Application::updatePlayerSelect() {
-    Screen next = playerSelect.update();
-    BeginDrawing();
-    playerSelect.draw();
-    EndDrawing();
-    return next;
+Screen Application::startGame() {
+    game = std::make_unique<Game>(currentSize, currentSeconds);
+    generationScreen.begin(*game);
+    return Screen::GENERATING;
 }
 
 Screen Application::updateLevelSelect() {
@@ -31,22 +31,16 @@ Screen Application::updateLevelSelect() {
     if (next == Screen::PLAYING) {
         currentSize = levelSelect.size();
         currentSeconds = levelSelect.seconds();
-        game = std::make_unique<Game>(currentSize, currentSeconds);
-        generationScreen.begin(*game);
-        next = Screen::GENERATING;
+        next = startGame();
     }
 
-    BeginDrawing();
-    levelSelect.draw();
-    EndDrawing();
+    drawFrame([&] { levelSelect.draw(); });
     return next;
 }
 
 Screen Application::updateGenerating() {
     bool complete = generationScreen.update(*game);
-    BeginDrawing();
-    generationScreen.draw(*game);
-    EndDrawing();
+    drawFrame([&] { generationScreen.draw(*game); });
     if (complete) {
         DisableCursor();
         return Screen::PLAYING;
@@ -57,9 +51,7 @@ Screen Application::updateGenerating() {
 Screen Application::updatePlaying() {
     game->update(readInput());
     bool pause = IsKeyPressed(KEY_ESCAPE);
-    BeginDrawing();
-    renderer.draw(*game);
-    EndDrawing();
+    drawFrame([&] { renderer.draw(*game); });
 
     if (game->finished()) {
         EnableCursor();
@@ -77,19 +69,17 @@ Screen Application::updatePlaying() {
 
 Screen Application::updatePaused() {
     PauseAction action = pauseMenu.update();
-    BeginDrawing();
-    renderer.draw(*game);
-    pauseMenu.draw();
-    EndDrawing();
+    drawFrame([&] {
+        renderer.draw(*game);
+        pauseMenu.draw();
+    });
 
     switch (action) {
     case PauseAction::RESUME:
         DisableCursor();
         return Screen::PLAYING;
     case PauseAction::RESTART:
-        game = std::make_unique<Game>(currentSize, currentSeconds);
-        generationScreen.begin(*game);
-        return Screen::GENERATING;
+        return startGame();
     case PauseAction::CHANGE_PLAYER:
         game.reset();
         return Screen::PLAYER_SELECT;
@@ -104,10 +94,10 @@ Screen Application::updatePaused() {
 
 Screen Application::updateEnd() {
     Screen next = endScreen.update();
-    BeginDrawing();
-    renderer.draw(*game);
-    endScreen.draw(*game, players.activeName(), bestTime, newBestTime);
-    EndDrawing();
+    drawFrame([&] {
+        renderer.draw(*game);
+        endScreen.draw(*game, players.activeName(), bestTime, newBestTime);
+    });
 
     if (next != Screen::END) {
         game.reset();

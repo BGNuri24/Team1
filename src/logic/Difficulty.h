@@ -1,7 +1,6 @@
 #pragma once
 
-const int MIN_SIZE = 10;     // spec: maze from 10x10 ...
-const int MAX_SIZE = 50;     // ... to 50x50
+#include "../shared/Validation.h"
 
 struct Difficulty {
     const char* name;
@@ -24,8 +23,3 @@ inline const Difficulty& getDifficulty(int index) {
 inline float customSeconds(int size) {
     return size * 5.0f;
 }
-
-// validation of a typed maze size
-inline bool isValidSize(int size) {
-    return size >= MIN_SIZE && size <= MAX_SIZE;
-}   

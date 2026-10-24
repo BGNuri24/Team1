@@ -1,8 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-
-const int MAX_PLAYERS = 5;
+#include "../shared/Validation.h"
 
 class PlayerStore {
 public:

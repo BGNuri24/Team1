@@ -1,9 +1,13 @@
 #include "MainMenu.h"
 #include "Ui.h"
+#include "Input.h"
 #include <cmath>
 
 static const int COUNT = 3;
 static const char* LABELS[COUNT] = {"Play", "Controls", "Quit"};
+static constexpr Screen DESTINATIONS[COUNT] = {
+    Screen::PLAYER_SELECT, Screen::CONTROLS, Screen::QUIT
+};
 
 static void drawNeonGrid(float time) {
     int width = GetScreenWidth();
@@ -53,14 +57,8 @@ static void drawNeonGrid(float time) {
 MainMenu::MainMenu() : selected(0) {}
 
 Screen MainMenu::update() {
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selected = (selected + 1) % COUNT;
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selected = (selected + COUNT - 1) % COUNT;
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-        if (selected == 0) return Screen::PLAYER_SELECT;
-        if (selected == 1) return Screen::CONTROLS;
-        return Screen::QUIT;
-    }
-    return Screen::MAIN_MENU;
+    updateMenuSelection(selected, COUNT);
+    return menuConfirmed() ? DESTINATIONS[selected] : Screen::MAIN_MENU;
 }
 
 void MainMenu::draw() const {

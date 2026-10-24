@@ -24,6 +24,7 @@ public:
     float x() const;
     float y() const;
     float z() const;
+    Vector3 position() const;
     float yaw() const;
     Vector3 cameraDirection() const;
     Vector3 cameraUp() const;
@@ -41,6 +42,8 @@ public:
     bool finished() const;
     const MazeData& maze() const;
 private:
+    float transitionBlend() const;
+    bool moveHorizontal(float movement, float step, bool alongX);
     bool isWall(float x, float z) const;
     bool canMove(float x, float z) const;
     bool hasSurfaceSupport(float x, float z) const;

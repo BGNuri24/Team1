@@ -1,24 +1,21 @@
 #include "PauseMenu.h"
 #include "Ui.h"
+#include "Input.h"
 
 static const int COUNT = 4;
 static const char* LABELS[COUNT] = {"Resume", "Restart", "Change player", "Main menu"};
+static constexpr PauseAction ACTIONS[COUNT] = {
+    PauseAction::RESUME, PauseAction::RESTART, PauseAction::CHANGE_PLAYER, PauseAction::MAIN_MENU
+};
 
 PauseMenu::PauseMenu() : selected(0) {}
 
 void PauseMenu::reset() { selected = 0; }
 
 PauseAction PauseMenu::update() {
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selected = (selected + 1) % COUNT;
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selected = (selected + COUNT - 1) % COUNT;
+    updateMenuSelection(selected, COUNT);
     if (IsKeyPressed(KEY_ESCAPE)) return PauseAction::RESUME;
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-        if (selected == 0) return PauseAction::RESUME;
-        if (selected == 1) return PauseAction::RESTART;
-        if (selected == 2) return PauseAction::CHANGE_PLAYER;
-        return PauseAction::MAIN_MENU;
-    }
-    return PauseAction::NONE;
+    return menuConfirmed() ? ACTIONS[selected] : PauseAction::NONE;
 }
 
 void PauseMenu::draw() const {

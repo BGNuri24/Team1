@@ -7,18 +7,12 @@
 
 static const char* FILE_NAME = "players.txt";
 static const char* BEST_TIMES_FILE_NAME = "best_times.txt";
-static const int MAX_NAME_LENGTH = 12;
-static const int MIN_MAZE_SIZE = 10;
-static const int MAX_MAZE_SIZE = 50;
 
-static bool isValidStoredName(const std::string& name) {
-    if (name.empty() || (int)name.size() > MAX_NAME_LENGTH) return false;
-    for (char c : name) {
-        bool letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-        bool digit = (c >= '0' && c <= '9');
-        if (!letter && !digit && c != '_') return false;
-    }
-    return true;
+template <typename Records>
+static auto findBestTime(Records& records, const std::string& player, int mazeSize) {
+    return std::find_if(records.begin(), records.end(), [&](const auto& record) {
+        return record.player == player && record.mazeSize == mazeSize;
+    });
 }
 
 static std::filesystem::path backupPath(const std::filesystem::path& path) {
@@ -105,13 +99,11 @@ const std::string& PlayerStore::name(int i) const {
 }
 
 bool PlayerStore::contains(const std::string& name) const {
-    for (const std::string& n : names)
-        if (n == name) return true;
-    return false;
+    return std::find(names.begin(), names.end(), name) != names.end();
 }
 
 bool PlayerStore::add(const std::string& name) {
-    if (!isValidStoredName(name) || count() >= MAX_PLAYERS || contains(name)) return false;
+    if (!isValidPlayerName(name) || count() >= MAX_PLAYERS || contains(name)) return false;
     names.push_back(name);
     if (save()) return true;
     names.pop_back();
@@ -144,25 +136,22 @@ bool PlayerStore::remove(int i) {
 }
 
 float PlayerStore::bestTime(const std::string& player, int mazeSize) const {
-    for (const BestTime& record : bestTimes)
-        if (record.player == player && record.mazeSize == mazeSize)
-            return record.seconds;
-    return -1.0f;
+    auto record = findBestTime(bestTimes, player, mazeSize);
+    return record == bestTimes.end() ? -1.0f : record->seconds;
 }
 
 bool PlayerStore::recordBestTime(const std::string& player, int mazeSize, float seconds) {
-    if (!contains(player) || mazeSize < MIN_MAZE_SIZE || mazeSize > MAX_MAZE_SIZE ||
+    if (!contains(player) || !isValidSize(mazeSize) ||
         !std::isfinite(seconds) || seconds < 0.0f) return false;
 
-    for (BestTime& record : bestTimes) {
-        if (record.player == player && record.mazeSize == mazeSize) {
-            if (seconds >= record.seconds) return false;
-            float previousSeconds = record.seconds;
-            record.seconds = seconds;
-            if (saveBestTimes()) return true;
-            record.seconds = previousSeconds;
-            return false;
-        }
+    auto record = findBestTime(bestTimes, player, mazeSize);
+    if (record != bestTimes.end()) {
+        if (seconds >= record->seconds) return false;
+        float previousSeconds = record->seconds;
+        record->seconds = seconds;
+        if (saveBestTimes()) return true;
+        record->seconds = previousSeconds;
+        return false;
     }
 
     bestTimes.push_back({player, mazeSize, seconds});
@@ -176,7 +165,7 @@ void PlayerStore::load() {
     std::ifstream in(FILE_NAME);
     std::string line;
     while (std::getline(in, line) && count() < MAX_PLAYERS) {
-        if (isValidStoredName(line) && !contains(line)) names.push_back(line);
+        if (isValidPlayerName(line) && !contains(line)) names.push_back(line);
     }
 }
 
@@ -191,12 +180,9 @@ void PlayerStore::loadBestTimes() {
     std::ifstream in(BEST_TIMES_FILE_NAME);
     BestTime record;
     while (in >> record.player >> record.mazeSize >> record.seconds) {
-        if (!contains(record.player) || record.mazeSize < MIN_MAZE_SIZE ||
-            record.mazeSize > MAX_MAZE_SIZE || !std::isfinite(record.seconds) ||
+        if (!contains(record.player) || !isValidSize(record.mazeSize) || !std::isfinite(record.seconds) ||
             record.seconds < 0.0f) continue;
-        auto existing = std::find_if(bestTimes.begin(), bestTimes.end(), [&](const BestTime& value) {
-            return value.player == record.player && value.mazeSize == record.mazeSize;
-        });
+        auto existing = findBestTime(bestTimes, record.player, record.mazeSize);
         if (existing == bestTimes.end()) bestTimes.push_back(record);
         else if (record.seconds < existing->seconds) existing->seconds = record.seconds;
     }

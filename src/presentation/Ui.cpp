@@ -20,9 +20,7 @@ int uiSize(int size) {
 }
 
 void drawCentered(const char* text, int y, int size, Color color) {
-    int scaledSize = uiSize(size);
-    DrawText(text, (GetScreenWidth() - MeasureText(text, scaledSize)) / 2,
-             uiY(y), scaledSize, color);
+    drawCenteredAt(text, uiY(y), uiSize(size), color);
 }
 
 void drawCenteredAt(const char* text, int y, int size, Color color) {
@@ -34,4 +32,22 @@ void drawOptions(const char* const* labels, int count, int selected, int startY)
         const char* line = TextFormat("%s%s", i == selected ? "> " : "  ", labels[i]);
         drawCentered(line, startY + i * 70, 40, i == selected ? GOLD : GRAY);
     }
+}
+
+Rectangle drawPopup(int width, int height, Color border, Color fill, float dim) {
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, dim));
+    int w = uiSize(width), h = uiSize(height);
+    int x = (GetScreenWidth() - w) / 2;
+    int y = (GetScreenHeight() - h) / 2;
+    DrawRectangle(x, y, w, h, fill);
+    DrawRectangleLines(x, y, w, h, border);
+    return {(float)x, (float)y, (float)w, (float)h};
+}
+
+void drawTextEntry(const std::string& text, int y, int size) {
+    int width = MeasureText(text.c_str(), size);
+    int x = (GetScreenWidth() - width) / 2;
+    DrawText(text.c_str(), x, y, size, GOLD);
+    if (((int)(GetTime() * 2)) % 2 == 0)
+        DrawText("_", x + width + uiSize(4), y, size, GOLD);
 }

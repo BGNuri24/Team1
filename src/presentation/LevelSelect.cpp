@@ -1,5 +1,6 @@
 #include "LevelSelect.h"
 #include "Ui.h"
+#include "Input.h"
 #include "../logic/Difficulty.h"
 #include <cstdlib>
 
@@ -13,18 +14,8 @@ LevelSelect::LevelSelect()
 Screen LevelSelect::update() {
     if (typing) {
         // typed characters: digits only, max 2
-        int ch = GetCharPressed();
-        while (ch > 0) {
-            if (ch >= '0' && ch <= '9' && text.size() < 2) {
-                text += (char)ch;
-                showError = false;
-            }
-            ch = GetCharPressed();
-        }
-        if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && !text.empty()) {
-            text.pop_back();
+        if (editText(text, 2, [](int ch) { return ch >= '0' && ch <= '9'; }))
             showError = false;
-        }
         if (IsKeyPressed(KEY_ENTER)) {
             int value = text.empty() ? 0 : std::atoi(text.c_str());
             if (isValidSize(value)) {
@@ -43,11 +34,10 @@ Screen LevelSelect::update() {
         return Screen::LEVEL_SELECT;
     }
 
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selected = (selected + 1) % OPTION_COUNT;
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selected = (selected + OPTION_COUNT - 1) % OPTION_COUNT;
+    updateMenuSelection(selected, OPTION_COUNT);
     if (IsKeyPressed(KEY_ESCAPE)) return Screen::MAIN_MENU;
 
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+    if (menuConfirmed()) {
         if (selected < DIFFICULTY_COUNT) {
             chosenSize = getDifficulty(selected).size;
             chosenSeconds = getDifficulty(selected).seconds;
@@ -82,22 +72,12 @@ void LevelSelect::draw() const {
     drawCentered("UP/DOWN choose    ENTER start    ESC back", 620, 24, LIGHTGRAY);
 
     if (typing) {
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.7f));
-        int w = uiSize(560), h = uiSize(260);
-        int x = (GetScreenWidth() - w) / 2;
-        int y = (GetScreenHeight() - h) / 2;
-        DrawRectangle(x, y, w, h, Color{ 25, 28, 38, 255 });
-        DrawRectangleLines(x, y, w, h, GOLD);
+        int y = (int)drawPopup(560, 260).y;
 
         drawCenteredAt(TextFormat("Maze size (%d-%d)", MIN_SIZE, MAX_SIZE),
             y + uiSize(30), uiSize(36), WHITE);
 
-        int fs = uiSize(60);
-        int tw = MeasureText(text.c_str(), fs);
-        int tx = (GetScreenWidth() - tw) / 2;
-        DrawText(text.c_str(), tx, y + uiSize(100), fs, GOLD);
-        if (((int)(GetTime() * 2)) % 2 == 0)
-            DrawText("_", tx + tw + uiSize(4), y + uiSize(100), fs, GOLD);
+        drawTextEntry(text, y + uiSize(100), uiSize(60));
 
         if (showError)
             drawCenteredAt(TextFormat("Enter a number from %d to %d", MIN_SIZE, MAX_SIZE),

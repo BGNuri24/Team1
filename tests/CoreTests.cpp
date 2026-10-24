@@ -1,7 +1,10 @@
 #include "../src/data/MazeData.h"
 #include "../src/data/PlayerStore.h"
+#include "../src/logic/Players.h"
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <limits>
 #include <iostream>
 #include <queue>
 #include <set>
@@ -116,6 +119,39 @@ static void testPlayerStore() {
             "removing a player should remove their best times");
 }
 
+static void testProfilesAndValidation() {
+    clearTestData();
+    Players players;
+    require(players.activeName() == "Guest", "empty profile list should use Guest");
+    require(players.add("bad-name") == Players::INVALID, "profile must reject punctuation");
+    require(players.add("1234567890123") == Players::INVALID, "profile name limit changed");
+    require(players.add("Alex_1234567") == Players::ADDED, "12-character name should work");
+    require(players.add("Alex_1234567") == Players::DUPLICATE, "duplicate result changed");
+    require(players.add("Bo") == Players::ADDED, "second profile should work");
+    players.setActive(1);
+    require(players.recordWin(10, 12.5f), "active player should save their time");
+    require(!players.recordWin(51, 1.0f), "oversized maze record must be rejected");
+    require(!players.recordWin(10, std::numeric_limits<float>::infinity()),
+            "infinite time must be rejected");
+    require(!players.recordWin(10, std::numeric_limits<float>::quiet_NaN()),
+            "NaN time must be rejected");
+    require(players.remove(0), "earlier profile should be removable");
+    require(players.activeName() == "Bo" && players.bestTime(10) == 12.5f,
+            "removing an earlier profile must preserve active player and record");
+    require(players.add("Cy") == Players::ADDED && players.add("Dee") == Players::ADDED &&
+            players.add("Eve") == Players::ADDED && players.add("Finn") == Players::ADDED,
+            "remaining profile slots should work");
+    require(players.add("Bo") == Players::FULL, "full must take priority over duplicate");
+    require(players.add("") == Players::INVALID, "invalid must take priority over full");
+
+    // Loading must retain the fastest duplicate record and distinguish maze sizes.
+    std::ofstream("best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
+    PlayerStore reloaded;
+    require(reloaded.bestTime("Bo", 10) == 10.0f && reloaded.bestTime("Bo", 11) == 30.0f,
+            "record lookup must match both player and maze size");
+    require(reloaded.bestTime("missing", 10) < 0, "unknown player record should be ignored");
+}
+
 int main() {
     try {
         std::srand(1234);
@@ -123,6 +159,7 @@ int main() {
         testMaze(11);
         testMaze(50);
         testPlayerStore();
+        testProfilesAndValidation();
     } catch (const std::exception& error) {
         std::cerr << "Test failure: " << error.what() << '\n';
         return 1;

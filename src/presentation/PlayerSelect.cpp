@@ -1,5 +1,6 @@
 #include "PlayerSelect.h"
 #include "Ui.h"
+#include "Input.h"
 
 PlayerSelect::PlayerSelect(Players& p) : players(p), selected(0), typing(false), error(0) {}
 
@@ -10,20 +11,7 @@ int PlayerSelect::optionCount() const {
 
 Screen PlayerSelect::update() {
     if (typing) {
-        int ch = GetCharPressed();
-        while (ch > 0) {
-            bool ok = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-                (ch >= '0' && ch <= '9') || ch == '_';
-            if (ok && (int)text.size() < MAX_NAME_LENGTH) {
-                text += (char)ch;
-                error = 0;
-            }
-            ch = GetCharPressed();
-        }
-        if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && !text.empty()) {
-            text.pop_back();
-            error = 0;
-        }
+        if (editText(text, MAX_NAME_LENGTH, isNameCharacter)) error = 0;
         if (IsKeyPressed(KEY_ENTER)) {
             Players::AddResult r = players.add(text);
             // the new player plays
@@ -44,8 +32,7 @@ Screen PlayerSelect::update() {
     }
 
     int n = optionCount();
-    if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selected = (selected + 1) % n;
-    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selected = (selected + n - 1) % n;
+    updateMenuSelection(selected, n);
     if (IsKeyPressed(KEY_ESCAPE)) return Screen::MAIN_MENU;
 
     if (IsKeyPressed(KEY_DELETE) && selected < players.count()) {
@@ -58,7 +45,7 @@ Screen PlayerSelect::update() {
         }
     }
 
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+    if (menuConfirmed()) {
         if (selected < players.count()) {
             players.setActive(selected);
             return Screen::LEVEL_SELECT;
@@ -88,21 +75,11 @@ void PlayerSelect::draw() const {
     drawCentered("UP/DOWN choose    ENTER select    DEL remove    ESC back", 630, 22, LIGHTGRAY);
 
     if (typing) {
-        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.7f));
-        int w = uiSize(640), h = uiSize(260);
-        int x = (GetScreenWidth() - w) / 2;
-        int y = (GetScreenHeight() - h) / 2;
-        DrawRectangle(x, y, w, h, Color{ 25, 28, 38, 255 });
-        DrawRectangleLines(x, y, w, h, GOLD);
+        int y = (int)drawPopup(640, 260).y;
 
         drawCenteredAt("New player name", y + uiSize(30), uiSize(36), WHITE);
 
-        int fs = uiSize(50);
-        int tw = MeasureText(text.c_str(), fs);
-        int tx = (GetScreenWidth() - tw) / 2;
-        DrawText(text.c_str(), tx, y + uiSize(100), fs, GOLD);
-        if (((int)(GetTime() * 2)) % 2 == 0)
-            DrawText("_", tx + tw + uiSize(4), y + uiSize(100), fs, GOLD);
+        drawTextEntry(text, y + uiSize(100), uiSize(50));
 
         if (error == 1)
             drawCenteredAt(TextFormat("Use 1-%d letters, digits or _", MAX_NAME_LENGTH),

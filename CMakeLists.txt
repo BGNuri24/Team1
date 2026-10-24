@@ -34,9 +34,18 @@ if(BUILD_TESTING)
     add_executable(MazeGameTests
         tests/CoreTests.cpp
         src/data/MazeData.cpp
-        src/data/PlayerStore.cpp)
+        src/data/PlayerStore.cpp
+        src/logic/Players.cpp)
     add_test(NAME MazeGameCoreTests COMMAND MazeGameTests)
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test-data")
     set_tests_properties(MazeGameCoreTests PROPERTIES
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test-data")
+
+    add_executable(MazeGameLogicTests tests/GameTests.cpp src/logic/Game.cpp src/data/MazeData.cpp)
+    target_link_libraries(MazeGameLogicTests PRIVATE raylib)
+    add_test(NAME MazeGameLogicTests COMMAND MazeGameLogicTests)
+
+    add_executable(MazeInputTests tests/InputTests.cpp src/presentation/Input.cpp)
+    target_include_directories(MazeInputTests PRIVATE $<TARGET_PROPERTY:raylib,INTERFACE_INCLUDE_DIRECTORIES>)
+    add_test(NAME MazeInputTests COMMAND MazeInputTests)
 endif()

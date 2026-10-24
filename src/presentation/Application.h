@@ -28,6 +28,7 @@ private:
     Screen updatePlaying();
     Screen updatePaused();
     Screen updateEnd();
+    Screen startGame();
 
     Players players;
     Renderer renderer;
