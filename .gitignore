@@ -1,4 +1,5 @@
 build/
+/memory.txt
 build-*/
 .vs/
 /.vs/
@@ -6,3 +7,5 @@ build-*/
 *.exe
 *.obj
 *.pdb
+/third_party/raylib/
+*.vcxproj.user
