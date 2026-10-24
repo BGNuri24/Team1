@@ -1,6 +1,12 @@
 # Team1 — Maze Game
 
-C++17 maze game using raylib 5.5.
+C++20 maze game using raylib 5.5.
+
+All game and C++ test targets use C++20 in Debug and Release. A compiler with
+C++20 support is required. The Visual Studio solution and VS Code build task
+share the `/std:c++20` setting in `windows/Build.props`; VS Code IntelliSense is
+also configured for C++20. The alternative CMake build requires C++20 and
+disables compiler-specific C++ extensions. Raylib's own `.c` files compile as C.
 
 ## Build and run in Visual Studio (no CMake)
 
