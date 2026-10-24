@@ -1,6 +1,8 @@
-    build/
-    build-*/
-    .vs/
-    *.exe
-    *.obj
-    *.pdb
+build/
+build-*/
+.vs/
+/.vs/
+*.tmp
+*.exe
+*.obj
+*.pdb
