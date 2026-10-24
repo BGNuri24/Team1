@@ -1,22 +1,14 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\vilip\\Desktop\\Team1\\",
+  "WorkspaceRootPath": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\Input.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\Input.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\PlayerSelect.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\PlayerSelect.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\input.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\input.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\EndScreen.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\EndScreen.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\EndScreen.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\EndScreen.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\PlayerSelect.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\presentation\\PlayerSelect.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -39,53 +31,28 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "Input.h",
-              "DocumentMoniker": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\Input.h",
-              "RelativeDocumentMoniker": "src\\presentation\\Input.h",
-              "ToolTip": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\Input.h",
-              "RelativeToolTip": "src\\presentation\\Input.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA==",
+              "Title": "PlayerSelect.h",
+              "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\PlayerSelect.h",
+              "RelativeDocumentMoniker": "src\\presentation\\PlayerSelect.h",
+              "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\PlayerSelect.h",
+              "RelativeToolTip": "src\\presentation\\PlayerSelect.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAqAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T20:15:31.237Z",
+              "WhenOpened": "2026-10-24T13:20:15.178Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "Input.cpp",
-              "DocumentMoniker": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\Input.cpp",
-              "RelativeDocumentMoniker": "src\\presentation\\Input.cpp",
-              "ToolTip": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\Input.cpp",
-              "RelativeToolTip": "src\\presentation\\Input.cpp",
-              "ViewState": "AgIAAA4AAAAAAAAAAAAAAAgAAAA7AAAAAAAAAA==",
+              "Title": "PlayerSelect.cpp",
+              "DocumentMoniker": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\PlayerSelect.cpp",
+              "RelativeDocumentMoniker": "src\\presentation\\PlayerSelect.cpp",
+              "ToolTip": "C:\\Users\\zlati\\Documents\\githubRepos\\Team1\\Team1\\src\\presentation\\PlayerSelect.cpp",
+              "RelativeToolTip": "src\\presentation\\PlayerSelect.cpp",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAAAjAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T20:14:47.5Z",
+              "WhenOpened": "2026-10-24T13:20:04.417Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "EndScreen.cpp",
-              "DocumentMoniker": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\EndScreen.cpp",
-              "RelativeDocumentMoniker": "src\\presentation\\EndScreen.cpp",
-              "ToolTip": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\EndScreen.cpp",
-              "RelativeToolTip": "src\\presentation\\EndScreen.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAADAAAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2026-10-22T19:55:05.827Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "EndScreen.h",
-              "DocumentMoniker": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\EndScreen.h",
-              "RelativeDocumentMoniker": "src\\presentation\\EndScreen.h",
-              "ToolTip": "C:\\Users\\vilip\\Desktop\\Team1\\src\\presentation\\EndScreen.h",
-              "RelativeToolTip": "src\\presentation\\EndScreen.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2026-10-22T19:55:15.222Z"
             }
           ]
         }
