@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{69AE195E-2FF5-44DB-8691-B9807CD47C68}</ProjectGuid>
+    <RootNamespace>raylib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="Build.props" />
+  </ImportGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>PLATFORM_DESKTOP;GRAPHICS_API_OPENGL_33;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectRoot)third_party\raylib\src\external\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\third_party\raylib\src\raudio.c" />
+    <ClCompile Include="..\third_party\raylib\src\rcore.c" />
+    <ClCompile Include="..\third_party\raylib\src\rmodels.c" />
+    <ClCompile Include="..\third_party\raylib\src\rglfw.c" />
+    <ClCompile Include="..\third_party\raylib\src\rshapes.c" />
+    <ClCompile Include="..\third_party\raylib\src\rtext.c" />
+    <ClCompile Include="..\third_party\raylib\src\rtextures.c" />
+    <ClCompile Include="..\third_party\raylib\src\utils.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\third_party\raylib\src\raylib.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="RestoreRaylib" BeforeTargets="PrepareForBuild" Condition="!Exists('$(ProjectRoot)third_party\raylib\5.5.ready')">
+    <PropertyGroup>
+      <RaylibRestoreArgs Condition="'$(RaylibSource)'!=''">-SourcePath &quot;$(RaylibSource)&quot;</RaylibRestoreArgs>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Get-Raylib.ps1&quot; $(RaylibRestoreArgs)" />
+  </Target>
+</Project>

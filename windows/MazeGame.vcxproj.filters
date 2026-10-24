@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src"><UniqueIdentifier>{CA171174-11C3-4748-8F3A-680323BB97A6}</UniqueIdentifier></Filter>
+    <Filter Include="src\data"><UniqueIdentifier>{8D84F70C-A073-480D-91EC-E8E4F018A7F3}</UniqueIdentifier></Filter>
+    <Filter Include="src\logic"><UniqueIdentifier>{26A8E7AE-B4A9-4938-8010-AAB51468AE80}</UniqueIdentifier></Filter>
+    <Filter Include="src\presentation"><UniqueIdentifier>{3D2796E0-2AEC-440D-AD64-7B9F55092187}</UniqueIdentifier></Filter>
+    <Filter Include="src\shared"><UniqueIdentifier>{65C406E5-6185-4068-B958-C8FD698597A5}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\main.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="..\src\data\PlayerStore.cpp"><Filter>src\data</Filter></ClCompile>
+    <ClCompile Include="..\src\data\MazeData.cpp"><Filter>src\data</Filter></ClCompile>
+    <ClCompile Include="..\src\logic\Players.cpp"><Filter>src\logic</Filter></ClCompile>
+    <ClCompile Include="..\src\logic\Game.cpp"><Filter>src\logic</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\LevelSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\Input.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\EndScreen.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\ControlsScreen.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\ApplicationScreens.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\Application.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\PauseMenu.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\MazeGenerationScreen.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\MainMenu.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\Renderer.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\PlayerSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\Textures.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\src\presentation\Ui.cpp"><Filter>src\presentation</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\shared\Validation.h"><Filter>src\shared</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\Ui.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\Textures.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\Screen.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\Renderer.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\PlayerSelect.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\PauseMenu.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\MazeGenerationScreen.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\MainMenu.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\LevelSelect.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\Input.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\EndScreen.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\ControlsScreen.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\presentation\Application.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\src\logic\Players.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\src\logic\Game.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\src\logic\Difficulty.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\src\data\PlayerStore.h"><Filter>src\data</Filter></ClInclude>
+    <ClInclude Include="..\src\data\MazeData.h"><Filter>src\data</Filter></ClInclude>
+  </ItemGroup>
+</Project>
