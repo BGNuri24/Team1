@@ -5,8 +5,8 @@
 #include <fstream>
 #include <utility>
 
-static const char* FILE_NAME = "players.txt";
-static const char* BEST_TIMES_FILE_NAME = "best_times.txt";
+static const char* FILE_NAME = "save_data/players.txt";
+static const char* BEST_TIMES_FILE_NAME = "save_data/best_times.txt";
 
 template <typename Records>
 static auto findBestTime(Records& records, const std::string& player, int mazeSize) {
@@ -32,6 +32,10 @@ static void recoverBackup(const std::filesystem::path& path) {
 template <typename WriteContent>
 static bool writeAtomically(const char* filename, WriteContent writeContent) {
     std::filesystem::path path(filename);
+    std::error_code directoryError;
+    if (!path.parent_path().empty())
+        std::filesystem::create_directories(path.parent_path(), directoryError);
+    if (directoryError) return false;
     recoverBackup(path);
     std::filesystem::path temporary = path;
     temporary += ".tmp";

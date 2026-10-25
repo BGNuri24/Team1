@@ -65,9 +65,12 @@ static void testMaze(int size) {
 }
 
 static void clearTestData() {
+    std::error_code directoryError;
+    std::filesystem::create_directories("save_data", directoryError);
+    require(!directoryError, "could not create test save-data directory");
     const char* files[] = {
-        "players.txt", "players.txt.bak", "players.txt.tmp",
-        "best_times.txt", "best_times.txt.bak", "best_times.txt.tmp"
+        "save_data/players.txt", "save_data/players.txt.bak", "save_data/players.txt.tmp",
+        "save_data/best_times.txt", "save_data/best_times.txt.bak", "save_data/best_times.txt.tmp"
     };
     for (const char* file : files) {
         std::error_code error;
@@ -145,7 +148,7 @@ static void testProfilesAndValidation() {
     require(players.add("") == Players::INVALID, "invalid must take priority over full");
 
     // Loading must retain the fastest duplicate record and distinguish maze sizes.
-    std::ofstream("best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
+    std::ofstream("save_data/best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
     PlayerStore reloaded;
     require(reloaded.bestTime("Bo", 10) == 10.0f && reloaded.bestTime("Bo", 11) == 30.0f,
             "record lookup must match both player and maze size");
