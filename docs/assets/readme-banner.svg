@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title description">
+  <title id="title">Maze Game</title>
+  <desc id="description">A purple and gold maze illustration with a green exit, inspired by the game's retro menu.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151025"/>
+      <stop offset="0.55" stop-color="#30114d"/>
+      <stop offset="1" stop-color="#741657"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b346cf" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#ee4bd3" stop-opacity="0.45"/>
+    </linearGradient>
+    <clipPath id="bounds"><rect width="1200" height="360" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#bounds)">
+    <rect width="1200" height="360" fill="url(#background)"/>
+    <path d="M0 235H1200 M0 257H1200 M0 286H1200 M0 325H1200 M600 235L-400 360 M600 235L-50 360 M600 235L250 360 M600 235L480 360 M600 235L720 360 M600 235L950 360 M600 235L1250 360 M600 235L1600 360" fill="none" stroke="url(#floor)" stroke-width="1.5"/>
+    <circle cx="1100" cy="30" r="205" fill="#c33eab" opacity="0.08"/>
+    <path d="M54 64H93" stroke="#ffd447" stroke-width="4"/>
+    <text x="110" y="70" fill="#c6aedc" font-family="Consolas, monospace" font-size="16" letter-spacing="4">TEAM 1 / 3D MAZE</text>
+    <text x="54" y="167" fill="#ffd447" font-family="Consolas, monospace" font-size="76" font-weight="700" letter-spacing="3">MAZE GAME</text>
+    <text x="58" y="210" fill="#f1e8fb" font-family="Consolas, monospace" font-size="20">A way out. A new direction.</text>
+    <rect x="58" y="263" width="119" height="31" rx="7" fill="#ffd447"/>
+    <text x="76" y="284" fill="#22132d" font-family="Consolas, monospace" font-size="14" font-weight="700">F5 TO PLAY</text>
+    <text x="195" y="284" fill="#c6aedc" font-family="Consolas, monospace" font-size="14">C++20 + raylib 5.5</text>
+    <g transform="translate(845 53)">
+      <rect x="-25" y="-21" width="300" height="296" rx="18" fill="#150e25" fill-opacity="0.65" stroke="#a95abb" stroke-opacity="0.45"/>
+      <g fill="none" stroke="#ffd447" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter">
+        <path d="M0 35V0H245V245H35 M0 70V245"/>
+        <path d="M35 35H105V70H70V105H35V175H70V210H140V245"/>
+        <path d="M140 0V35H210V70H175V105H245"/>
+        <path d="M105 105H140V70 M140 105V140H105V175H175V210H210"/>
+        <path d="M35 140H70 M175 140H210V175H245"/>
+      </g>
+      <path d="M0 52H18V18H122V88H157V122H227V228H157V228H18V192" fill="none" stroke="#ec72d3" stroke-width="2" stroke-dasharray="4 7" opacity="0.7"/>
+      <circle cx="0" cy="52" r="7" fill="#f3a5e6"/>
+      <rect x="7" y="207" width="20" height="20" rx="3" fill="#74e0a0"/>
+    </g>
+  </g>
+</svg>
