@@ -48,7 +48,7 @@
     <ClCompile Include="..\src\presentation\Ui.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\shared\Validation.h" />
+    <ClInclude Include="..\src\data\Validation.h" />
     <ClInclude Include="..\src\presentation\Ui.h" />
     <ClInclude Include="..\src\presentation\Textures.h" />
     <ClInclude Include="..\src\presentation\Screen.h" />

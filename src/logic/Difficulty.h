@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../shared/Validation.h"
+#include "../data/Validation.h"
 
 struct Difficulty {
     const char* name;

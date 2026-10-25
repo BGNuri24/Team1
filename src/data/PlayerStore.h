@@ -1,11 +1,11 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "../shared/Validation.h"
+#include "Validation.h"
 
 class PlayerStore {
 public:
-    PlayerStore();                           // loads players.txt if it exists
+    PlayerStore();                           // loads save_data/players.txt if it exists
     int count() const;
     const std::string& name(int i) const;
     bool contains(const std::string& name) const;
