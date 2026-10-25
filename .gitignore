@@ -7,5 +7,4 @@ build-*/
 *.exe
 *.obj
 *.pdb
-/third_party/raylib/
 *.vcxproj.user

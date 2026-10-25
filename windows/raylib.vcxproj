@@ -29,27 +29,25 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <PreprocessorDefinitions>PLATFORM_DESKTOP;GRAPHICS_API_OPENGL_33;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectRoot)third_party\raylib\src\external\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(RaylibSource)\src\external\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\third_party\raylib\src\raudio.c" />
-    <ClCompile Include="..\third_party\raylib\src\rcore.c" />
-    <ClCompile Include="..\third_party\raylib\src\rmodels.c" />
-    <ClCompile Include="..\third_party\raylib\src\rglfw.c" />
-    <ClCompile Include="..\third_party\raylib\src\rshapes.c" />
-    <ClCompile Include="..\third_party\raylib\src\rtext.c" />
-    <ClCompile Include="..\third_party\raylib\src\rtextures.c" />
-    <ClCompile Include="..\third_party\raylib\src\utils.c" />
+    <ClCompile Include="$(RaylibSource)\src\raudio.c" />
+    <ClCompile Include="$(RaylibSource)\src\rcore.c" />
+    <ClCompile Include="$(RaylibSource)\src\rmodels.c" />
+    <ClCompile Include="$(RaylibSource)\src\rglfw.c" />
+    <ClCompile Include="$(RaylibSource)\src\rshapes.c" />
+    <ClCompile Include="$(RaylibSource)\src\rtext.c" />
+    <ClCompile Include="$(RaylibSource)\src\rtextures.c" />
+    <ClCompile Include="$(RaylibSource)\src\utils.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\third_party\raylib\src\raylib.h" />
+    <ClInclude Include="$(RaylibSource)\src\raylib.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <Target Name="RestoreRaylib" BeforeTargets="PrepareForBuild" Condition="!Exists('$(ProjectRoot)third_party\raylib\5.5.ready')">
-    <PropertyGroup>
-      <RaylibRestoreArgs Condition="'$(RaylibSource)'!=''">-SourcePath &quot;$(RaylibSource)&quot;</RaylibRestoreArgs>
-    </PropertyGroup>
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Get-Raylib.ps1&quot; $(RaylibRestoreArgs)" />
+  <Target Name="ValidateRaylibSource" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(RaylibSource)\src\raylib.h')" Text="raylib 5.5 was not found at '$(RaylibSource)'. Download raylib 5.5 and extract it to %USERPROFILE%\raylib-5.5, or set the RaylibSource property." />
+    <Error Condition="!Exists('$(RaylibSource)\src\external\glfw\include\GLFW\glfw3.h')" Text="The raylib source directory is incomplete: expected src\external\glfw\include\GLFW\glfw3.h." />
   </Target>
 </Project>

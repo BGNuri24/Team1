@@ -2,6 +2,8 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <ProjectRoot>$(MSBuildThisFileDirectory)..\</ProjectRoot>
+    <RaylibSource Condition="'$(RaylibSource)'=='' and '$(RAYLIB_SOURCE)'!=''">$(RAYLIB_SOURCE)</RaylibSource>
+    <RaylibSource Condition="'$(RaylibSource)'==''">$(USERPROFILE)\raylib-5.5</RaylibSource>
     <OutDir>$(ProjectRoot)build-vs\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(ProjectRoot)build-vs\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <LocalDebuggerWorkingDirectory>$(ProjectRoot)</LocalDebuggerWorkingDirectory>
@@ -13,7 +15,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <WarningLevel>Level3</WarningLevel>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <AdditionalIncludeDirectories>$(ProjectRoot)third_party\raylib\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(RaylibSource)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreadedDLL</RuntimeLibrary>
       <Optimization Condition="'$(Configuration)'=='Debug'">Disabled</Optimization>
