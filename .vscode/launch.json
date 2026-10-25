@@ -9,7 +9,7 @@
             "cwd": "${workspaceFolder}/",
             "args": [],
             "stopAtEntry": false,
-            "externalConsole": false,
+            "console": "internalConsole",
             "preLaunchTask": "Build MazeGame (MSBuild)"
         }
     ]
