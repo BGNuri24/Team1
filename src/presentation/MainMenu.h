@@ -1,5 +1,6 @@
 #pragma once
 #include "Screen.h"
+#include "MenuBackground.h"
 
 class MainMenu {
 public:
@@ -9,4 +10,5 @@ public:
     void draw() const;
 private:
     int selected;
+    MenuBackground background;
 };
