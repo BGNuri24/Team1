@@ -23,45 +23,51 @@ bool MazeGenerationScreen::update(const Game& game) {
         revealed[step.row * game.maze().size() + step.col] = 1;
     }
 
-    return elapsed >= BUILD_DURATION || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE);
+    SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+    return elapsed >= BUILD_DURATION || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)
+        || menuClicked(uiRect(774, 631, 162, 38));
 }
 
 void MazeGenerationScreen::draw(const Game& game) const {
-    int width = GetScreenWidth();
-    int height = GetScreenHeight();
+    using namespace MenuTheme;
     int mazeSize = game.maze().size();
     float progress = std::min(elapsed / BUILD_DURATION, 1.0f);
-    int cellSize = (int)std::floor(std::min((width - 100.0f) / mazeSize,
-                                           (height - 210.0f) / mazeSize));
+    int cellSize = (int)std::floor(uiSize(366) / (float)mazeSize);
     if (cellSize < 2) cellSize = 2;
     int boardSize = cellSize * mazeSize;
-    int originX = (width - boardSize) / 2;
-    int originY = (height - boardSize) / 2 + 8;
+    int originX = uiX(720) - boardSize / 2;
+    int originY = uiY(404) - boardSize / 2;
 
-    ClearBackground(Color{12, 8, 28, 255});
-    DrawRectangleGradientV(0, 0, width, height,
-                           Color{45, 15, 82, 255}, Color{8, 6, 22, 255});
-    drawCentered(TextFormat("BUILDING %d x %d MAZE", mazeSize, mazeSize), 28, 32, GOLD);
-
+    drawMenuBackdrop(4);
+    drawMenuHeading("03 / CARVING THE CORRIDORS", "A world taking shape.", "No two journeys need to take the same turns.");
+    drawMenuPanel(uiRect(64, 210, 414, 380));
+    drawMenuText("GENERATING YOUR MAZE", 90, 240, 14, Amber);
+    drawMenuText(TextFormat("%02d", (int)(progress * 100)), 86, 285, 100);
+    drawMenuText("%", 290, 339, 40, Amber);
+    drawMenuText(TextFormat("%d x %d cells", mazeSize, mazeSize), 90, 414, 30);
+    drawMenuText(game.mode() == GameMode::ZeroGravity ? "ZERO GRAVITY" : "NORMAL GRAVITY", 90, 458, 14, Mint);
+    drawMenuText("The green marker is your way out.", 90, 514, 16, Muted);
+    drawMenuText("Get your bearings before the clock starts.", 90, 544, 14, Muted);
+    drawMenuPanel(uiRect(504, 192, 432, 416));
     DrawRectangle(originX - 5, originY - 5, boardSize + 10, boardSize + 10,
-                  Color{7, 5, 20, 255});
+        Ink);
     for (int row = 0; row < mazeSize; row++) {
         for (int col = 0; col < mazeSize; col++) {
             int x = originX + col * cellSize;
             int y = originY + row * cellSize;
             Color color = ((row + col) % 2 == 0)
-                ? Color{31, 23, 48, 255}
-                : Color{25, 19, 41, 255};
+                ? Color{ 26, 49, 55, 255 }
+            : Color{ 23, 44, 50, 255 };
 
             if (revealed[row * mazeSize + col]) {
-                color = Color{119, 36, 118, 255};
-                if (row == 0 && col == 0) color = GOLD;
+                color = Color{ 62, 116, 115, 255 };
+                if (row == 0 && col == 0) color = Amber;
                 if (game.maze().cell(row, col) == 'E' && progress >= 1.0f)
-                    color = Color{78, 235, 168, 255};
+                    color = Mint;
                 if (shownSteps > 0 && progress < 1.0f) {
                     const MazeStep& current = game.maze().generationSteps()[shownSteps - 1];
                     if (current.row == row && current.col == col)
-                        color = Color{255, 93, 195, 255};
+                        color = Amber;
                 }
             }
 
@@ -69,16 +75,10 @@ void MazeGenerationScreen::draw(const Game& game) const {
         }
     }
     DrawRectangleLines(originX - 5, originY - 5, boardSize + 10, boardSize + 10,
-                       Color{255, 75, 190, 220});
+        Border);
 
-    int barWidth = width * 3 / 5;
-    int barX = (width - barWidth) / 2;
-    int barY = height - uiSize(72);
-    int barHeight = uiSize(8);
-    DrawRectangle(barX, barY, barWidth, barHeight, Color{38, 28, 58, 255});
-    DrawRectangle(barX, barY, (int)(barWidth * progress), barHeight, Color{255, 63, 190, 255});
-    drawCenteredAt(TextFormat("%d%%", (int)(progress * 100.0f)),
-                   barY - uiSize(30), uiSize(20), WHITE);
-    drawCenteredAt("ENTER / SPACE  SKIP", height - uiSize(42),
-                   uiSize(18), Color{190, 180, 210, 255});
+    DrawRectangle(uiX(90), uiY(389), uiSize(358), uiSize(5), Border);
+    DrawRectangle(uiX(90), uiY(389), (int)(uiSize(358) * progress), uiSize(5), Amber);
+    drawMenuFooter("THE PATH IS BEING CARVED.     ENTER / SPACE  skip");
+    drawMenuButton(uiRect(774, 631, 162, 38), "Skip", false);
 }
