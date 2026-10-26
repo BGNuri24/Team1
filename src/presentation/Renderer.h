@@ -14,7 +14,13 @@ public:
 private:
     void drawMaze(const Game& game);
     void drawMinimap(const Game& game);
+    void drawHud(const Game& game);
+    void drawLights(const Game& game);
 
     Camera3D cam;
     Textures tex;
+    Shader atmosphere{};
+    int eyeLocation = -1;
+    int directionLocation = -1;
+    int emissionLocation = -1;
 };
