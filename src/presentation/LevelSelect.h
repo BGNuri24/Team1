@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include "Screen.h"
+#include "../data/GameMode.h"
 
 class LevelSelect {
 public:
@@ -12,6 +13,7 @@ public:
     int size() const;
     // chosen time limit
     float seconds() const;
+    GameMode mode() const;
 private:
     int selected;
     // true while the player types a custom size
@@ -21,4 +23,5 @@ private:
     bool showError;
     int chosenSize;
     float chosenSeconds;
+    GameMode chosenMode;
 };

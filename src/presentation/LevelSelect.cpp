@@ -4,12 +4,14 @@
 #include "../logic/Difficulty.h"
 #include <cstdlib>
 
-// presets + Custom
-static const int OPTION_COUNT = DIFFICULTY_COUNT + 1;
+// Normal presets, Custom, and a separate Zero Gravity level.
+static const int CUSTOM_OPTION = DIFFICULTY_COUNT;
+static const int ZERO_GRAVITY_OPTION = DIFFICULTY_COUNT + 1;
+static const int OPTION_COUNT = DIFFICULTY_COUNT + 2;
 
 LevelSelect::LevelSelect()
-    : selected(0), typing(false), showError(false), chosenSize(0), chosenSeconds(0) {
-}
+    : selected(0), typing(false), showError(false), chosenSize(0), chosenSeconds(0),
+    chosenMode(GameMode::Normal) {}
 
 Screen LevelSelect::update() {
     if (typing) {
@@ -21,6 +23,7 @@ Screen LevelSelect::update() {
             if (isValidSize(value)) {
                 chosenSize = value;
                 chosenSeconds = customSeconds(value);
+                chosenMode = GameMode::Normal;
                 typing = false;
                 return Screen::PLAYING;
             }
@@ -41,6 +44,14 @@ Screen LevelSelect::update() {
         if (selected < DIFFICULTY_COUNT) {
             chosenSize = getDifficulty(selected).size;
             chosenSeconds = getDifficulty(selected).seconds;
+            chosenMode = GameMode::Normal;
+            return Screen::PLAYING;
+        }
+        if (selected == ZERO_GRAVITY_OPTION) {
+            const Difficulty& level = getZeroGravityLevel();
+            chosenSize = level.size;
+            chosenSeconds = level.seconds;
+            chosenMode = GameMode::ZeroGravity;
             return Screen::PLAYING;
         }
         // Custom: start typing
@@ -64,12 +75,21 @@ void LevelSelect::draw() const {
             const Difficulty& d = getDifficulty(i);
             line = TextFormat("%s%s   %dx%d   %d sec", mark, d.name, d.size, d.size, (int)d.seconds);
         }
-        else {
+        else if (i == CUSTOM_OPTION) {
             line = TextFormat("%sCustom   %d-%d", mark, MIN_SIZE, MAX_SIZE);
+        }
+        else {
+            const Difficulty& level = getZeroGravityLevel();
+            line = TextFormat("%s%s   %dx%d   %d sec", mark, level.name,
+                level.size, level.size, (int)level.seconds);
         }
         drawCentered(line, 220 + i * 70, 40, i == selected ? GOLD : GRAY);
     }
-    drawCentered("UP/DOWN choose    ENTER start    ESC back", 620, 24, LIGHTGRAY);
+    drawCentered(selected == ZERO_GRAVITY_OPTION
+        ? "Zero Gravity: use G to attach to walls and ceilings"
+        : "Normal gravity: stay on the floor and reach the exit",
+        575, 22, selected == ZERO_GRAVITY_OPTION ? SKYBLUE : LIGHTGRAY);
+    drawCentered("UP/DOWN choose    ENTER start    ESC back", 630, 24, LIGHTGRAY);
 
     if (typing) {
         int y = (int)drawPopup(560, 260).y;
@@ -89,3 +109,4 @@ void LevelSelect::draw() const {
 
 int LevelSelect::size() const { return chosenSize; }
 float LevelSelect::seconds() const { return chosenSeconds; }
+GameMode LevelSelect::mode() const { return chosenMode; }

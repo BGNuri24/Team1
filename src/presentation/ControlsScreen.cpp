@@ -19,7 +19,8 @@ void ControlsScreen::draw() const {
     row(300, "W A S D / Arrows", "Move");
     row(360, "ESC", "Back");
     row(420, "ENTER", "Select");
-    row(480, "G", "Aim at wall/roof to attach");
+    row(480, "G", "Attach (Zero Gravity only)");
     drawCentered("Reach the green exit before time runs out", 550, 26, WHITE);
+    drawCentered("Normal levels keep you on the floor", 585, 22, LIGHTGRAY);
     drawCentered("Press ENTER or ESC to go back", 620, 24, GRAY);
 }
