@@ -1,4 +1,4 @@
-#include "../src/logic/Game.h"
+#include "../logic/Game.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>

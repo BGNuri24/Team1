@@ -10,7 +10,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/windows/Build.ps1"
+                "${workspaceFolder}/src/windows/Build.ps1"
             ],
             "options": {
                 "cwd": "${workspaceFolder}/"

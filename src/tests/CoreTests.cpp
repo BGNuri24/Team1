@@ -1,6 +1,6 @@
-#include "../src/data/MazeData.h"
-#include "../src/data/PlayerStore.h"
-#include "../src/logic/Players.h"
+#include "../data/MazeData.h"
+#include "../data/PlayerStore.h"
+#include "../logic/Players.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>

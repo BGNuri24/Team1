@@ -1,5 +1,5 @@
-#include "../src/presentation/Input.h"
-#include "../src/data/Validation.h"
+#include "../presentation/Input.h"
+#include "../data/Validation.h"
 #include <array>
 #include <deque>
 #include <iostream>

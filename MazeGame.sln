@@ -2,15 +2,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.0.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeGame", "windows\MazeGame.vcxproj", "{78EBFD5E-5A26-4984-BBCE-1759EE09B49E}"
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeGame", "src\windows\MazeGame.vcxproj", "{78EBFD5E-5A26-4984-BBCE-1759EE09B49E}"
 EndProject
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "raylib", "windows\raylib.vcxproj", "{69AE195E-2FF5-44DB-8691-B9807CD47C68}"
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "raylib", "src\windows\raylib.vcxproj", "{69AE195E-2FF5-44DB-8691-B9807CD47C68}"
 EndProject
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeGameTests", "windows\MazeGameTests.vcxproj", "{65BDAAB9-8E78-49EC-8AB1-E47107A7B27D}"
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeGameTests", "src\windows\MazeGameTests.vcxproj", "{65BDAAB9-8E78-49EC-8AB1-E47107A7B27D}"
 EndProject
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeGameLogicTests", "windows\MazeGameLogicTests.vcxproj", "{C8DE3942-72AA-40E3-A039-E1D978A0963B}"
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeGameLogicTests", "src\windows\MazeGameLogicTests.vcxproj", "{C8DE3942-72AA-40E3-A039-E1D978A0963B}"
 EndProject
-Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeInputTests", "windows\MazeInputTests.vcxproj", "{119CB4F7-1F72-4E17-B358-B878BAE78737}"
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "MazeInputTests", "src\windows\MazeInputTests.vcxproj", "{119CB4F7-1F72-4E17-B358-B878BAE78737}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

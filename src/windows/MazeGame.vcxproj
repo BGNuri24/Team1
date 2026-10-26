@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{78EBFD5E-5A26-4984-BBCE-1759EE09B49E}</ProjectGuid>
+    <RootNamespace>MazeGame</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <UseRaylib>true</UseRaylib>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="Build.props" />
+  </ImportGroup>
+  <ItemGroup>
+    <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\data\PlayerStore.cpp" />
+    <ClCompile Include="..\data\MazeData.cpp" />
+    <ClCompile Include="..\logic\Players.cpp" />
+    <ClCompile Include="..\logic\Game.cpp" />
+    <ClCompile Include="..\presentation\LevelSelect.cpp" />
+    <ClCompile Include="..\presentation\Input.cpp" />
+    <ClCompile Include="..\presentation\EndScreen.cpp" />
+    <ClCompile Include="..\presentation\ControlsScreen.cpp" />
+    <ClCompile Include="..\presentation\ApplicationScreens.cpp" />
+    <ClCompile Include="..\presentation\Application.cpp" />
+    <ClCompile Include="..\presentation\PauseMenu.cpp" />
+    <ClCompile Include="..\presentation\MazeGenerationScreen.cpp" />
+    <ClCompile Include="..\presentation\MainMenu.cpp" />
+    <ClCompile Include="..\presentation\MenuBackground.cpp" />
+    <ClCompile Include="..\presentation\Renderer.cpp" />
+    <ClCompile Include="..\presentation\PlayerSelect.cpp" />
+    <ClCompile Include="..\presentation\Textures.cpp" />
+    <ClCompile Include="..\presentation\Ui.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\data\Validation.h" />
+	<ClInclude Include="..\data\GameMode.h" />
+    <ClInclude Include="..\presentation\Ui.h" />
+    <ClInclude Include="..\presentation\Textures.h" />
+    <ClInclude Include="..\presentation\Screen.h" />
+    <ClInclude Include="..\presentation\Renderer.h" />
+    <ClInclude Include="..\presentation\PlayerSelect.h" />
+    <ClInclude Include="..\presentation\PauseMenu.h" />
+    <ClInclude Include="..\presentation\MazeGenerationScreen.h" />
+    <ClInclude Include="..\presentation\MainMenu.h" />
+    <ClInclude Include="..\presentation\MenuBackground.h" />
+    <ClInclude Include="..\presentation\LevelSelect.h" />
+    <ClInclude Include="..\presentation\Input.h" />
+    <ClInclude Include="..\presentation\EndScreen.h" />
+    <ClInclude Include="..\presentation\ControlsScreen.h" />
+    <ClInclude Include="..\presentation\Application.h" />
+    <ClInclude Include="..\logic\Players.h" />
+    <ClInclude Include="..\logic\Game.h" />
+    <ClInclude Include="..\logic\Difficulty.h" />
+    <ClInclude Include="..\data\PlayerStore.h" />
+    <ClInclude Include="..\data\MazeData.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="raylib.vcxproj">
+      <Project>{69AE195E-2FF5-44DB-8691-B9807CD47C68}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

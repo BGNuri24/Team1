@@ -30,8 +30,8 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\GameTests.cpp" />
-    <ClCompile Include="..\src\logic\Game.cpp" />
-    <ClCompile Include="..\src\data\MazeData.cpp" />
+    <ClCompile Include="..\logic\Game.cpp" />
+    <ClCompile Include="..\data\MazeData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="raylib.vcxproj">

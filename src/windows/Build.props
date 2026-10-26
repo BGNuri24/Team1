@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProjectRoot>$(MSBuildThisFileDirectory)..\</ProjectRoot>
+    <ProjectRoot>$(MSBuildThisFileDirectory)..\..\</ProjectRoot>
     <RaylibSource Condition="'$(RaylibSource)'=='' and '$(RAYLIB_SOURCE)'!=''">$(RAYLIB_SOURCE)</RaylibSource>
     <RaylibSource Condition="'$(RaylibSource)'=='' and Exists('$(USERPROFILE)\raylib-5.5\src\raylib.h')">$(USERPROFILE)\raylib-5.5</RaylibSource>
     <RaylibCacheRoot Condition="'$(RaylibCacheRoot)'==''">$(LOCALAPPDATA)\MazeGame\Dependencies</RaylibCacheRoot>

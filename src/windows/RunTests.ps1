@@ -1,6 +1,6 @@
 param([ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug')
 $ErrorActionPreference = 'Stop'
-$projectRoot = Split-Path $PSScriptRoot -Parent
+$projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $output = Join-Path $projectRoot "build-vs\x64\$Configuration"
 foreach ($test in @('MazeGameTests', 'MazeGameLogicTests', 'MazeInputTests')) {
     $executable = Join-Path $output "$test.exe"

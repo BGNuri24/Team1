@@ -29,9 +29,9 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\CoreTests.cpp" />
-    <ClCompile Include="..\src\data\MazeData.cpp" />
-    <ClCompile Include="..\src\data\PlayerStore.cpp" />
-    <ClCompile Include="..\src\logic\Players.cpp" />
+    <ClCompile Include="..\data\MazeData.cpp" />
+    <ClCompile Include="..\data\PlayerStore.cpp" />
+    <ClCompile Include="..\logic\Players.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

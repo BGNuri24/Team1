@@ -29,7 +29,7 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\InputTests.cpp" />
-    <ClCompile Include="..\src\presentation\Input.cpp" />
+    <ClCompile Include="..\presentation\Input.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="raylib.vcxproj">
