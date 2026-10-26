@@ -10,13 +10,14 @@ int PlayerSelect::optionCount() const {
 }
 
 Screen PlayerSelect::update() {
+    SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (typing) {
         if (editText(text, MAX_NAME_LENGTH, isNameCharacter)) error = 0;
-        if (IsKeyPressed(KEY_ENTER)) {
+        if (IsKeyPressed(KEY_ENTER) || menuClicked(entryConfirmBounds())) {
             Players::AddResult r = players.add(text);
             // the new player plays
             if (r == Players::ADDED) {
-                players.setActive(players.count() - 1);   
+                players.setActive(players.count() - 1);
                 typing = false;
                 return Screen::LEVEL_SELECT;
             }
@@ -24,7 +25,7 @@ Screen PlayerSelect::update() {
             else if (r == Players::SAVE_FAILED) error = 3;
             else error = 1;
         }
-        if (IsKeyPressed(KEY_ESCAPE)) {
+        if (IsKeyPressed(KEY_ESCAPE) || menuClicked(entryCancelBounds())) {
             typing = false;
             error = 0;
         }
@@ -33,7 +34,10 @@ Screen PlayerSelect::update() {
 
     int n = optionCount();
     updateMenuSelection(selected, n);
-    if (IsKeyPressed(KEY_ESCAPE)) return Screen::MAIN_MENU;
+    bool clicked = false;
+    for (int i = 0; i < n; ++i)
+        clicked |= menuPointer(uiRect(410, 210 + i * 76, 526, 64), i, selected);
+    if (IsKeyPressed(KEY_ESCAPE) || menuClicked(menuBackBounds())) return Screen::MAIN_MENU;
 
     if (IsKeyPressed(KEY_DELETE) && selected < players.count()) {
         if (players.remove(selected)) {
@@ -45,52 +49,69 @@ Screen PlayerSelect::update() {
         }
     }
 
-    if (menuConfirmed()) {
+    if (menuConfirmed() || clicked) {
         if (selected < players.count()) {
             players.setActive(selected);
             return Screen::LEVEL_SELECT;
         }
         // "+ New player"
-        typing = true;                              
+        typing = true;
         text.clear();
         error = 0;
         // drop leftover typed characters
-        while (GetCharPressed() > 0) {}             
+        while (GetCharPressed() > 0) {}
     }
     return Screen::PLAYER_SELECT;
 }
 
 void PlayerSelect::draw() const {
-    ClearBackground(Color{ 20, 22, 30, 255 });
-    drawCentered("SELECT PLAYER", 80, 70, GOLD);
+    using namespace MenuTheme;
+    drawMenuBackdrop(1);
+    drawMenuHeading("01 / THE EXPLORERS", "Who is going in?", "Choose a player. Every escape starts with a name.");
+    drawMenuBack();
+    drawMenuPanel(uiRect(64, 210, 316, 380));
+    drawMenuText("EXPLORER REGISTER", 88, 237, 14, Amber);
+    // A compass-like maze stamp gives the register its own visual identity.
+    Vector2 center = { (float)uiX(222), (float)uiY(365) };
+    DrawCircleLinesV(center, (float)uiSize(68), Border);
+    DrawCircleLinesV(center, (float)uiSize(53), Fade(Mint, 0.3f));
+    DrawLine(uiX(144), uiY(365), uiX(300), uiY(365), Border);
+    DrawLine(uiX(222), uiY(287), uiX(222), uiY(443), Border);
+    DrawLineEx({ (float)uiX(193), (float)uiY(383) }, { (float)uiX(222), (float)uiY(330) }, 2 * uiScale(), Amber);
+    DrawLineEx({ (float)uiX(222), (float)uiY(330) }, { (float)uiX(251), (float)uiY(383) }, 2 * uiScale(), Amber);
+    DrawLineEx({ (float)uiX(251), (float)uiY(383) }, { (float)uiX(193), (float)uiY(383) }, 2 * uiScale(), Amber);
+    drawMenuText(TextFormat("%02d / %02d", players.count(), MAX_PLAYERS), 88, 466, 38);
+    drawMenuText("PLAYER SLOTS FILLED", 88, 514, 14, Muted);
+    drawMenuText("Your best times travel with you.", 88, 554, 14, Muted);
 
-    int n = optionCount();
-    for (int i = 0; i < n; i++) {
-        const char* mark = (i == selected) ? "> " : "  ";
-        const char* line = (i < players.count())
-            ? TextFormat("%s%s", mark, players.name(i).c_str())
-            : TextFormat("%s+ New player", mark);
-        drawCentered(line, 200 + i * 65, 40, i == selected ? GOLD : GRAY);
+    for (int i = 0; i < optionCount(); i++) {
+        const bool existing = i < players.count();
+        drawMenuButton(uiRect(410, 210 + i * 76, 526, 64),
+            existing ? players.name(i).c_str() : "+ New player", i == selected);
+        if (existing)
+            drawMenuText(TextFormat("%02d", i + 1), 856, 233 + i * 76, 16,
+                i == selected ? Amber : Muted);
     }
-    drawCentered("UP/DOWN choose    ENTER select    DEL remove    ESC back", 630, 22, LIGHTGRAY);
+    drawMenuFooter("UP / DOWN  choose     ENTER  select     DEL  remove player     ESC  back");
 
     if (typing) {
-        int y = (int)drawPopup(640, 260).y;
-
-        drawCenteredAt("New player name", y + uiSize(30), uiSize(36), WHITE);
-
-        drawTextEntry(text, y + uiSize(100), uiSize(50));
-
+        drawPopup(640, 330, Amber, Panel);
+        drawMenuText("A NEW EXPLORER", 208, 214, 14, Amber);
+        drawMenuText("What should we call you?", 208, 244, 30);
+        drawMenuPanel(uiRect(208, 292, 584, 62));
+        drawTextEntry(text, uiY(304), uiSize(36));
         if (error == 1)
             drawCenteredAt(TextFormat("Use 1-%d letters, digits or _", MAX_NAME_LENGTH),
-                y + uiSize(190), uiSize(26), RED);
+                uiY(372), uiSize(18), Danger);
         else if (error == 2)
-            drawCenteredAt("That name already exists", y + uiSize(190), uiSize(26), RED);
+            drawCentered("That name already exists", 372, 18, Danger);
         else if (error == 3)
-            drawCenteredAt("Could not save player data", y + uiSize(190), uiSize(26), RED);
+            drawCentered("Could not save player data", 372, 18, Danger);
         else
-            drawCenteredAt("ENTER confirm    ESC cancel", y + uiSize(200), uiSize(24), GRAY);
+            drawCentered("Letters, digits and underscores. Up to 12 characters.", 372, 16, Muted);
+        drawEntryActions();
+        drawCentered("ENTER  confirm     ESC  cancel", 478, 14, Muted);
     }
     if (!typing && error == 3)
-        drawCentered("Could not save player data", 670, 22, RED);
+        drawCentered("Could not save player data", 682, 16, Danger);
 }
