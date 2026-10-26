@@ -5,6 +5,7 @@
 struct Textures {
     Texture2D wall;
     Texture2D floor;
+    Texture2D ceiling;
 };
 
 // builds the textures (call after InitWindow)
