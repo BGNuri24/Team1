@@ -27,16 +27,16 @@ static void testMaze(int size) {
     std::set<int> steps;
     for (const MazeStep& step : maze.generationSteps()) {
         require(step.row >= 0 && step.row < size && step.col >= 0 && step.col < size,
-                "generation step is outside the maze");
+            "generation step is outside the maze");
         steps.insert(step.row * size + step.col);
     }
 
     std::vector<bool> reached(size * size, false);
     std::queue<std::pair<int, int>> pending;
-    pending.push({0, 0});
+    pending.push({ 0, 0 });
     reached[0] = true;
-    const int rowOffsets[] = {-1, 1, 0, 0};
-    const int colOffsets[] = {0, 0, -1, 1};
+    const int rowOffsets[] = { -1, 1, 0, 0 };
+    const int colOffsets[] = { 0, 0, -1, 1 };
 
     while (!pending.empty()) {
         const auto [row, col] = pending.front();
@@ -48,7 +48,7 @@ static void testMaze(int size) {
             int index = nextRow * size + nextCol;
             if (!reached[index]) {
                 reached[index] = true;
-                pending.push({nextRow, nextCol});
+                pending.push({ nextRow, nextCol });
             }
         }
     }
@@ -58,7 +58,7 @@ static void testMaze(int size) {
             if (maze.cell(row, col) != '#') {
                 require(reached[row * size + col], "maze contains an unreachable path cell");
                 require(steps.count(row * size + col) != 0,
-                        "open maze cell is missing from generation steps");
+                    "open maze cell is missing from generation steps");
             }
         }
     }
@@ -89,15 +89,15 @@ static void testPlayerStore() {
         require(!players.add("bad-name"), "invalid player characters should be rejected");
         require(!players.add(""), "empty player name should be rejected");
         require(players.recordBestTime("Alex1", 10, 41.5f),
-                "valid best time should be recorded");
+            "valid best time should be recorded");
         require(!players.recordBestTime("Alex1", 10, 45.0f),
-                "slower time should not replace the best time");
+            "slower time should not replace the best time");
         require(players.recordBestTime("Alex1", 10, 40.0f),
-                "faster time should replace the best time");
+            "faster time should replace the best time");
         require(!players.recordBestTime("missing", 10, 30.0f),
-                "time for an unknown player should be rejected");
+            "time for an unknown player should be rejected");
         require(!players.recordBestTime("Alex1", 9, 30.0f),
-                "time for an invalid maze size should be rejected");
+            "time for an invalid maze size should be rejected");
 
         require(players.add("Bo"), "second player should be added");
         require(players.add("Cy"), "third player should be added");
@@ -111,7 +111,7 @@ static void testPlayerStore() {
         require(players.count() == MAX_PLAYERS, "players should persist after reload");
         require(players.name(0) == "Alex1", "player order should persist after reload");
         require(players.bestTime("Alex1", 10) == 40.0f,
-                "best time should persist after reload");
+            "best time should persist after reload");
         require(players.remove(0), "existing player should be removable");
         require(!players.remove(100), "invalid player index should be rejected");
     }
@@ -119,7 +119,7 @@ static void testPlayerStore() {
     PlayerStore players;
     require(players.count() == MAX_PLAYERS - 1, "removal should persist");
     require(players.bestTime("Alex1", 10) < 0.0f,
-            "removing a player should remove their best times");
+        "removing a player should remove their best times");
 }
 
 static void testProfilesAndValidation() {
@@ -135,15 +135,15 @@ static void testProfilesAndValidation() {
     require(players.recordWin(10, 12.5f), "active player should save their time");
     require(!players.recordWin(51, 1.0f), "oversized maze record must be rejected");
     require(!players.recordWin(10, std::numeric_limits<float>::infinity()),
-            "infinite time must be rejected");
+        "infinite time must be rejected");
     require(!players.recordWin(10, std::numeric_limits<float>::quiet_NaN()),
-            "NaN time must be rejected");
+        "NaN time must be rejected");
     require(players.remove(0), "earlier profile should be removable");
     require(players.activeName() == "Bo" && players.bestTime(10) == 12.5f,
-            "removing an earlier profile must preserve active player and record");
+        "removing an earlier profile must preserve active player and record");
     require(players.add("Cy") == Players::ADDED && players.add("Dee") == Players::ADDED &&
-            players.add("Eve") == Players::ADDED && players.add("Finn") == Players::ADDED,
-            "remaining profile slots should work");
+        players.add("Eve") == Players::ADDED && players.add("Finn") == Players::ADDED,
+        "remaining profile slots should work");
     require(players.add("Bo") == Players::FULL, "full must take priority over duplicate");
     require(players.add("") == Players::INVALID, "invalid must take priority over full");
 
@@ -151,8 +151,46 @@ static void testProfilesAndValidation() {
     std::ofstream("save_data/best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
     PlayerStore reloaded;
     require(reloaded.bestTime("Bo", 10) == 10.0f && reloaded.bestTime("Bo", 11) == 30.0f,
-            "record lookup must match both player and maze size");
+        "record lookup must match both player and maze size");
     require(reloaded.bestTime("missing", 10) < 0, "unknown player record should be ignored");
+}
+
+static void testSeparateModeRecords() {
+    clearTestData();
+    std::ofstream("save_data/players.txt") << "Alex\n";
+    std::ofstream("save_data/best_times.txt")
+        << "Alex 25 40\nAlex 25 30 normal\n"
+        << "Alex 25 12 zero_gravity\nAlex 25 15 zero_gravity\n"
+        << "Alex 25 1 unknown\nAlex 25 2 normal extra\n";
+
+    PlayerStore store;
+    require(store.bestTime("Alex", 25) == 30.0f,
+        "legacy and normal records must load into normal mode");
+    require(store.bestTime("Alex", 25, GameMode::ZeroGravity) == 12.0f,
+        "Zero Gravity duplicates must merge independently");
+    require(store.recordBestTime("Alex", 25, 8.0f, GameMode::ZeroGravity),
+        "Zero Gravity records should update");
+    require(!store.recordBestTime("Alex", 25, 9.0f, GameMode::ZeroGravity),
+        "slower Zero Gravity records should be rejected");
+    require(store.bestTime("Alex", 25) == 30.0f,
+        "Zero Gravity records must not replace normal records");
+    require(store.recordBestTime("Alex", 25, 20.0f), "normal records should update independently");
+
+    Players profiles;
+    require(profiles.bestTime(25) == 20.0f && profiles.bestTime(25, GameMode::ZeroGravity) == 8.0f,
+        "both modes must retain their records after reloading");
+    require(profiles.recordWin(25, 5.0f, GameMode::ZeroGravity),
+        "player management must record the chosen mode");
+    PlayerStore reloaded;
+    require(reloaded.bestTime("Alex", 25) == 20.0f &&
+        reloaded.bestTime("Alex", 25, GameMode::ZeroGravity) == 5.0f,
+        "recording a Zero Gravity win must preserve normal records on disk");
+    require(profiles.remove(0) && profiles.add("Alex") == Players::ADDED,
+        "players should be removable and reusable");
+    PlayerStore removed;
+    require(removed.bestTime("Alex", 25) < 0 &&
+        removed.bestTime("Alex", 25, GameMode::ZeroGravity) < 0,
+        "removing a player must clear records from both modes");
 }
 
 int main() {
@@ -163,7 +201,9 @@ int main() {
         testMaze(50);
         testPlayerStore();
         testProfilesAndValidation();
-    } catch (const std::exception& error) {
+        testSeparateModeRecords();
+    }
+    catch (const std::exception& error) {
         std::cerr << "Test failure: " << error.what() << '\n';
         return 1;
     }

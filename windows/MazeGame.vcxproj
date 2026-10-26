@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\data\Validation.h" />
+	<ClInclude Include="..\src\data\GameMode.h" />
     <ClInclude Include="..\src\presentation\Ui.h" />
     <ClInclude Include="..\src\presentation\Textures.h" />
     <ClInclude Include="..\src\presentation\Screen.h" />

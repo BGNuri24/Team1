@@ -5,7 +5,7 @@
 #include <cmath>
 
 // distance where everything fades to black (smaller = darker maze)
-static const float FOG_END = 12.0f;     
+static const float FOG_END = 12.0f;
 
 // one corner of a textured quad: position + texture coordinates
 struct Corner { float x, y, z, u, v; };
@@ -22,7 +22,7 @@ static void emit(const Vector3& eye, float shade, const Corner& c) {
 }
 
 static void quad(const Vector3& eye, float shade,
-                 const Corner& a, const Corner& b, const Corner& c, const Corner& d) {
+    const Corner& a, const Corner& b, const Corner& c, const Corner& d) {
     emit(eye, shade, a);
     emit(eye, shade, b);
     emit(eye, shade, c);
@@ -32,12 +32,12 @@ static void quad(const Vector3& eye, float shade,
 // A vertical wall face (1 high), from the viewer's left edge (lx,lz) to the right edge (rx,rz).
 static void wallFace(const Vector3& eye, float shade, float lx, float lz, float rx, float rz) {
     quad(eye, shade,
-         {lx, 0, lz, 0, 1}, {rx, 0, rz, 1, 1}, {rx, 1, rz, 1, 0}, {lx, 1, lz, 0, 0});
+        { lx, 0, lz, 0, 1 }, { rx, 0, rz, 1, 1 }, { rx, 1, rz, 1, 0 }, { lx, 1, lz, 0, 0 });
 }
 
 Renderer::Renderer() {
     cam = Camera3D{};
-    cam.up = {0, 1, 0};
+    cam.up = { 0, 1, 0 };
     cam.fovy = 70;
     cam.projection = CAMERA_PERSPECTIVE;
     tex = createTextures();
@@ -50,9 +50,9 @@ Renderer::~Renderer() {
 void Renderer::draw(const Game& game) {
     cam.position = game.position();
     Vector3 direction = game.cameraDirection();
-    cam.target = {cam.position.x + direction.x,
+    cam.target = { cam.position.x + direction.x,
                   cam.position.y + direction.y,
-                  cam.position.z + direction.z};
+                  cam.position.z + direction.z };
     cam.up = game.cameraUp();
 
     ClearBackground(BLACK);
@@ -66,11 +66,16 @@ void Renderer::draw(const Game& game) {
     int margin = uiSize(20);
     int hudSize = uiSize(50);
     DrawText(TextFormat("%02d:%02d", t / 60, t % 60), margin, margin,
-             hudSize, t <= 30 ? RED : WHITE);
-    DrawText(game.surfaceAttached() ? "G - return to floor" : "Aim at wall/roof + G",
-             margin, GetScreenHeight() - uiSize(62), uiSize(22), Fade(WHITE, 0.8f));
+        hudSize, t <= 30 ? RED : WHITE);
+    const bool zeroGravity = game.mode() == GameMode::ZeroGravity;
+    DrawText(zeroGravity ? "ZERO GRAVITY" : "NORMAL GRAVITY",
+        margin, margin + hudSize + uiSize(8), uiSize(18), zeroGravity ? SKYBLUE : LIGHTGRAY);
+    if (zeroGravity) {
+        DrawText(game.surfaceAttached() ? "G - return to floor" : "Aim at wall/roof + G",
+            margin, GetScreenHeight() - uiSize(62), uiSize(22), Fade(WHITE, 0.8f));
+    }
     DrawText("ESC - pause", margin, GetScreenHeight() - uiSize(34),
-             uiSize(22), Fade(WHITE, 0.8f));
+        uiSize(22), Fade(WHITE, 0.8f));
 }
 
 void Renderer::drawMaze(const Game& game) {
@@ -97,13 +102,13 @@ void Renderer::drawMaze(const Game& game) {
             if (m.cell(r, c) == '#') continue;
             float x = (float)c, z = (float)r;
             // north wall
-            if (m.cell(r - 1, c) == '#') wallFace(eye, 1.0f, x - 0.5f, z - 0.5f, x + 0.5f, z - 0.5f);   
+            if (m.cell(r - 1, c) == '#') wallFace(eye, 1.0f, x - 0.5f, z - 0.5f, x + 0.5f, z - 0.5f);
             // south wall
-            if (m.cell(r + 1, c) == '#') wallFace(eye, 1.0f, x + 0.5f, z + 0.5f, x - 0.5f, z + 0.5f);   
+            if (m.cell(r + 1, c) == '#') wallFace(eye, 1.0f, x + 0.5f, z + 0.5f, x - 0.5f, z + 0.5f);
             // west wall
-            if (m.cell(r, c - 1) == '#') wallFace(eye, 0.8f, x - 0.5f, z + 0.5f, x - 0.5f, z - 0.5f);   
+            if (m.cell(r, c - 1) == '#') wallFace(eye, 0.8f, x - 0.5f, z + 0.5f, x - 0.5f, z - 0.5f);
             // east wall
-            if (m.cell(r, c + 1) == '#') wallFace(eye, 0.8f, x + 0.5f, z - 0.5f, x + 0.5f, z + 0.5f);   
+            if (m.cell(r, c + 1) == '#') wallFace(eye, 0.8f, x + 0.5f, z - 0.5f, x + 0.5f, z + 0.5f);
         }
     rlEnd();
 
@@ -115,11 +120,11 @@ void Renderer::drawMaze(const Game& game) {
             if (m.cell(r, c) == '#') continue;
             float x = (float)c, z = (float)r;
             // floor
-            quad(eye, 0.9f, {x - 0.5f, 0, z - 0.5f, 0, 0}, {x - 0.5f, 0, z + 0.5f, 0, 1},
-                            {x + 0.5f, 0, z + 0.5f, 1, 1}, {x + 0.5f, 0, z - 0.5f, 1, 0});
+            quad(eye, 0.9f, { x - 0.5f, 0, z - 0.5f, 0, 0 }, { x - 0.5f, 0, z + 0.5f, 0, 1 },
+                { x + 0.5f, 0, z + 0.5f, 1, 1 }, { x + 0.5f, 0, z - 0.5f, 1, 0 });
             // ceiling
-            quad(eye, 0.5f, {x - 0.5f, 1, z - 0.5f, 0, 0}, {x + 0.5f, 1, z - 0.5f, 1, 0},
-                            {x + 0.5f, 1, z + 0.5f, 1, 1}, {x - 0.5f, 1, z + 0.5f, 0, 1});
+            quad(eye, 0.5f, { x - 0.5f, 1, z - 0.5f, 0, 0 }, { x + 0.5f, 1, z - 0.5f, 1, 0 },
+                { x + 0.5f, 1, z + 0.5f, 1, 1 }, { x - 0.5f, 1, z + 0.5f, 0, 1 });
         }
     rlEnd();
     rlSetTexture(0);
@@ -132,9 +137,9 @@ void Renderer::drawMaze(const Game& game) {
                 float dx = c - eye.x, dz = r - eye.z;
                 float f = 1.0f - std::sqrt(dx * dx + dz * dz) / FOG_END;
                 if (f < 0.0f) f = 0.0f;
-                Vector3 pos = {(float)c, 0.25f, (float)r};
-                DrawCube(pos, 0.5f, 0.5f, 0.5f, Color{0, (unsigned char)(230.0f * f), 0, 255});
-                DrawCubeWires(pos, 0.5f, 0.5f, 0.5f, Color{0, (unsigned char)(90.0f * f), 0, 255});
+                Vector3 pos = { (float)c, 0.25f, (float)r };
+                DrawCube(pos, 0.5f, 0.5f, 0.5f, Color{ 0, (unsigned char)(230.0f * f), 0, 255 });
+                DrawCubeWires(pos, 0.5f, 0.5f, 0.5f, Color{ 0, (unsigned char)(90.0f * f), 0, 255 });
             }
 }
 
@@ -142,29 +147,29 @@ void Renderer::drawMinimap(const Game& game) {
     const MazeData& m = game.maze();
     int n = m.size();
     int cell = std::min(180, std::min(GetScreenWidth() / 4,
-                                     GetScreenHeight() / 3)) / n;
+        GetScreenHeight() / 3)) / n;
     if (cell < 2) cell = 2;
     int size = n * cell;
     int margin = uiSize(14);
     // top-right corner
-    int ox = GetScreenWidth() - size - margin;  
+    int ox = GetScreenWidth() - size - margin;
     int oy = margin;
 
     // fog
-    DrawRectangle(ox - 4, oy - 4, size + 8, size + 8, Color{15, 15, 20, 230});  
+    DrawRectangle(ox - 4, oy - 4, size + 8, size + 8, Color{ 15, 15, 20, 230 });
 
     for (int r = 0; r < n; r++)
         for (int c = 0; c < n; c++) {
             int s = game.seenState(r, c);
             // undiscovered stays foggy
-            if (s == 0) continue;               
+            if (s == 0) continue;
             Color col;
             if (m.cell(r, c) == '#')      col = LIGHTGRAY;
             else if (m.cell(r, c) == 'E') col = GREEN;
             // walked path
             else if (s == 2)              col = SKYBLUE;
             // seen, not walked
-            else                          col = Color{60, 60, 70, 255}; 
+            else                          col = Color{ 60, 60, 70, 255 };
             DrawRectangle(ox + c * cell, oy + r * cell, cell, cell, col);
         }
 
@@ -175,6 +180,6 @@ void Renderer::drawMinimap(const Game& game) {
     float rad = cell / 2.0f < 2.0f ? 2.0f : cell / 2.0f;
     DrawCircle((int)mx, (int)my, rad, RED);
     DrawLine((int)mx, (int)my,
-             (int)(mx + std::cos(game.yaw()) * cell * 1.5f),
-             (int)(my + std::sin(game.yaw()) * cell * 1.5f), YELLOW);
+        (int)(mx + std::cos(game.yaw()) * cell * 1.5f),
+        (int)(my + std::sin(game.yaw()) * cell * 1.5f), YELLOW);
 }
