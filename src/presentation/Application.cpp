@@ -3,12 +3,12 @@
 
 Application::Application()
     : playerSelect(players),
-      currentSize(0),
-      currentSeconds(0),
-      bestTime(-1.0f),
-      newBestTime(false),
-      screen(Screen::MAIN_MENU) {
-}
+    currentSize(0),
+    currentSeconds(0),
+    currentMode(GameMode::Normal),
+    bestTime(-1.0f),
+    newBestTime(false),
+    screen(Screen::MAIN_MENU) {}
 
 void Application::run() {
     while (screen != Screen::QUIT && !WindowShouldClose()) {

@@ -42,6 +42,7 @@ private:
     std::unique_ptr<Game> game;
     int currentSize;
     float currentSeconds;
+    GameMode currentMode;
     float bestTime;
     bool newBestTime;
     Screen screen;

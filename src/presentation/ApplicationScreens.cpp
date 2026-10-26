@@ -21,7 +21,7 @@ Screen Application::updateControls() { return updateMenu(controls); }
 Screen Application::updatePlayerSelect() { return updateMenu(playerSelect); }
 
 Screen Application::startGame() {
-    game = std::make_unique<Game>(currentSize, currentSeconds);
+    game = std::make_unique<Game>(currentSize, currentSeconds, currentMode);
     generationScreen.begin(*game);
     return Screen::GENERATING;
 }
@@ -31,6 +31,7 @@ Screen Application::updateLevelSelect() {
     if (next == Screen::PLAYING) {
         currentSize = levelSelect.size();
         currentSeconds = levelSelect.seconds();
+        currentMode = levelSelect.mode();
         next = startGame();
     }
 
@@ -55,8 +56,8 @@ Screen Application::updatePlaying() {
 
     if (game->finished()) {
         EnableCursor();
-        newBestTime = game->won() && players.recordWin(currentSize, game->timeTaken());
-        bestTime = players.bestTime(currentSize);
+        newBestTime = game->won() && players.recordWin(currentSize, game->timeTaken(), currentMode);
+        bestTime = players.bestTime(currentSize, currentMode);
         return Screen::END;
     }
     if (pause) {
@@ -72,7 +73,7 @@ Screen Application::updatePaused() {
     drawFrame([&] {
         renderer.draw(*game);
         pauseMenu.draw();
-    });
+        });
 
     switch (action) {
     case PauseAction::RESUME:
@@ -97,7 +98,7 @@ Screen Application::updateEnd() {
     drawFrame([&] {
         renderer.draw(*game);
         endScreen.draw(*game, players.activeName(), bestTime, newBestTime);
-    });
+        });
 
     if (next != Screen::END) {
         game.reset();
