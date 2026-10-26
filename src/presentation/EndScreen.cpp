@@ -9,33 +9,40 @@ static const char* formatTime(float t) {
 }
 
 Screen EndScreen::update() {
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) return Screen::MAIN_MENU;
+    SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE) || menuClicked(uiRect(330, 504, 340, 48)))
+        return Screen::MAIN_MENU;
     return Screen::END;
 }
 
 void EndScreen::draw(const Game& game, const std::string& playerName,
     float bestTime, bool newBestTime) const {
-    int y = (int)drawPopup(600, 400, game.won() ? GOLD : RED,
-                           Color{25, 28, 38, 245}, 0.6f).y;
-
+    using namespace MenuTheme;
+    const Color accent = game.won() ? Mint : Danger;
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, 0.83f));
+    drawMenuPanel(uiRect(176, 125, 648, 460), Fade(accent, 0.6f));
+    drawMenuText("EXPEDITION REPORT", 212, 158, 14, accent);
+    DrawRectangleLinesEx(uiRect(218, 209, 50, 60), 3*uiScale(), accent);
+    DrawLineEx({(float)uiX(243), (float)uiY(239)}, {(float)uiX(287), (float)uiY(239)}, 3*uiScale(), accent);
     if (game.won()) {
-        drawCenteredAt("FINISH LINE REACHED!", y + uiSize(25), uiSize(48), GOLD);
-        drawCenteredAt(TextFormat("Time: %s", formatTime(game.timeTaken())),
-            y + uiSize(150), uiSize(36), WHITE);
-        drawCenteredAt(TextFormat("Time left: %s", formatTime(game.timeLeft())),
-            y + uiSize(200), uiSize(30), LIGHTGRAY);
+        DrawLineEx({(float)uiX(277), (float)uiY(229)}, {(float)uiX(287), (float)uiY(239)}, 3*uiScale(), accent);
+        DrawLineEx({(float)uiX(277), (float)uiY(249)}, {(float)uiX(287), (float)uiY(239)}, 3*uiScale(), accent);
     }
-    else {
-        drawCenteredAt("TIME'S UP!", y + uiSize(25), uiSize(56), RED);
-        drawCenteredAt("You did not reach the finish line",
-            y + uiSize(160), uiSize(30), LIGHTGRAY);
+    drawMenuText(game.won() ? "You found a way." : "The maze can wait.", 312, 206, 36);
+    drawMenuTextFit(playerName.c_str(), 312, 255, 460, 22, Amber);
+    drawMenuText(game.won() ? "Another labyrinth, another story." : "Time ran out. A fresh route is waiting.", 212, 295, 18, Muted);
+    const int positions[] = {212, 410, 608};
+    const char* labels[] = {game.won() ? "ESCAPE TIME" : "TIME IN MAZE", "TIME LEFT", "POINTS"};
+    for (int i = 0; i < 3; ++i) {
+        drawMenuPanel(uiRect(positions[i], 340, 180, 85));
+        drawMenuText(labels[i], positions[i]+16, 357, 12, Muted);
+        const char* value = i == 0 ? formatTime(game.timeTaken())
+            : i == 1 ? formatTime(game.timeLeft()) : TextFormat("%d", game.score());
+        drawMenuText(value, positions[i]+16, 385, 26, i == 2 ? Amber : Paper);
     }
-    drawCenteredAt(TextFormat("Player: %s", playerName.c_str()),
-                   y + uiSize(95), uiSize(30), SKYBLUE);
-    const char* recordText = bestTime < 0.0f
-        ? "Best time: --"
-        : TextFormat("%s%s", newBestTime ? "NEW BEST: " : "Best time: ", formatTime(bestTime));
-    drawCenteredAt(recordText, y + uiSize(245), uiSize(28), newBestTime ? GOLD : LIGHTGRAY);
-    drawCenteredAt(TextFormat("Points: %d", game.score()), y + uiSize(290), uiSize(36), GOLD);
-    drawCenteredAt("Press ENTER for the menu", y + uiSize(350), uiSize(24), GRAY);
+    const char* record = bestTime < 0.0f ? "No escape recorded for this level yet."
+        : TextFormat("%s   %s", newBestTime ? "A NEW PERSONAL BEST" : "PERSONAL BEST", formatTime(bestTime));
+    drawCentered(record, 456, 18, newBestTime ? Amber : Muted);
+    drawMenuButton(uiRect(330, 504, 340, 48), "Back to main menu", true);
+    drawCentered("ENTER / ESC  continue", 603, 14, Muted);
 }
