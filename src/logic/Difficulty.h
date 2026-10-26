@@ -4,8 +4,10 @@
 
 struct Difficulty {
     const char* name;
-    int size;        // maze is size x size
-    float seconds;   // time limit
+    // maze is size x size
+    int size;        
+    // time limit
+    float seconds;   
 };
 
 const int DIFFICULTY_COUNT = 3;

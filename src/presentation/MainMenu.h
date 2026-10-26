@@ -4,7 +4,8 @@
 class MainMenu {
 public:
     MainMenu();
-    Screen update();     // returns the next screen (MAIN_MENU = stay here)
+    // returns the next screen (MAIN_MENU = stay here)
+    Screen update();     
     void draw() const;
 private:
     int selected;

@@ -7,7 +7,8 @@ public:
     PauseMenu();
     PauseAction update();
     void draw() const;
-    void reset();          // highlight "Resume" again each time the pause opens
+    // highlight "Resume" again each time the pause opens
+    void reset();          
 private:
     int selected;
 };

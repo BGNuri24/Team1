@@ -4,7 +4,8 @@
 #include <algorithm>
 #include <cmath>
 
-static const float FOG_END = 12.0f;     // distance where everything fades to black (smaller = darker maze)
+// distance where everything fades to black (smaller = darker maze)
+static const float FOG_END = 12.0f;     
 
 // one corner of a textured quad: position + texture coordinates
 struct Corner { float x, y, z, u, v; };
@@ -95,10 +96,14 @@ void Renderer::drawMaze(const Game& game) {
         for (int c = c0; c <= c1; c++) {
             if (m.cell(r, c) == '#') continue;
             float x = (float)c, z = (float)r;
-            if (m.cell(r - 1, c) == '#') wallFace(eye, 1.0f, x - 0.5f, z - 0.5f, x + 0.5f, z - 0.5f);   // north wall
-            if (m.cell(r + 1, c) == '#') wallFace(eye, 1.0f, x + 0.5f, z + 0.5f, x - 0.5f, z + 0.5f);   // south wall
-            if (m.cell(r, c - 1) == '#') wallFace(eye, 0.8f, x - 0.5f, z + 0.5f, x - 0.5f, z - 0.5f);   // west wall
-            if (m.cell(r, c + 1) == '#') wallFace(eye, 0.8f, x + 0.5f, z - 0.5f, x + 0.5f, z + 0.5f);   // east wall
+            // north wall
+            if (m.cell(r - 1, c) == '#') wallFace(eye, 1.0f, x - 0.5f, z - 0.5f, x + 0.5f, z - 0.5f);   
+            // south wall
+            if (m.cell(r + 1, c) == '#') wallFace(eye, 1.0f, x + 0.5f, z + 0.5f, x - 0.5f, z + 0.5f);   
+            // west wall
+            if (m.cell(r, c - 1) == '#') wallFace(eye, 0.8f, x - 0.5f, z + 0.5f, x - 0.5f, z - 0.5f);   
+            // east wall
+            if (m.cell(r, c + 1) == '#') wallFace(eye, 0.8f, x + 0.5f, z - 0.5f, x + 0.5f, z + 0.5f);   
         }
     rlEnd();
 
@@ -109,10 +114,12 @@ void Renderer::drawMaze(const Game& game) {
         for (int c = c0; c <= c1; c++) {
             if (m.cell(r, c) == '#') continue;
             float x = (float)c, z = (float)r;
+            // floor
             quad(eye, 0.9f, {x - 0.5f, 0, z - 0.5f, 0, 0}, {x - 0.5f, 0, z + 0.5f, 0, 1},
-                            {x + 0.5f, 0, z + 0.5f, 1, 1}, {x + 0.5f, 0, z - 0.5f, 1, 0});   // floor
+                            {x + 0.5f, 0, z + 0.5f, 1, 1}, {x + 0.5f, 0, z - 0.5f, 1, 0});
+            // ceiling
             quad(eye, 0.5f, {x - 0.5f, 1, z - 0.5f, 0, 0}, {x + 0.5f, 1, z - 0.5f, 1, 0},
-                            {x + 0.5f, 1, z + 0.5f, 1, 1}, {x - 0.5f, 1, z + 0.5f, 0, 1});   // ceiling
+                            {x + 0.5f, 1, z + 0.5f, 1, 1}, {x - 0.5f, 1, z + 0.5f, 0, 1});
         }
     rlEnd();
     rlSetTexture(0);
@@ -139,25 +146,31 @@ void Renderer::drawMinimap(const Game& game) {
     if (cell < 2) cell = 2;
     int size = n * cell;
     int margin = uiSize(14);
-    int ox = GetScreenWidth() - size - margin;  // top-right corner
+    // top-right corner
+    int ox = GetScreenWidth() - size - margin;  
     int oy = margin;
 
-    DrawRectangle(ox - 4, oy - 4, size + 8, size + 8, Color{15, 15, 20, 230});  // fog
+    // fog
+    DrawRectangle(ox - 4, oy - 4, size + 8, size + 8, Color{15, 15, 20, 230});  
 
     for (int r = 0; r < n; r++)
         for (int c = 0; c < n; c++) {
             int s = game.seenState(r, c);
-            if (s == 0) continue;               // undiscovered stays foggy
+            // undiscovered stays foggy
+            if (s == 0) continue;               
             Color col;
             if (m.cell(r, c) == '#')      col = LIGHTGRAY;
             else if (m.cell(r, c) == 'E') col = GREEN;
-            else if (s == 2)              col = SKYBLUE;                // walked path
-            else                          col = Color{60, 60, 70, 255}; // seen, not walked
+            // walked path
+            else if (s == 2)              col = SKYBLUE;
+            // seen, not walked
+            else                          col = Color{60, 60, 70, 255}; 
             DrawRectangle(ox + c * cell, oy + r * cell, cell, cell, col);
         }
 
     Vector3 position = game.position();
-    float mx = ox + (position.x + 0.5f) * cell;   // player marker
+    // player marker
+    float mx = ox + (position.x + 0.5f) * cell;
     float my = oy + (position.z + 0.5f) * cell;
     float rad = cell / 2.0f < 2.0f ? 2.0f : cell / 2.0f;
     DrawCircle((int)mx, (int)my, rad, RED);

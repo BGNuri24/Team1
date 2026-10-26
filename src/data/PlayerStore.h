@@ -5,12 +5,15 @@
 
 class PlayerStore {
 public:
-    PlayerStore();                           // loads save_data/players.txt if it exists
+    // loads save_data/players.txt if it exists
+    PlayerStore();                           
     int count() const;
     const std::string& name(int i) const;
     bool contains(const std::string& name) const;
-    bool add(const std::string& name);       // saves the file
-    bool remove(int i);                      // saves the file
+    // saves the file
+    bool add(const std::string& name);
+    // also saves the file
+    bool remove(int i);                      
     float bestTime(const std::string& player, int mazeSize) const;
     bool recordBestTime(const std::string& player, int mazeSize, float seconds);
 private:

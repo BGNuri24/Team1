@@ -41,8 +41,9 @@ Game::Game(int mazeSize, float seconds)
       hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0), points(0) {
     int n = mazeData.size();
     seen.assign(n * n, 0);
+    // face the open direction at the start
     lookDirection = (mazeData.cell(0, 1) != '#')
-        ? Vector3{1, 0, 0} : Vector3{0, 0, 1};              // face the open direction at the start
+        ? Vector3{1, 0, 0} : Vector3{0, 0, 1};              
     reveal();
 }
 
@@ -248,11 +249,14 @@ void Game::reveal() {
 }
 
 void Game::update(const InputState& in) {
-    if (hasWon || hasLost) return;                 // game is frozen when finished
+    // game is frozen when finished
+    if (hasWon || hasLost) return;
 
-    elapsedSec += in.dt;                           // time taken (counts up)
+    // time taken (counts up)
+    elapsedSec += in.dt;                           
 
-    timeLeftSec -= in.dt;                          // time left (counts down)
+    // time left (counts down)
+    timeLeftSec -= in.dt;                          
     if (timeLeftSec <= 0.0f) {
         timeLeftSec = 0.0f;
         hasLost = true;
