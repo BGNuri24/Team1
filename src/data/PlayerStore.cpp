@@ -3,16 +3,17 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <utility>
 
 static const char* FILE_NAME = "save_data/players.txt";
 static const char* BEST_TIMES_FILE_NAME = "save_data/best_times.txt";
 
 template <typename Records>
-static auto findBestTime(Records& records, const std::string& player, int mazeSize) {
+static auto findBestTime(Records& records, const std::string& player, int mazeSize, GameMode mode) {
     return std::find_if(records.begin(), records.end(), [&](const auto& record) {
-        return record.player == player && record.mazeSize == mazeSize;
-    });
+        return record.player == player && record.mazeSize == mazeSize && record.mode == mode;
+        });
 }
 
 static std::filesystem::path backupPath(const std::filesystem::path& path) {
@@ -123,7 +124,7 @@ bool PlayerStore::remove(int i) {
     bestTimes.erase(
         std::remove_if(bestTimes.begin(), bestTimes.end(), [&](const BestTime& record) {
             return record.player == removedName;
-        }),
+            }),
         bestTimes.end());
     if (!saveBestTimes()) {
         names = std::move(previousNames);
@@ -139,16 +140,16 @@ bool PlayerStore::remove(int i) {
     return true;
 }
 
-float PlayerStore::bestTime(const std::string& player, int mazeSize) const {
-    auto record = findBestTime(bestTimes, player, mazeSize);
+float PlayerStore::bestTime(const std::string& player, int mazeSize, GameMode mode) const {
+    auto record = findBestTime(bestTimes, player, mazeSize, mode);
     return record == bestTimes.end() ? -1.0f : record->seconds;
 }
 
-bool PlayerStore::recordBestTime(const std::string& player, int mazeSize, float seconds) {
+bool PlayerStore::recordBestTime(const std::string& player, int mazeSize, float seconds, GameMode mode) {
     if (!contains(player) || !isValidSize(mazeSize) ||
         !std::isfinite(seconds) || seconds < 0.0f) return false;
 
-    auto record = findBestTime(bestTimes, player, mazeSize);
+    auto record = findBestTime(bestTimes, player, mazeSize, mode);
     if (record != bestTimes.end()) {
         if (seconds >= record->seconds) return false;
         float previousSeconds = record->seconds;
@@ -158,7 +159,7 @@ bool PlayerStore::recordBestTime(const std::string& player, int mazeSize, float 
         return false;
     }
 
-    bestTimes.push_back({player, mazeSize, seconds});
+    bestTimes.push_back({ player, mazeSize, seconds, mode });
     if (saveBestTimes()) return true;
     bestTimes.pop_back();
     return false;
@@ -176,17 +177,28 @@ void PlayerStore::load() {
 bool PlayerStore::save() const {
     return writeAtomically(FILE_NAME, [&](std::ostream& out) {
         for (const std::string& n : names) out << n << '\n';
-    });
+        });
 }
 
 void PlayerStore::loadBestTimes() {
     recoverBackup(BEST_TIMES_FILE_NAME);
     std::ifstream in(BEST_TIMES_FILE_NAME);
-    BestTime record;
-    while (in >> record.player >> record.mazeSize >> record.seconds) {
+    std::string line;
+    while (std::getline(in, line)) {
+        std::istringstream fields(line);
+        BestTime record{};
+        if (!(fields >> record.player >> record.mazeSize >> record.seconds)) continue;
+        // Existing three-column records belong to Normal mode.
+        std::string modeName;
+        if (fields >> modeName) {
+            if (modeName == "zero_gravity") record.mode = GameMode::ZeroGravity;
+            else if (modeName != "normal") continue;
+            std::string extra;
+            if (fields >> extra) continue;
+        }
         if (!contains(record.player) || !isValidSize(record.mazeSize) || !std::isfinite(record.seconds) ||
             record.seconds < 0.0f) continue;
-        auto existing = findBestTime(bestTimes, record.player, record.mazeSize);
+        auto existing = findBestTime(bestTimes, record.player, record.mazeSize, record.mode);
         if (existing == bestTimes.end()) bestTimes.push_back(record);
         else if (record.seconds < existing->seconds) existing->seconds = record.seconds;
     }
@@ -194,7 +206,10 @@ void PlayerStore::loadBestTimes() {
 
 bool PlayerStore::saveBestTimes() const {
     return writeAtomically(BEST_TIMES_FILE_NAME, [&](std::ostream& out) {
-        for (const BestTime& record : bestTimes)
-            out << record.player << ' ' << record.mazeSize << ' ' << record.seconds << '\n';
-    });
+        for (const BestTime& record : bestTimes) {
+            out << record.player << ' ' << record.mazeSize << ' ' << record.seconds;
+            if (record.mode == GameMode::ZeroGravity) out << " zero_gravity";
+            out << '\n';
+        }
+        });
 }
