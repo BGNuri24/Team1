@@ -16,8 +16,8 @@ public:
     // validates, then saves
     AddResult add(std::string_view name);
     bool remove(int i);
-    float bestTime(int mazeSize) const;
-    bool recordWin(int mazeSize, float seconds);
+    float bestTime(int mazeSize, GameMode mode = GameMode::Normal) const;
+    bool recordWin(int mazeSize, float seconds, GameMode mode = GameMode::Normal);
 private:
     PlayerStore store;
     int activeIndex;

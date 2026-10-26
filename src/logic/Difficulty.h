@@ -5,12 +5,17 @@
 struct Difficulty {
     const char* name;
     // maze is size x size
-    int size;        
+    int size;
     // time limit
-    float seconds;   
+    float seconds;
 };
 
 const int DIFFICULTY_COUNT = 3;
+
+inline const Difficulty& getZeroGravityLevel() {
+    static const Difficulty level = { "Zero Gravity", 25, 180.0f };
+    return level;
+}
 
 inline const Difficulty& getDifficulty(int index) {
     static const Difficulty levels[DIFFICULTY_COUNT] = {

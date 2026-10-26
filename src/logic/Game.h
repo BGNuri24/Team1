@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "../data/MazeData.h"
+#include "../data/GameMode.h"
 #include <vector>
 
 struct InputState {
@@ -15,7 +16,7 @@ struct InputState {
 
 class Game {
 public:
-    Game(int mazeSize, float seconds);
+    Game(int mazeSize, float seconds, GameMode mode = GameMode::Normal);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
@@ -29,6 +30,7 @@ public:
     Vector3 cameraDirection() const;
     Vector3 cameraUp() const;
     bool surfaceAttached() const;
+    GameMode mode() const;
     int row() const;
     int col() const;
     // 0 fog, 1 seen, 2 walked
@@ -52,10 +54,11 @@ private:
     bool transitionToAdjacentWall(int side);
     bool transitionToNearestWall(float x, float z);
     void beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
-                                bool attached);
+        bool attached);
     void toggleGravity();
     void reveal();
 
+    GameMode gameMode;
     MazeData mazeData;
     float px, py, pz;
     Vector3 lookDirection;

@@ -7,43 +7,43 @@ static float dot(const Vector3& a, const Vector3& b) {
 }
 
 static Vector3 cross(const Vector3& a, const Vector3& b) {
-    return {a.y * b.z - a.z * b.y,
+    return { a.y * b.z - a.z * b.y,
             a.z * b.x - a.x * b.z,
-            a.x * b.y - a.y * b.x};
+            a.x * b.y - a.y * b.x };
 }
 
 static Vector3 normalized(const Vector3& value) {
     float length = std::sqrt(dot(value, value));
-    if (length < 0.0001f) return {0, 0, 0};
-    return {value.x / length, value.y / length, value.z / length};
+    if (length < 0.0001f) return { 0, 0, 0 };
+    return { value.x / length, value.y / length, value.z / length };
 }
 
 static Vector3 scaled(const Vector3& value, float amount) {
-    return {value.x * amount, value.y * amount, value.z * amount};
+    return { value.x * amount, value.y * amount, value.z * amount };
 }
 
 static Vector3 added(const Vector3& a, const Vector3& b) {
-    return {a.x + b.x, a.y + b.y, a.z + b.z};
+    return { a.x + b.x, a.y + b.y, a.z + b.z };
 }
 
 static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float angle) {
     float cosine = std::cos(angle);
     float sine = std::sin(angle);
     return added(added(scaled(value, cosine), scaled(cross(axis, value), sine)),
-                 scaled(axis, dot(axis, value) * (1.0f - cosine)));
+        scaled(axis, dot(axis, value) * (1.0f - cosine)));
 }
 
-Game::Game(int mazeSize, float seconds)
-    : mazeData(mazeSize), px(0), py(0.5f), pz(0), lookDirection{1, 0, 0},
-            gravityUp{0, 1, 0}, rollFrom{0, 1, 0}, rollAxis{1, 0, 0},
-            rollAngle(0), rollTime(0.25f), transitionFromPosition{0, 0.5f, 0},
-            transitionFromDirection{1, 0, 0}, attachedToSurface(false),
-      hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0), points(0) {
+Game::Game(int mazeSize, float seconds, GameMode mode)
+    : gameMode(mode), mazeData(mazeSize), px(0), py(0.5f), pz(0), lookDirection{ 1, 0, 0 },
+    gravityUp{ 0, 1, 0 }, rollFrom{ 0, 1, 0 }, rollAxis{ 1, 0, 0 },
+    rollAngle(0), rollTime(0.25f), transitionFromPosition{ 0, 0.5f, 0 },
+    transitionFromDirection{ 1, 0, 0 }, attachedToSurface(false),
+    hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0), points(0) {
     int n = mazeData.size();
     seen.assign(n * n, 0);
     // face the open direction at the start
     lookDirection = (mazeData.cell(0, 1) != '#')
-        ? Vector3{1, 0, 0} : Vector3{0, 0, 1};              
+        ? Vector3{ 1, 0, 0 } : Vector3{ 0, 0, 1 };
     reveal();
 }
 
@@ -56,7 +56,7 @@ bool Game::isWall(float x, float z) const {
 bool Game::canMove(float x, float z) const {
     const float m = 0.1f;
     return !isWall(x - m, z - m) && !isWall(x + m, z - m) &&
-           !isWall(x - m, z + m) && !isWall(x + m, z + m);
+        !isWall(x - m, z + m) && !isWall(x + m, z + m);
 }
 
 bool Game::hasSurfaceSupport(float x, float z) const {
@@ -71,8 +71,8 @@ bool Game::hasSurfaceSupport(float x, float z) const {
 }
 
 void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
-                                  bool attached) {
-    transitionFromPosition = {px, py, pz};
+    bool attached) {
+    transitionFromPosition = { px, py, pz };
     transitionFromDirection = lookDirection;
     rollFrom = cameraUp();
     rollTime = 0.0f;
@@ -80,7 +80,7 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
     rollAxis = normalized(cross(rollFrom, newUp));
     if (dot(rollAxis, rollAxis) < 0.5f) {
         rollAxis = normalized(cross(lookDirection, rollFrom));
-        if (dot(rollAxis, rollAxis) < 0.5f) rollAxis = {1, 0, 0};
+        if (dot(rollAxis, rollAxis) < 0.5f) rollAxis = { 1, 0, 0 };
     }
     lookDirection = normalized(rotateAround(lookDirection, rollAxis, rollAngle));
     gravityUp = newUp;
@@ -102,15 +102,15 @@ bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
             contact = point;
             found = true;
         }
-    };
+        };
 
     if (lookDirection.y > 0.001f) {
         float distance = (1.0f - py) / lookDirection.y;
         float hitX = px + lookDirection.x * distance;
         float hitZ = pz + lookDirection.z * distance;
         if (distance > 0.0f && distance < nearest && mazeData.cell(
-                (int)std::floor(hitZ + 0.5f), (int)std::floor(hitX + 0.5f)) != '#')
-            consider(distance, {0, -1, 0}, {hitX, 1.0f, hitZ});
+            (int)std::floor(hitZ + 0.5f), (int)std::floor(hitX + 0.5f)) != '#')
+            consider(distance, { 0, -1, 0 }, { hitX, 1.0f, hitZ });
     }
 
     int reach = (int)std::ceil(maxDistance) + 1;
@@ -120,33 +120,33 @@ bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
     int c1 = std::min(mazeData.size() - 1, col() + reach);
 
     auto testWallFace = [&](int r, int c, int wallR, int wallC,
-                            const Vector3& faceNormal, float plane, bool verticalX) {
-        if (mazeData.cell(r, c) == '#' || mazeData.cell(wallR, wallC) != '#') return;
-        if (dot(lookDirection, faceNormal) >= -0.001f) return;
+        const Vector3& faceNormal, float plane, bool verticalX) {
+            if (mazeData.cell(r, c) == '#' || mazeData.cell(wallR, wallC) != '#') return;
+            if (dot(lookDirection, faceNormal) >= -0.001f) return;
 
-        float component = verticalX ? lookDirection.x : lookDirection.z;
-        if (std::fabs(component) < 0.001f) return;
-        float origin = verticalX ? px : pz;
-        float distance = (plane - origin) / component;
-        if (distance <= 0.02f || distance >= nearest) return;
+            float component = verticalX ? lookDirection.x : lookDirection.z;
+            if (std::fabs(component) < 0.001f) return;
+            float origin = verticalX ? px : pz;
+            float distance = (plane - origin) / component;
+            if (distance <= 0.02f || distance >= nearest) return;
 
-        float hitX = px + lookDirection.x * distance;
-        float hitY = py + lookDirection.y * distance;
-        float hitZ = pz + lookDirection.z * distance;
-        if (hitY < 0.0f || hitY > 1.0f ||
-            hitX < c - 0.5f || hitX > c + 0.5f ||
-            hitZ < r - 0.5f || hitZ > r + 0.5f) return;
-        consider(distance, faceNormal, {hitX, hitY, hitZ});
-    };
+            float hitX = px + lookDirection.x * distance;
+            float hitY = py + lookDirection.y * distance;
+            float hitZ = pz + lookDirection.z * distance;
+            if (hitY < 0.0f || hitY > 1.0f ||
+                hitX < c - 0.5f || hitX > c + 0.5f ||
+                hitZ < r - 0.5f || hitZ > r + 0.5f) return;
+            consider(distance, faceNormal, { hitX, hitY, hitZ });
+        };
 
     for (int r = r0; r <= r1; r++) {
         for (int c = c0; c <= c1; c++) {
             float x = (float)c;
             float z = (float)r;
-            testWallFace(r, c, r - 1, c, {0, 0, 1}, z - 0.5f, false);
-            testWallFace(r, c, r + 1, c, {0, 0, -1}, z + 0.5f, false);
-            testWallFace(r, c, r, c - 1, {1, 0, 0}, x - 0.5f, true);
-            testWallFace(r, c, r, c + 1, {-1, 0, 0}, x + 0.5f, true);
+            testWallFace(r, c, r - 1, c, { 0, 0, 1 }, z - 0.5f, false);
+            testWallFace(r, c, r + 1, c, { 0, 0, -1 }, z + 0.5f, false);
+            testWallFace(r, c, r, c - 1, { 1, 0, 0 }, x - 0.5f, true);
+            testWallFace(r, c, r, c + 1, { -1, 0, 0 }, x + 0.5f, true);
         }
     }
     return found;
@@ -174,23 +174,26 @@ bool Game::attachToSurface(const Vector3& normal, const Vector3& contact) {
 bool Game::transitionToAdjacentWall(int side) {
     int r = row(), c = col();
     Vector3 normal;
-    Vector3 contact{px, py, pz};
+    Vector3 contact{ px, py, pz };
     int wallR = r, wallC = c;
     if (side == 0) {
         wallR--;
-        normal = {0, 0, 1};
+        normal = { 0, 0, 1 };
         contact.z = r - 0.5f;
-    } else if (side == 1) {
+    }
+    else if (side == 1) {
         wallR++;
-        normal = {0, 0, -1};
+        normal = { 0, 0, -1 };
         contact.z = r + 0.5f;
-    } else if (side == 2) {
+    }
+    else if (side == 2) {
         wallC--;
-        normal = {1, 0, 0};
+        normal = { 1, 0, 0 };
         contact.x = c - 0.5f;
-    } else {
+    }
+    else {
         wallC++;
-        normal = {-1, 0, 0};
+        normal = { -1, 0, 0 };
         contact.x = c + 0.5f;
     }
     if (mazeData.cell(wallR, wallC) != '#') return false;
@@ -203,33 +206,33 @@ bool Game::transitionToNearestWall(float x, float z) {
     if (mazeData.cell(r, c) == '#') return false;
 
     float bestScore = 1000.0f;
-    Vector3 chosenNormal{0, 0, 0};
-    Vector3 chosenContact{0, 0, 0};
+    Vector3 chosenNormal{ 0, 0, 0 };
+    Vector3 chosenContact{ 0, 0, 0 };
     bool found = false;
     auto consider = [&](int wallR, int wallC, const Vector3& normal,
-                        const Vector3& contact, float distance) {
-        if (mazeData.cell(wallR, wallC) != '#') return;
-        float score = distance - 0.2f * dot(normal, gravityUp);
-        if (score < bestScore) {
-            bestScore = score;
-            chosenNormal = normal;
-            chosenContact = contact;
-            found = true;
-        }
-    };
+        const Vector3& contact, float distance) {
+            if (mazeData.cell(wallR, wallC) != '#') return;
+            float score = distance - 0.2f * dot(normal, gravityUp);
+            if (score < bestScore) {
+                bestScore = score;
+                chosenNormal = normal;
+                chosenContact = contact;
+                found = true;
+            }
+        };
 
     float clampedX = std::clamp(x, c - 0.5f, c + 0.5f);
     float clampedZ = std::clamp(z, r - 0.5f, r + 0.5f);
-    consider(r - 1, c, {0, 0, 1}, {clampedX, py, r - 0.5f}, std::fabs(z - (r - 0.5f)));
-    consider(r + 1, c, {0, 0, -1}, {clampedX, py, r + 0.5f}, std::fabs(z - (r + 0.5f)));
-    consider(r, c - 1, {1, 0, 0}, {c - 0.5f, py, clampedZ}, std::fabs(x - (c - 0.5f)));
-    consider(r, c + 1, {-1, 0, 0}, {c + 0.5f, py, clampedZ}, std::fabs(x - (c + 0.5f)));
+    consider(r - 1, c, { 0, 0, 1 }, { clampedX, py, r - 0.5f }, std::fabs(z - (r - 0.5f)));
+    consider(r + 1, c, { 0, 0, -1 }, { clampedX, py, r + 0.5f }, std::fabs(z - (r + 0.5f)));
+    consider(r, c - 1, { 1, 0, 0 }, { c - 0.5f, py, clampedZ }, std::fabs(x - (c - 0.5f)));
+    consider(r, c + 1, { -1, 0, 0 }, { c + 0.5f, py, clampedZ }, std::fabs(x - (c + 0.5f)));
     return found && attachToSurface(chosenNormal, chosenContact);
 }
 
 void Game::toggleGravity() {
     if (attachedToSurface) {
-        beginSurfaceTransition({0, 1, 0}, {px, 0.5f, pz}, false);
+        beginSurfaceTransition({ 0, 1, 0 }, { px, 0.5f, pz }, false);
         return;
     }
 
@@ -253,10 +256,10 @@ void Game::update(const InputState& in) {
     if (hasWon || hasLost) return;
 
     // time taken (counts up)
-    elapsedSec += in.dt;                           
+    elapsedSec += in.dt;
 
     // time left (counts down)
-    timeLeftSec -= in.dt;                          
+    timeLeftSec -= in.dt;
     if (timeLeftSec <= 0.0f) {
         timeLeftSec = 0.0f;
         hasLost = true;
@@ -264,7 +267,8 @@ void Game::update(const InputState& in) {
     }
 
     rollTime = std::min(rollTime + in.dt, 0.25f);
-    if (in.gravityToggle && rollTime >= 0.25f) toggleGravity();
+    if (gameMode == GameMode::ZeroGravity && in.gravityToggle && rollTime >= 0.25f)
+        toggleGravity();
     if (rollTime < 0.25f) {
         reveal();
         return;
@@ -292,19 +296,21 @@ void Game::update(const InputState& in) {
     if (attachedToSurface && std::fabs(gravityUp.y) < 0.5f) {
         float nextY = py + movement.y * step;
         if (nextY < 0.1f) {
-            beginSurfaceTransition({0, 1, 0}, {px, 0.22f, pz}, false);
+            beginSurfaceTransition({ 0, 1, 0 }, { px, 0.22f, pz }, false);
             reveal();
             return;
         }
         if (nextY > 0.9f) {
-            beginSurfaceTransition({0, -1, 0}, {px, 0.78f, pz}, true);
+            beginSurfaceTransition({ 0, -1, 0 }, { px, 0.78f, pz }, true);
             reveal();
             return;
         }
         py = nextY;
-    } else if (attachedToSurface) {
+    }
+    else if (attachedToSurface) {
         py = std::clamp(py + movement.y * step, 0.1f, 0.9f);
-    } else {
+    }
+    else {
         py = 0.5f;
     }
 
@@ -321,12 +327,14 @@ bool Game::moveHorizontal(float movement, float step, bool alongX) {
     if (canMove(nextX, nextZ)) {
         if (!attachedToSurface || hasSurfaceSupport(nextX, nextZ)) {
             (alongX ? px : pz) = alongX ? nextX : nextZ;
-        } else if (std::fabs(gravityUp.y) < 0.5f) {
+        }
+        else if (std::fabs(gravityUp.y) < 0.5f) {
             if (!transitionToNearestWall(nextX, nextZ))
-                beginSurfaceTransition({0, 1, 0}, {nextX, 0.22f, nextZ}, false);
+                beginSurfaceTransition({ 0, 1, 0 }, { nextX, 0.22f, nextZ }, false);
             return true;
         }
-    } else if (std::fabs(movement) > 0.001f) {
+    }
+    else if (gameMode == GameMode::ZeroGravity && std::fabs(movement) > 0.001f) {
         int side = alongX ? (movement > 0.0f ? 3 : 2) : (movement > 0.0f ? 1 : 0);
         return transitionToAdjacentWall(side);
     }
@@ -339,7 +347,7 @@ float Game::transitionBlend() const {
 
 Vector3 Game::position() const {
     float blend = transitionBlend();
-    return added(scaled(transitionFromPosition, 1.0f - blend), scaled({px, py, pz}, blend));
+    return added(scaled(transitionFromPosition, 1.0f - blend), scaled({ px, py, pz }, blend));
 }
 float Game::x() const { return position().x; }
 float Game::y() const { return position().y; }
@@ -348,12 +356,13 @@ float Game::yaw() const { return std::atan2(lookDirection.z, lookDirection.x); }
 Vector3 Game::cameraDirection() const {
     float blend = transitionBlend();
     return normalized(added(scaled(transitionFromDirection, 1.0f - blend),
-                            scaled(lookDirection, blend)));
+        scaled(lookDirection, blend)));
 }
 Vector3 Game::cameraUp() const {
     return normalized(rotateAround(rollFrom, rollAxis, rollAngle * transitionBlend()));
 }
 bool Game::surfaceAttached() const { return attachedToSurface; }
+GameMode Game::mode() const { return gameMode; }
 int Game::row() const { return (int)std::floor(pz + 0.5f); }
 int Game::col() const { return (int)std::floor(px + 0.5f); }
 

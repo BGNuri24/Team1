@@ -32,10 +32,10 @@ bool Players::remove(int i) {
     return true;
 }
 
-float Players::bestTime(int mazeSize) const {
-    return store.bestTime(activeName(), mazeSize);
+float Players::bestTime(int mazeSize, GameMode mode) const {
+    return store.bestTime(activeName(), mazeSize, mode);
 }
 
-bool Players::recordWin(int mazeSize, float seconds) {
-    return store.recordBestTime(activeName(), mazeSize, seconds);
+bool Players::recordWin(int mazeSize, float seconds, GameMode mode) {
+    return store.recordBestTime(activeName(), mazeSize, seconds, mode);
 }
