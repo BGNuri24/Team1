@@ -42,6 +42,7 @@
     <ClCompile Include="..\src\presentation\PauseMenu.cpp" />
     <ClCompile Include="..\src\presentation\MazeGenerationScreen.cpp" />
     <ClCompile Include="..\src\presentation\MainMenu.cpp" />
+    <ClCompile Include="..\src\presentation\MenuBackground.cpp" />
     <ClCompile Include="..\src\presentation\Renderer.cpp" />
     <ClCompile Include="..\src\presentation\PlayerSelect.cpp" />
     <ClCompile Include="..\src\presentation\Textures.cpp" />
@@ -58,6 +59,7 @@
     <ClInclude Include="..\src\presentation\PauseMenu.h" />
     <ClInclude Include="..\src\presentation\MazeGenerationScreen.h" />
     <ClInclude Include="..\src\presentation\MainMenu.h" />
+    <ClInclude Include="..\src\presentation\MenuBackground.h" />
     <ClInclude Include="..\src\presentation\LevelSelect.h" />
     <ClInclude Include="..\src\presentation\Input.h" />
     <ClInclude Include="..\src\presentation\EndScreen.h" />
