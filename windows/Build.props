@@ -3,7 +3,10 @@
   <PropertyGroup>
     <ProjectRoot>$(MSBuildThisFileDirectory)..\</ProjectRoot>
     <RaylibSource Condition="'$(RaylibSource)'=='' and '$(RAYLIB_SOURCE)'!=''">$(RAYLIB_SOURCE)</RaylibSource>
-    <RaylibSource Condition="'$(RaylibSource)'==''">$(USERPROFILE)\raylib-5.5</RaylibSource>
+    <RaylibSource Condition="'$(RaylibSource)'=='' and Exists('$(USERPROFILE)\raylib-5.5\src\raylib.h')">$(USERPROFILE)\raylib-5.5</RaylibSource>
+    <RaylibCacheRoot Condition="'$(RaylibCacheRoot)'==''">$(LOCALAPPDATA)\MazeGame\Dependencies</RaylibCacheRoot>
+    <RaylibAutoRestore Condition="'$(RaylibAutoRestore)'=='' and '$(RaylibSource)'==''">true</RaylibAutoRestore>
+    <RaylibSource Condition="'$(RaylibSource)'==''">$(RaylibCacheRoot)\raylib-5.5</RaylibSource>
     <OutDir>$(ProjectRoot)build-vs\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(ProjectRoot)build-vs\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <LocalDebuggerWorkingDirectory>$(ProjectRoot)</LocalDebuggerWorkingDirectory>
