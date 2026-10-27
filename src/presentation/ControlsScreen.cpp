@@ -2,12 +2,12 @@
 #include "Ui.h"
 
 namespace {
-void keycap(const char* label, int x, int y, int width = 42) {
-    drawMenuPanel(uiRect(x, y, width, 36));
-    int size = uiSize(16);
-    DrawText(label, uiX(x) + (uiSize(width) - MeasureText(label, size))/2,
-             uiY(y + 10), size, MenuTheme::Amber);
-}
+    void keycap(const char* label, int x, int y, int width = 42) {
+        drawMenuPanel(uiRect(x, y, width, 36));
+        int size = uiSize(16);
+        DrawText(label, uiX(x) + (uiSize(width) - MeasureText(label, size)) / 2,
+            uiY(y + 10), size, MenuTheme::Amber);
+    }
 }
 
 Screen ControlsScreen::update() {
@@ -33,11 +33,11 @@ void ControlsScreen::draw() const {
     drawMenuText("Follow the passages. Watch for dead ends.", 88, 385, 16, Muted);
     drawMenuPanel(uiRect(516, 214, 420, 204));
     drawMenuText("02 / LOOK AROUND", 540, 239, 14, Amber);
-    DrawRectangleRoundedLinesEx(uiRect(550, 279, 55, 77), 0.8f, 12, 2*uiScale(), Mint);
+    DrawRectangleRoundedLinesEx(uiRect(550, 279, 55, 77), 0.8f, 12, 2 * uiScale(), Mint);
     DrawLine(uiX(577), uiY(280), uiX(577), uiY(309), Mint);
     drawMenuText("Move your mouse", 638, 290, 20);
     drawMenuText("Turn and look freely.", 638, 322, 16, Muted);
-    drawMenuText("Keep an eye out for the green exit.", 540, 385, 16, Muted);
+    drawMenuText("Adjust sensitivity in the pause menu.", 540, 385, 16, Muted);
     drawMenuPanel(uiRect(64, 440, 420, 154));
     drawMenuText("03 / YOUR NEXT MOVE", 88, 463, 14, Amber);
     keycap("ESC", 88, 499, 64);
