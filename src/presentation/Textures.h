@@ -6,6 +6,8 @@ struct Textures {
     Texture2D wall;
     Texture2D floor;
     Texture2D ceiling;
+    // Four 512x128 signs stacked vertically, with transparent padding per slot.
+    Texture2D decals;
 };
 
 // builds the textures (call after InitWindow)

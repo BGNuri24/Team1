@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\data\Validation.h" />
+    <ClInclude Include="..\data\MazeGeometry.h" />
 	<ClInclude Include="..\data\GameMode.h" />
     <ClInclude Include="..\presentation\Ui.h" />
     <ClInclude Include="..\presentation\Textures.h" />

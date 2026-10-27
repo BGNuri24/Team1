@@ -91,14 +91,75 @@ Texture2D ceilingMaterial() {
     grain(image, 2);
     return upload(image);
 }
+
+void signText(Image& image, const char* text, int center, int y, int width,
+              int fontSize, Color color) {
+    while (fontSize > 10 && MeasureText(text, fontSize) > width) --fontSize;
+    ImageDrawText(&image, text, center-MeasureText(text, fontSize)/2, y, fontSize, color);
+}
+
+void signBacking(Image& image, int top, Color accent) {
+    ImageDrawRectangle(&image, 8, top+8, 496, 112, {10, 24, 31, 238});
+    frame(image, 8, top+8, 496, 112, {77, 101, 103, 255}, {22, 46, 54, 255});
+    ImageDrawRectangle(&image, 17, top+17, 3, 94, accent);
+    ImageDrawRectangle(&image, 30, top+106, 452, 1, {44, 68, 74, 255});
+    for (int x : {16, 495}) for (int y : {16, 111}) {
+        ImageDrawCircle(&image, x, top+y, 2, {139, 140, 119, 255});
+    }
+}
+
+Texture2D decalMaterial() {
+    constexpr Color AMBER = {244, 190, 102, 255};
+    constexpr Color PAPER = {238, 233, 215, 255};
+    constexpr Color MUTED = {148, 174, 177, 255};
+    constexpr Color MINT = {113, 216, 182, 255};
+    Image image = GenImageColor(512, 512, BLANK);
+
+    signBacking(image, 0, AMBER);
+    // A small engraved labyrinth badge, distinct from navigation arrows.
+    ImageDrawRectangle(&image, 40, 37, 52, 3, AMBER);
+    ImageDrawRectangle(&image, 40, 37, 3, 52, AMBER);
+    ImageDrawRectangle(&image, 89, 37, 3, 52, AMBER);
+    ImageDrawRectangle(&image, 56, 86, 36, 3, AMBER);
+    ImageDrawRectangle(&image, 56, 54, 3, 35, AMBER);
+    ImageDrawRectangle(&image, 56, 54, 20, 3, AMBER);
+    signText(image, "LABYRINTH", 297, 31, 370, 36, PAPER);
+    signText(image, "EXPLORER FACILITY", 297, 78, 370, 16, MUTED);
+
+    signBacking(image, 128, MINT);
+    signText(image, "07", 69, 169, 70, 40, MINT);
+    ImageDrawRectangle(&image, 116, 155, 1, 73, {54, 83, 87, 255});
+    signText(image, "SECTOR", 303, 159, 334, 34, PAPER);
+    signText(image, "SURVEY ZONE", 303, 206, 334, 16, MUTED);
+
+    signBacking(image, 256, AMBER);
+    for (int i = 0; i < 4; ++i) {
+        // Diagonal service hatching remains decorative, never a route pointer.
+        int y = 286 + i*16;
+        ImageDrawLine(&image, 34, y+9, 49, y-6, AMBER);
+        ImageDrawLine(&image, 35, y+9, 50, y-6, AMBER);
+        ImageDrawLine(&image, 463, y+9, 478, y-6, AMBER);
+        ImageDrawLine(&image, 464, y+9, 479, y-6, AMBER);
+    }
+    signText(image, "MAINTENANCE", 256, 287, 390, 32, PAPER);
+    signText(image, "KEEP ACCESS CLEAR", 256, 334, 390, 16, AMBER);
+
+    signBacking(image, 384, MINT);
+    signText(image, "FIND YOUR OWN WAY", 262, 414, 444, 30, PAPER);
+    signText(image, "EVERY TURN TELLS A STORY", 262, 462, 444, 16, MUTED);
+    Texture2D texture = upload(image);
+    SetTextureWrap(texture, TEXTURE_WRAP_CLAMP);
+    return texture;
+}
 }
 
 Textures createTextures() {
-    return {wallMaterial(), floorMaterial(), ceilingMaterial()};
+    return {wallMaterial(), floorMaterial(), ceilingMaterial(), decalMaterial()};
 }
 
 void destroyTextures(Textures& textures) {
     UnloadTexture(textures.wall);
     UnloadTexture(textures.floor);
     UnloadTexture(textures.ceiling);
+    UnloadTexture(textures.decals);
 }

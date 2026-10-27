@@ -8,6 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\data\Validation.h"><Filter>src\data</Filter></ClInclude>
+    <ClInclude Include="..\data\MazeGeometry.h"><Filter>src\data</Filter></ClInclude>
 	<ClInclude Include="..\data\GameMode.h"><Filter>src\data</Filter></ClInclude>
     <ClCompile Include="..\main.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="..\data\PlayerStore.cpp"><Filter>src\data</Filter></ClCompile>
