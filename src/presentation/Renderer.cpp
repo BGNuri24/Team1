@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "Ui.h"
 #include "rlgl.h"
+#include "../data/MazeGeometry.h"
 #include <algorithm>
 #include <cmath>
 
@@ -9,6 +10,7 @@ constexpr float VIEW_DISTANCE = 15.0f;
 constexpr Color FOG = {7, 16, 21, 255};
 constexpr Color AMBER = {244, 190, 102, 255};
 constexpr Color MINT = {113, 216, 182, 255};
+constexpr int MAX_CEILING_LIGHTS = 6;
 
 // Per-pixel fog and a broad, soft light that follows the player's view.
 // All shader source is embedded: a fresh checkout needs no asset downloads.
@@ -18,13 +20,23 @@ in vec2 vertexTexCoord;
 in vec4 vertexColor;
 uniform mat4 mvp;
 uniform mat4 matModel;
+uniform vec3 ceilingLights[6];
+uniform int ceilingLightCount;
 out vec2 fragTexCoord;
 out vec4 fragColor;
 out vec3 worldPosition;
+out vec3 ceilingIllumination;
 void main() {
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;
     worldPosition = vec3(matModel * vec4(vertexPosition, 1.0));
+    // Broad fixture spill interpolates smoothly across each panel; fog and the
+    // player's soft light remain per-pixel without six light loops per pixel.
+    ceilingIllumination = vec3(0.0);
+    for (int i = 0; i < ceilingLightCount; ++i) {
+        vec3 delta = ceilingLights[i] - worldPosition;
+        ceilingIllumination += vec3(0.95, 0.69, 0.37) * 0.48 / (1.0 + dot(delta, delta)*1.4);
+    }
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }
 )glsl";
@@ -33,6 +45,7 @@ const char* FRAGMENT_SHADER = R"glsl(#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
 in vec3 worldPosition;
+in vec3 ceilingIllumination;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 uniform vec3 eyePosition;
@@ -44,11 +57,12 @@ void main() {
     vec3 offset = worldPosition - eyePosition;
     float distance = length(offset);
     float cone = smoothstep(0.48, 0.98, dot(offset / max(distance, 0.001), viewDirection));
-    float nearby = exp(-distance * 0.23);
-    vec3 light = vec3(0.37, 0.52, 0.59) + nearby * vec3(0.42, 0.43, 0.37)
-        + cone * exp(-distance * 0.12) * vec3(0.75, 0.62, 0.40);
+    float nearby = exp(-distance * 0.18);
+    vec3 light = vec3(0.34, 0.43, 0.48) + nearby * vec3(0.30, 0.33, 0.30)
+        + cone * exp(-distance * 0.10) * vec3(0.47, 0.40, 0.29);
+    light += ceilingIllumination;
     vec3 lit = surface.rgb * mix(light, vec3(1.0), emission);
-    float fog = smoothstep(3.0, 15.0, distance);
+    float fog = smoothstep(5.0, 25.0, distance);
     finalColor = vec4(mix(lit, vec3(0.0275, 0.0627, 0.0824), fog), surface.a);
 }
 )glsl";
@@ -56,10 +70,22 @@ void main() {
 struct Corner { float x, y, z, u, v; };
 struct Wall { float lx, lz, rx, rz; int row, col, side; };
 
+// Decorations are authored in cell coordinates; physics and the camera use world units.
+Vector3 world(Vector3 point) {
+    return {point.x*MazeGeometry::CellSize, point.y*MazeGeometry::CeilingHeight,
+             point.z*MazeGeometry::CellSize};
+}
+
+void detailCube(Vector3 point, float width, float height, float depth, Color color) {
+    DrawCube(world(point), width*MazeGeometry::CellSize, height*MazeGeometry::CeilingHeight,
+             depth*MazeGeometry::CellSize, color);
+}
+
 void emit(const Corner& point, Color color) {
     rlColor4ub(color.r, color.g, color.b, color.a);
     rlTexCoord2f(point.u, point.v);
-    rlVertex3f(point.x, point.y, point.z);
+    Vector3 position = world({point.x, point.y, point.z});
+    rlVertex3f(position.x, position.y, position.z);
 }
 
 void quad(const Corner& a, const Corner& b, const Corner& c, const Corner& d, Color color) {
@@ -84,7 +110,8 @@ template <typename Draw> void nearbyCells(const Game& game, Draw draw) {
     for (int row = std::max(0, game.row()-reach); row <= std::min(size-1, game.row()+reach); ++row)
         for (int col = std::max(0, game.col()-reach); col <= std::min(size-1, game.col()+reach); ++col) {
             if (game.maze().cell(row, col) == '#') continue;
-            float dx = col - game.x(), dz = row - game.z();
+            float dx = col - game.x()/MazeGeometry::CellSize;
+            float dz = row - game.z()/MazeGeometry::CellSize;
             if (dx*dx + dz*dz > (VIEW_DISTANCE+1)*(VIEW_DISTANCE+1)) continue;
             draw(row, col);
         }
@@ -103,6 +130,21 @@ template <typename Draw> void exposedWalls(const Game& game, Draw draw) {
 void floorPatch(float x, float z, float y, float halfWidth, float halfDepth, Color color) {
     quad({x-halfWidth,y,z-halfDepth,0,0}, {x-halfWidth,y,z+halfDepth,0,1},
          {x+halfWidth,y,z+halfDepth,1,1}, {x+halfWidth,y,z-halfDepth,1,0}, color);
+}
+
+bool ceilingFixture(const Game& game, int row, int col) {
+    int neighbours = (game.maze().cell(row-1,col) != '#') + (game.maze().cell(row+1,col) != '#')
+        + (game.maze().cell(row,col-1) != '#') + (game.maze().cell(row,col+1) != '#');
+    return (row+col)%3 == 0 || neighbours >= 3;
+}
+
+void floorLine(float x0, float z0, float x1, float z1, float width, Color color) {
+    float dx = x1-x0, dz = z1-z0;
+    float length = std::sqrt(dx*dx+dz*dz);
+    if (length <= .0001f) return;
+    float nx = -dz/length*width, nz = dx/length*width;
+    quad({x0+nx,.006f,z0+nz,0,0}, {x0-nx,.006f,z0-nz,0,1},
+         {x1-nx,.006f,z1-nz,1,1}, {x1+nx,.006f,z1+nz,1,0}, color);
 }
 
 float wrapAngle(float angle) {
@@ -126,6 +168,8 @@ Renderer::Renderer() {
         eyeLocation = GetShaderLocation(atmosphere, "eyePosition");
         directionLocation = GetShaderLocation(atmosphere, "viewDirection");
         emissionLocation = GetShaderLocation(atmosphere, "emission");
+        ceilingLightsLocation = GetShaderLocation(atmosphere, "ceilingLights");
+        ceilingLightCountLocation = GetShaderLocation(atmosphere, "ceilingLightCount");
     } else {
         atmosphere = {};
     }
@@ -149,9 +193,11 @@ void Renderer::draw(const Game& game) {
         SetShaderValue(atmosphere, eyeLocation, &cam.position, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, directionLocation, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, emissionLocation, &emission, SHADER_UNIFORM_FLOAT);
+        updateCeilingLights(game);
         BeginShaderMode(atmosphere);
     }
     drawMaze(game);
+    drawDetails(game);
     // Flush before changing a uniform, so the surfaces keep their own lighting.
     rlDrawRenderBatchActive();
     if (atmosphere.id) {
@@ -193,7 +239,7 @@ void Renderer::drawMaze(const Game& game) {
     });
     rlEnd();
 
-    rlSetTexture(0);
+    rlSetTexture(rlGetTextureIdDefault());
     rlBegin(RL_QUADS);
     exposedWalls(game, [](const Wall& wall) {
         // Flush ribs and skirting; every piece stays against the collision surface.
@@ -203,8 +249,91 @@ void Renderer::drawMaze(const Game& game) {
         wallStrip(wall, 0, 1, .935f, .975f, {50, 75, 78, 255});
     });
     rlEnd();
-    rlSetTexture(0);
+    rlSetTexture(rlGetTextureIdDefault());
     // Culling is global OpenGL state, not stored with queued batch vertices.
+    rlDrawRenderBatchActive();
+    rlEnableBackfaceCulling();
+}
+
+void Renderer::updateCeilingLights(const Game& game) {
+    Vector3 positions[MAX_CEILING_LIGHTS]{};
+    float distances[MAX_CEILING_LIGHTS]{};
+    int count = 0;
+    nearbyCells(game,[&](int row,int col) {
+        if (!ceilingFixture(game,row,col)) return;
+        Vector3 position = world({(float)col,.94f,(float)row});
+        float dx = position.x-cam.position.x, dy = position.y-cam.position.y, dz = position.z-cam.position.z;
+        float distance = dx*dx+dy*dy+dz*dz;
+        if (count == MAX_CEILING_LIGHTS && distance >= distances[MAX_CEILING_LIGHTS-1]) return;
+        int index = std::min(count,MAX_CEILING_LIGHTS-1);
+        while (index > 0 && distance < distances[index-1]) {
+            positions[index] = positions[index-1];
+            distances[index] = distances[index-1];
+            --index;
+        }
+        positions[index] = position;
+        distances[index] = distance;
+        count = std::min(count+1,MAX_CEILING_LIGHTS);
+    });
+    SetShaderValue(atmosphere,ceilingLightCountLocation,&count,SHADER_UNIFORM_INT);
+    if (count) SetShaderValueV(atmosphere,ceilingLightsLocation,positions,SHADER_UNIFORM_VEC3,count);
+}
+
+void Renderer::drawDetails(const Game& game) {
+    rlDisableBackfaceCulling();
+    rlSetTexture(tex.decals.id);
+    rlBegin(RL_QUADS);
+    exposedWalls(game,[&](const Wall& wall) {
+        if (game.maze().cell(wall.row,wall.col) == 'E') return;
+        int hash = wall.row*53 + wall.col*17 + wall.side*13;
+        bool welcome = wall.row == 0 && wall.col == 0 && wall.side == 0;
+        if (!welcome && hash%19 > 2) return;
+        int slot = welcome ? 0 : (hash/19)%4;
+        const float dx = wall.rx-wall.lx, dz = wall.rz-wall.lz;
+        float x0 = wall.lx+dx*.17f-dz*.008f, z0 = wall.lz+dz*.17f+dx*.008f;
+        float x1 = wall.lx+dx*.83f-dz*.008f, z1 = wall.lz+dz*.83f+dx*.008f;
+        float top = slot*.25f+.001f, bottom = (slot+1)*.25f-.001f;
+        quad({x0,.42f,z0,.001f,bottom},{x1,.42f,z1,.999f,bottom},
+             {x1,.64f,z1,.999f,top},{x0,.64f,z0,.001f,top},WHITE);
+    });
+    rlEnd();
+    rlSetTexture(rlGetTextureIdDefault());
+    rlBegin(RL_QUADS);
+    exposedWalls(game,[](const Wall& wall) {
+        int hash = wall.row*53+wall.col*17+wall.side*13;
+        // Brushed copper service conduit runs above the plaques.
+        wallStrip(wall,.03f,.97f,.718f,.727f,{129,113,81,255},.007f);
+        wallStrip(wall,.10f,.12f,.704f,.742f,{51,70,68,255},.010f);
+        wallStrip(wall,.88f,.90f,.704f,.742f,{51,70,68,255},.010f);
+        if (hash%7 != 0 || hash%19 <= 2) return;
+        wallStrip(wall,.63f,.92f,.225f,.37f,{15,32,40,255},.006f);
+        wallStrip(wall,.62f,.93f,.22f,.229f,{110,116,102,255},.009f);
+        wallStrip(wall,.62f,.93f,.367f,.376f,{66,89,89,255},.009f);
+        for (int i=0;i<5;++i)
+            wallStrip(wall,.645f,.905f,.241f+i*.025f,.248f+i*.025f,{69,89,91,255},.011f);
+    });
+    nearbyCells(game,[&](int row,int col) {
+        int neighbours = (game.maze().cell(row-1,col) != '#')+(game.maze().cell(row+1,col) != '#')
+            +(game.maze().cell(row,col-1) != '#')+(game.maze().cell(row,col+1) != '#');
+        float x = (float)col, z = (float)row;
+        if (neighbours >= 3 || (row*7+col*3)%11 == 0) {
+            for (int i=0;i<16;++i) {
+                if (i%4 == 0) continue;
+                float a = i*2*PI/16, b = (i+.76f)*2*PI/16;
+                floorLine(x+std::cos(a)*.20f,z+std::sin(a)*.20f,
+                          x+std::cos(b)*.20f,z+std::sin(b)*.20f,.004f,{147,133,98,200});
+            }
+            floorLine(x-.07f,z,x+.07f,z,.004f,{147,133,98,180});
+            floorLine(x,z-.07f,x,z+.07f,.004f,{147,133,98,180});
+        }
+        if (neighbours == 1) {
+            // A small service hatch marking at dead ends, with no directional arrows.
+            for (int i=0;i<5;++i)
+                floorLine(x-.17f+i*.06f,z+.31f,x-.14f+i*.06f,z+.25f,.006f,{158,126,72,200});
+        }
+    });
+    rlEnd();
+    rlSetTexture(rlGetTextureIdDefault());
     rlDrawRenderBatchActive();
     rlEnableBackfaceCulling();
 }
@@ -213,7 +342,7 @@ void Renderer::drawLights(const Game& game) {
     const Color accent = game.mode() == GameMode::ZeroGravity ? MINT : AMBER;
     const float time = (float)GetTime();
     rlDisableBackfaceCulling();
-    rlSetTexture(0);
+    rlSetTexture(rlGetTextureIdDefault());
     rlBegin(RL_QUADS);
     exposedWalls(game, [&](const Wall& wall) {
         wallStrip(wall, .09f, .91f, .097f, .103f, Fade(accent, .65f), .006f);
@@ -228,10 +357,6 @@ void Renderer::drawLights(const Game& game) {
     });
     nearbyCells(game, [&](int row, int col) {
         float x = (float)col, z = (float)row;
-        if ((row + col) % 3 == 0) {
-            floorPatch(x, z, .982f, .24f, .07f, {25, 42, 47, 255});
-            floorPatch(x, z, .979f, .18f, .022f, {161, 194, 187, 255});
-        }
         if (game.seenState(row, col) == 2) {
             // Breadcrumbs mark only places actually walked, never the solution.
             for (int i = -1; i <= 1; ++i)
@@ -242,9 +367,23 @@ void Renderer::drawLights(const Game& game) {
     rlDrawRenderBatchActive();
     rlEnableBackfaceCulling();
 
+    // Suspended warm diffusers and slender supports sit above attachment clearance.
+    nearbyCells(game, [&](int row, int col) {
+        if (!ceilingFixture(game,row,col)) return;
+        const float x = (float)col, z = (float)row;
+        const bool alongZ = game.maze().cell(row-1,col) != '#' || game.maze().cell(row+1,col) != '#';
+        const float w = alongZ ? .22f : .56f, d = alongZ ? .56f : .22f;
+        detailCube({x,.955f,z},w,.024f,d,{36,51,51,255});
+        detailCube({x,.940f,z},w-.04f,.007f,d-.04f,{255,220,158,255});
+        detailCube({x,.936f,z},w-.07f,.003f,d-.07f,{255,240,195,255});
+        const float sx = alongZ ? .055f : .19f, sz = alongZ ? .19f : .055f;
+        for (float side : {-1.0f,1.0f})
+            detailCube({x+sx*side,.984f,z+sz*side},.005f,.028f,.005f,{136,119,86,255});
+    });
+
     // A recognizable doorway replaces the old solid green cube.
     const int last = game.maze().size()-1;
-    float dx = last-game.x(), dz = last-game.z();
+    float dx = last-game.x()/MazeGeometry::CellSize, dz = last-game.z()/MazeGeometry::CellSize;
     if (dx*dx + dz*dz > VIEW_DISTANCE*VIEW_DISTANCE) return;
     bool northEntrance = game.maze().cell(last-1, last) != '#';
     auto point = [last, northEntrance](float across, float y) -> Vector3 {
@@ -253,20 +392,21 @@ void Renderer::drawLights(const Game& game) {
     };
     float pulse = .85f + .15f * std::sin(time*1.7f);
     for (float side : {-.34f, .34f}) {
-        DrawCube(point(side, .47f), .075f, .88f, .075f, {35, 76, 73, 255});
+        detailCube(point(side, .47f), .075f, .88f, .075f, {35, 76, 73, 255});
         Vector3 light = point(side, .47f);
         if (northEntrance) light.z -= .041f;
         else light.x -= .041f;
-        DrawCube(light, northEntrance ? .024f : .006f, .80f,
+        detailCube(light, northEntrance ? .024f : .006f, .80f,
                  northEntrance ? .006f : .024f, MINT);
     }
-    DrawCube(point(0, .9f), northEntrance ? .75f : .08f, .07f, northEntrance ? .08f : .75f, MINT);
-    DrawCube(point(0, .06f), northEntrance ? .75f : .08f, .045f, northEntrance ? .08f : .75f, MINT);
-    DrawCube({(float)last, .012f, (float)last}, .72f, .018f, .72f, {31, 83, 71, 255});
-    DrawCubeWires({(float)last, .025f, (float)last}, .73f, .02f, .73f, MINT);
+    detailCube(point(0, .9f), northEntrance ? .75f : .08f, .07f, northEntrance ? .08f : .75f, MINT);
+    detailCube(point(0, .06f), northEntrance ? .75f : .08f, .045f, northEntrance ? .08f : .75f, MINT);
+    detailCube({(float)last, .012f, (float)last}, .72f, .018f, .72f, {31, 83, 71, 255});
+    DrawCubeWires(world({(float)last,.025f,(float)last}),.73f*MazeGeometry::CellSize,
+                   .02f*MazeGeometry::CeilingHeight,.73f*MazeGeometry::CellSize,MINT);
     for (int i = 0; i < 4; ++i) {
         float y = .22f + std::fmod(time*.12f + i*.18f, .55f);
-        DrawCube(point(0, y), northEntrance ? .54f : .008f, .007f,
+        detailCube(point(0, y), northEntrance ? .54f : .008f, .007f,
                  northEntrance ? .008f : .54f, Fade(MINT, .12f*pulse));
     }
 }
@@ -347,7 +487,8 @@ void Renderer::drawMinimap(const Game& game) {
             : seen == 2 ? Color{140, 117, 77, 255} : Color{25, 48, 56, 255};
         DrawRectangle(x+col*cell, y+row*cell, cell, cell, color);
     }
-    float px = x+(game.x()+.5f)*cell, py = y+(game.z()+.5f)*cell;
+    float px = x+(game.x()/MazeGeometry::CellSize+.5f)*cell;
+    float py = y+(game.z()/MazeGeometry::CellSize+.5f)*cell;
     float radius = std::max(2.0f, cell*.48f);
     DrawCircleV({px,py}, radius, Amber);
     DrawLineEx({px,py}, {px+std::cos(game.yaw())*radius*3, py+std::sin(game.yaw())*radius*3},

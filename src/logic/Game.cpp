@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 
+using namespace MazeGeometry;
+
 static float dot(const Vector3& a, const Vector3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
@@ -34,9 +36,9 @@ static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float ang
 }
 
 Game::Game(int mazeSize, float seconds, GameMode mode)
-    : gameMode(mode), mazeData(mazeSize), px(0), py(0.5f), pz(0), lookDirection{ 1, 0, 0 },
+    : gameMode(mode), mazeData(mazeSize), px(0), py(StandingEyeHeight), pz(0), lookDirection{ 1, 0, 0 },
     gravityUp{ 0, 1, 0 }, rollFrom{ 0, 1, 0 }, rollAxis{ 1, 0, 0 },
-    rollAngle(0), rollTime(0.25f), transitionFromPosition{ 0, 0.5f, 0 },
+    rollAngle(0), rollTime(0.25f), transitionFromPosition{ 0, StandingEyeHeight, 0 },
     transitionFromDirection{ 1, 0, 0 }, attachedToSurface(false),
     hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0), points(0) {
     int n = mazeData.size();
@@ -48,20 +50,20 @@ Game::Game(int mazeSize, float seconds, GameMode mode)
 }
 
 bool Game::isWall(float x, float z) const {
-    int c = (int)std::floor(x + 0.5f);
-    int r = (int)std::floor(z + 0.5f);
+    int c = cellIndex(x);
+    int r = cellIndex(z);
     return mazeData.cell(r, c) == '#';
 }
 
 bool Game::canMove(float x, float z) const {
-    const float m = 0.1f;
+    const float m = PlayerRadius;
     return !isWall(x - m, z - m) && !isWall(x + m, z - m) &&
         !isWall(x - m, z + m) && !isWall(x + m, z + m);
 }
 
 bool Game::hasSurfaceSupport(float x, float z) const {
-    int r = (int)std::floor(z + 0.5f);
-    int c = (int)std::floor(x + 0.5f);
+    int r = cellIndex(z);
+    int c = cellIndex(x);
     if (std::fabs(gravityUp.y) > 0.5f) return mazeData.cell(r, c) != '#';
     if (gravityUp.x > 0.5f) return mazeData.cell(r, c - 1) == '#';
     if (gravityUp.x < -0.5f) return mazeData.cell(r, c + 1) == '#';
@@ -105,15 +107,15 @@ bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
         };
 
     if (lookDirection.y > 0.001f) {
-        float distance = (1.0f - py) / lookDirection.y;
+        float distance = (CeilingHeight - py) / lookDirection.y;
         float hitX = px + lookDirection.x * distance;
         float hitZ = pz + lookDirection.z * distance;
         if (distance > 0.0f && distance < nearest && mazeData.cell(
-            (int)std::floor(hitZ + 0.5f), (int)std::floor(hitX + 0.5f)) != '#')
-            consider(distance, { 0, -1, 0 }, { hitX, 1.0f, hitZ });
+            cellIndex(hitZ), cellIndex(hitX)) != '#')
+            consider(distance, { 0, -1, 0 }, { hitX, CeilingHeight, hitZ });
     }
 
-    int reach = (int)std::ceil(maxDistance) + 1;
+    int reach = (int)std::ceil(maxDistance / CellSize) + 1;
     int r0 = std::max(0, row() - reach);
     int r1 = std::min(mazeData.size() - 1, row() + reach);
     int c0 = std::max(0, col() - reach);
@@ -133,29 +135,29 @@ bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
             float hitX = px + lookDirection.x * distance;
             float hitY = py + lookDirection.y * distance;
             float hitZ = pz + lookDirection.z * distance;
-            if (hitY < 0.0f || hitY > 1.0f ||
-                hitX < c - 0.5f || hitX > c + 0.5f ||
-                hitZ < r - 0.5f || hitZ > r + 0.5f) return;
+            if (hitY < 0.0f || hitY > CeilingHeight ||
+                hitX < cellCenter(c) - HalfCell || hitX > cellCenter(c) + HalfCell ||
+                hitZ < cellCenter(r) - HalfCell || hitZ > cellCenter(r) + HalfCell) return;
             consider(distance, faceNormal, { hitX, hitY, hitZ });
         };
 
     for (int r = r0; r <= r1; r++) {
         for (int c = c0; c <= c1; c++) {
-            float x = (float)c;
-            float z = (float)r;
-            testWallFace(r, c, r - 1, c, { 0, 0, 1 }, z - 0.5f, false);
-            testWallFace(r, c, r + 1, c, { 0, 0, -1 }, z + 0.5f, false);
-            testWallFace(r, c, r, c - 1, { 1, 0, 0 }, x - 0.5f, true);
-            testWallFace(r, c, r, c + 1, { -1, 0, 0 }, x + 0.5f, true);
+            float x = cellCenter(c);
+            float z = cellCenter(r);
+            testWallFace(r, c, r - 1, c, { 0, 0, 1 }, z - HalfCell, false);
+            testWallFace(r, c, r + 1, c, { 0, 0, -1 }, z + HalfCell, false);
+            testWallFace(r, c, r, c - 1, { 1, 0, 0 }, x - HalfCell, true);
+            testWallFace(r, c, r, c + 1, { -1, 0, 0 }, x + HalfCell, true);
         }
     }
     return found;
 }
 
 bool Game::attachToSurface(const Vector3& normal, const Vector3& contact) {
-    Vector3 targetPosition = added(contact, scaled(normal, 0.22f));
-    int targetRow = (int)std::floor(targetPosition.z + 0.5f);
-    int targetCol = (int)std::floor(targetPosition.x + 0.5f);
+    Vector3 targetPosition = added(contact, scaled(normal, SurfaceOffset));
+    int targetRow = cellIndex(targetPosition.z);
+    int targetCol = cellIndex(targetPosition.x);
     if (!canMove(targetPosition.x, targetPosition.z)) return false;
 
     bool supported = false;
@@ -166,7 +168,7 @@ bool Game::attachToSurface(const Vector3& normal, const Vector3& contact) {
     else if (normal.z < -0.5f) supported = mazeData.cell(targetRow + 1, targetCol) == '#';
     if (!supported) return false;
 
-    targetPosition.y = normal.y < -0.5f ? 0.78f : std::clamp(targetPosition.y, 0.1f, 0.9f);
+    targetPosition.y = normal.y < -0.5f ? CeilingHeight - SurfaceOffset : std::clamp(targetPosition.y, PlayerRadius, CeilingHeight - PlayerRadius);
     beginSurfaceTransition(normal, targetPosition, true);
     return true;
 }
@@ -179,30 +181,30 @@ bool Game::transitionToAdjacentWall(int side) {
     if (side == 0) {
         wallR--;
         normal = { 0, 0, 1 };
-        contact.z = r - 0.5f;
+        contact.z = cellCenter(r) - HalfCell;
     }
     else if (side == 1) {
         wallR++;
         normal = { 0, 0, -1 };
-        contact.z = r + 0.5f;
+        contact.z = cellCenter(r) + HalfCell;
     }
     else if (side == 2) {
         wallC--;
         normal = { 1, 0, 0 };
-        contact.x = c - 0.5f;
+        contact.x = cellCenter(c) - HalfCell;
     }
     else {
         wallC++;
         normal = { -1, 0, 0 };
-        contact.x = c + 0.5f;
+        contact.x = cellCenter(c) + HalfCell;
     }
     if (mazeData.cell(wallR, wallC) != '#') return false;
     return attachToSurface(normal, contact);
 }
 
 bool Game::transitionToNearestWall(float x, float z) {
-    int r = (int)std::floor(z + 0.5f);
-    int c = (int)std::floor(x + 0.5f);
+    int r = cellIndex(z);
+    int c = cellIndex(x);
     if (mazeData.cell(r, c) == '#') return false;
 
     float bestScore = 1000.0f;
@@ -221,18 +223,18 @@ bool Game::transitionToNearestWall(float x, float z) {
             }
         };
 
-    float clampedX = std::clamp(x, c - 0.5f, c + 0.5f);
-    float clampedZ = std::clamp(z, r - 0.5f, r + 0.5f);
-    consider(r - 1, c, { 0, 0, 1 }, { clampedX, py, r - 0.5f }, std::fabs(z - (r - 0.5f)));
-    consider(r + 1, c, { 0, 0, -1 }, { clampedX, py, r + 0.5f }, std::fabs(z - (r + 0.5f)));
-    consider(r, c - 1, { 1, 0, 0 }, { c - 0.5f, py, clampedZ }, std::fabs(x - (c - 0.5f)));
-    consider(r, c + 1, { -1, 0, 0 }, { c + 0.5f, py, clampedZ }, std::fabs(x - (c + 0.5f)));
+    float clampedX = std::clamp(x, cellCenter(c) - HalfCell, cellCenter(c) + HalfCell);
+    float clampedZ = std::clamp(z, cellCenter(r) - HalfCell, cellCenter(r) + HalfCell);
+    consider(r - 1, c, { 0, 0, 1 }, { clampedX, py, cellCenter(r) - HalfCell }, std::fabs(z - (cellCenter(r) - HalfCell)));
+    consider(r + 1, c, { 0, 0, -1 }, { clampedX, py, cellCenter(r) + HalfCell }, std::fabs(z - (cellCenter(r) + HalfCell)));
+    consider(r, c - 1, { 1, 0, 0 }, { cellCenter(c) - HalfCell, py, clampedZ }, std::fabs(x - (cellCenter(c) - HalfCell)));
+    consider(r, c + 1, { -1, 0, 0 }, { cellCenter(c) + HalfCell, py, clampedZ }, std::fabs(x - (cellCenter(c) + HalfCell)));
     return found && attachToSurface(chosenNormal, chosenContact);
 }
 
 void Game::toggleGravity() {
     if (attachedToSurface) {
-        beginSurfaceTransition({ 0, 1, 0 }, { px, 0.5f, pz }, false);
+        beginSurfaceTransition({ 0, 1, 0 }, { px, StandingEyeHeight, pz }, false);
         return;
     }
 
@@ -286,32 +288,37 @@ void Game::update(const InputState& in) {
     float movementLength = std::sqrt(dot(movement, movement));
     if (movementLength > 1.0f) movement = scaled(movement, 1.0f / movementLength);
 
-    float step = 3.0f * in.dt;
-    // Keep X before Z and stop immediately when either axis changes surfaces.
-    if (moveHorizontal(movement.x, step, true) || moveHorizontal(movement.z, step, false)) {
-        reveal();
-        return;
+    float step = MovementSpeed * in.dt;
+    // Swept substeps keep a slow frame from skipping a whole wall cell.
+    // Keep X before Z and stop immediately if either axis changes surfaces.
+    int substeps = std::max(1, (int)std::ceil(step / (PlayerRadius * 0.75f)));
+    float substep = step / substeps;
+    for (int part = 0; part < substeps; ++part) {
+        if (moveHorizontal(movement.x, substep, true) || moveHorizontal(movement.z, substep, false)) {
+            reveal();
+            return;
+        }
     }
 
     if (attachedToSurface && std::fabs(gravityUp.y) < 0.5f) {
         float nextY = py + movement.y * step;
-        if (nextY < 0.1f) {
-            beginSurfaceTransition({ 0, 1, 0 }, { px, 0.22f, pz }, false);
+        if (nextY < PlayerRadius) {
+            beginSurfaceTransition({ 0, 1, 0 }, { px, StandingEyeHeight, pz }, false);
             reveal();
             return;
         }
-        if (nextY > 0.9f) {
-            beginSurfaceTransition({ 0, -1, 0 }, { px, 0.78f, pz }, true);
+        if (nextY > CeilingHeight - PlayerRadius) {
+            beginSurfaceTransition({ 0, -1, 0 }, { px, CeilingHeight - SurfaceOffset, pz }, true);
             reveal();
             return;
         }
         py = nextY;
     }
     else if (attachedToSurface) {
-        py = std::clamp(py + movement.y * step, 0.1f, 0.9f);
+        py = std::clamp(py + movement.y * step, PlayerRadius, CeilingHeight - PlayerRadius);
     }
     else {
-        py = 0.5f;
+        py = StandingEyeHeight;
     }
 
     reveal();
@@ -330,7 +337,7 @@ bool Game::moveHorizontal(float movement, float step, bool alongX) {
         }
         else if (std::fabs(gravityUp.y) < 0.5f) {
             if (!transitionToNearestWall(nextX, nextZ))
-                beginSurfaceTransition({ 0, 1, 0 }, { nextX, 0.22f, nextZ }, false);
+                beginSurfaceTransition({ 0, 1, 0 }, { nextX, StandingEyeHeight, nextZ }, false);
             return true;
         }
     }
@@ -363,8 +370,8 @@ Vector3 Game::cameraUp() const {
 }
 bool Game::surfaceAttached() const { return attachedToSurface; }
 GameMode Game::mode() const { return gameMode; }
-int Game::row() const { return (int)std::floor(pz + 0.5f); }
-int Game::col() const { return (int)std::floor(px + 0.5f); }
+int Game::row() const { return cellIndex(pz); }
+int Game::col() const { return cellIndex(px); }
 
 int Game::seenState(int r, int c) const {
     int n = mazeData.size();

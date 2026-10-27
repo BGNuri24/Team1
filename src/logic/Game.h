@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "../data/MazeData.h"
 #include "../data/GameMode.h"
+#include "../data/MazeGeometry.h"
 #include <vector>
 
 struct InputState {

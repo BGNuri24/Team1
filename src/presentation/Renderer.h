@@ -16,6 +16,8 @@ private:
     void drawMinimap(const Game& game);
     void drawHud(const Game& game);
     void drawLights(const Game& game);
+    void drawDetails(const Game& game);
+    void updateCeilingLights(const Game& game);
 
     Camera3D cam;
     Textures tex;
@@ -23,4 +25,6 @@ private:
     int eyeLocation = -1;
     int directionLocation = -1;
     int emissionLocation = -1;
+    int ceilingLightsLocation = -1;
+    int ceilingLightCountLocation = -1;
 };
