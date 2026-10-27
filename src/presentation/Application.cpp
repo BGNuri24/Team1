@@ -3,6 +3,7 @@
 
 Application::Application()
     : playerSelect(players),
+    pauseMenu(settings),
     currentSize(0),
     currentSeconds(0),
     currentMode(GameMode::Normal),

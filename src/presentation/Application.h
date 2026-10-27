@@ -11,6 +11,7 @@
 #include "Screen.h"
 #include "../logic/Game.h"
 #include "../logic/Players.h"
+#include "../logic/GameSettings.h"
 #include <memory>
 
 class Application {
@@ -31,6 +32,7 @@ private:
     Screen startGame();
 
     Players players;
+    GameSettings settings;
     Renderer renderer;
     MainMenu mainMenu;
     ControlsScreen controls;

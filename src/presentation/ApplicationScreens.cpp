@@ -50,7 +50,7 @@ Screen Application::updateGenerating() {
 }
 
 Screen Application::updatePlaying() {
-    game->update(readInput());
+    game->update(readInput(settings.sensitivityMultiplier()));
     bool pause = IsKeyPressed(KEY_ESCAPE);
     drawFrame([&] { renderer.draw(*game); });
 
