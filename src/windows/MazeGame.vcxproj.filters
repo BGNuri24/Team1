@@ -8,12 +8,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\data\Validation.h"><Filter>src\data</Filter></ClInclude>
+    <ClInclude Include="..\data\SettingsStore.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\MazeGeometry.h"><Filter>src\data</Filter></ClInclude>
 	<ClInclude Include="..\data\GameMode.h"><Filter>src\data</Filter></ClInclude>
     <ClCompile Include="..\main.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="..\data\PlayerStore.cpp"><Filter>src\data</Filter></ClCompile>
+    <ClCompile Include="..\data\SettingsStore.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\data\MazeData.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\logic\Players.cpp"><Filter>src\logic</Filter></ClCompile>
+    <ClCompile Include="..\logic\GameSettings.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\Game.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\presentation\LevelSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Input.cpp"><Filter>src\presentation</Filter></ClCompile>
@@ -47,6 +50,7 @@
     <ClInclude Include="..\presentation\Application.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\logic\Players.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Game.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\logic\GameSettings.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Difficulty.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\data\PlayerStore.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\MazeData.h"><Filter>src\data</Filter></ClInclude>

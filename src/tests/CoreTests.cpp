@@ -1,9 +1,11 @@
 #include "../data/MazeData.h"
 #include "../data/PlayerStore.h"
 #include "../logic/Players.h"
+#include "../logic/GameSettings.h"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <iostream>
 #include <queue>
@@ -193,6 +195,110 @@ static void testSeparateModeRecords() {
         "removing a player must clear records from both modes");
 }
 
+static std::string readFile(const char* path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+static void clearSettingsTestData() {
+    std::error_code error;
+    std::filesystem::create_directories("save_data", error);
+    require(!error, "could not create settings test directory");
+    // These are exclusively owned by this isolated test fixture.
+    const char* paths[] = {"save_data/settings.txt.tmp/blocker.txt", "save_data/settings.txt/blocker.txt",
+        "save_data/settings.txt", "save_data/settings.txt.tmp", "save_data/settings.txt.bak"};
+    for (const char* path : paths) {
+        error.clear();
+        std::filesystem::remove(path, error);
+        // A regular settings file has no blocker child.
+        if (error == std::errc::not_a_directory) error.clear();
+        require(!error, std::string("could not clear settings test data: ")+path);
+    }
+}
+
+static void testMouseSensitivitySettings() {
+    clearSettingsTestData();
+    const std::string playersBefore = readFile("save_data/players.txt");
+    const std::string timesBefore = readFile("save_data/best_times.txt");
+    GameSettings settings;
+    require(settings.sensitivityPercent() == 100 && settings.sensitivityMultiplier() == 1.0f &&
+        !settings.hasUnsavedChanges(), "missing settings should use clean default sensitivity");
+    require(settings.save() && !std::filesystem::exists("save_data/settings.txt"),
+        "loading or saving unchanged defaults must not create a settings file");
+    settings.setSensitivityPercent(100);
+    require(!settings.hasUnsavedChanges(), "setting the current sensitivity should remain clean");
+    settings.setSensitivityPercent(125);
+    require(settings.sensitivityMultiplier() == 1.25f && settings.hasUnsavedChanges(),
+        "live sensitivity must update before saving");
+    require(settings.save() && !settings.hasUnsavedChanges() &&
+        GameSettings().sensitivityPercent() == 125, "sensitivity should persist across reloads");
+    settings.setSensitivityPercent(-10);
+    require(settings.sensitivityPercent() == GameSettings::MinSensitivity &&
+        settings.sensitivityMultiplier() == .25f, "sensitivity should clamp at the lower limit");
+    require(settings.save() && GameSettings().sensitivityPercent() == 25,
+        "minimum sensitivity should round-trip");
+    settings.setSensitivityPercent(999);
+    require(settings.sensitivityPercent() == GameSettings::MaxSensitivity &&
+        settings.sensitivityMultiplier() == 3.0f, "sensitivity should clamp at the upper limit");
+    require(settings.save() && GameSettings().sensitivityPercent() == 300,
+        "maximum sensitivity should round-trip");
+    settings.resetSensitivity();
+    require(settings.sensitivityPercent() == 100 && settings.hasUnsavedChanges() && settings.save() &&
+        GameSettings().sensitivityPercent() == 100, "reset should restore and persist the default");
+
+    const char* malformed[] = {"", "other_setting 100", "mouse_sensitivity", "mouse_sensitivity word",
+        "mouse_sensitivity 24", "mouse_sensitivity 301", "mouse_sensitivity -25",
+        "mouse_sensitivity 125 extra", "mouse_sensitivity 125\nmouse_sensitivity 200",
+        "mouse_sensitivity 125.5", "mouse_sensitivity nan", "mouse_sensitivity 999999999999999999999999"};
+    for (const char* content : malformed) {
+        std::ofstream("save_data/settings.txt", std::ios::binary | std::ios::trunc) << content;
+        GameSettings loaded;
+        require(loaded.sensitivityPercent() == 100 && !loaded.hasUnsavedChanges(),
+            "malformed or out-of-range settings should safely use defaults");
+        require(readFile("save_data/settings.txt") == content,
+            "loading malformed settings should not rewrite them");
+    }
+    std::ofstream("save_data/settings.txt", std::ios::binary | std::ios::trunc)
+        << "\r\n mouse_sensitivity 175\r\n\t";
+    require(GameSettings().sensitivityPercent() == 175, "settings should tolerate surrounding whitespace");
+
+    // An interrupted file replacement can be read without performing writes during load.
+    std::filesystem::remove("save_data/settings.txt");
+    std::ofstream("save_data/settings.txt.bak") << "mouse_sensitivity 150\n";
+    GameSettings recovered;
+    require(recovered.sensitivityPercent() == 150 && !std::filesystem::exists("save_data/settings.txt"),
+        "an interrupted save should recover its backup without writing on load");
+    recovered.setSensitivityPercent(175);
+    require(recovered.save() && GameSettings().sensitivityPercent() == 175,
+        "saving after backup recovery should retain the new value");
+
+    // A blocked temporary destination must leave both live and saved values intact.
+    recovered.setSensitivityPercent(75);
+    require(recovered.save(), "save-failure fixture should have a previous setting");
+    std::filesystem::create_directory("save_data/settings.txt.tmp");
+    std::ofstream("save_data/settings.txt.tmp/blocker.txt") << "keep";
+    recovered.setSensitivityPercent(200);
+    require(!recovered.save() && recovered.hasUnsavedChanges() && recovered.sensitivityPercent() == 200,
+        "save failure must retain the desired live sensitivity for retry");
+    require(GameSettings().sensitivityPercent() == 75,
+        "save failure must not replace the previously saved setting");
+    std::filesystem::remove("save_data/settings.txt.tmp/blocker.txt");
+    std::filesystem::remove("save_data/settings.txt.tmp");
+    require(recovered.save() && !recovered.hasUnsavedChanges() &&
+        GameSettings().sensitivityPercent() == 200, "a failed save should succeed after the blocker is removed");
+
+    std::filesystem::remove("save_data/settings.txt");
+    std::filesystem::create_directory("save_data/settings.txt");
+    std::ofstream("save_data/settings.txt/blocker.txt") << "keep";
+    recovered.setSensitivityPercent(250);
+    require(!recovered.save() && readFile("save_data/settings.txt/blocker.txt") == "keep",
+        "a directory at the settings path must not be renamed or overwritten");
+    clearSettingsTestData();
+    require(readFile("save_data/players.txt") == playersBefore &&
+        readFile("save_data/best_times.txt") == timesBefore,
+        "settings changes must not modify profiles or best-time records");
+}
+
 int main() {
     try {
         std::srand(1234);
@@ -202,6 +308,7 @@ int main() {
         testPlayerStore();
         testProfilesAndValidation();
         testSeparateModeRecords();
+        testMouseSensitivitySettings();
     }
     catch (const std::exception& error) {
         std::cerr << "Test failure: " << error.what() << '\n';

@@ -1,15 +1,19 @@
 #include "Input.h"
 #include "raylib.h"
+#include <algorithm>
+#include <cmath>
 
-InputState readInput() {
+InputState readInput(float sensitivity) {
     InputState in;
     in.forward = (float)(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
         - (float)(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN));
     in.right = (float)(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
         - (float)(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT));
     Vector2 md = GetMouseDelta();
-    in.mouseDX = md.x;
-    in.mouseDY = md.y;
+    const float multiplier = std::isfinite(sensitivity)
+        ? std::clamp(sensitivity, 0.25f, 3.0f) : 1.0f;
+    in.mouseDX = md.x * multiplier;
+    in.mouseDY = md.y * multiplier;
     in.dt = GetFrameTime();
     in.gravityToggle = IsKeyPressed(KEY_G);
     return in;

@@ -9,3 +9,6 @@ build-*/
 *.obj
 *.pdb
 *.vcxproj.user
+/save_data/settings.txt
+/save_data/settings.txt.tmp
+/save_data/settings.txt.bak

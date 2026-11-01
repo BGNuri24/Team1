@@ -30,8 +30,10 @@
   <ItemGroup>
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
+    <ClCompile Include="..\data\SettingsStore.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />
     <ClCompile Include="..\logic\Players.cpp" />
+    <ClCompile Include="..\logic\GameSettings.cpp" />
     <ClCompile Include="..\logic\Game.cpp" />
     <ClCompile Include="..\presentation\LevelSelect.cpp" />
     <ClCompile Include="..\presentation\Input.cpp" />
@@ -50,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\data\Validation.h" />
+    <ClInclude Include="..\data\SettingsStore.h" />
     <ClInclude Include="..\data\MazeGeometry.h" />
 	<ClInclude Include="..\data\GameMode.h" />
     <ClInclude Include="..\presentation\Ui.h" />
@@ -68,6 +71,7 @@
     <ClInclude Include="..\presentation\Application.h" />
     <ClInclude Include="..\logic\Players.h" />
     <ClInclude Include="..\logic\Game.h" />
+    <ClInclude Include="..\logic\GameSettings.h" />
     <ClInclude Include="..\logic\Difficulty.h" />
     <ClInclude Include="..\data\PlayerStore.h" />
     <ClInclude Include="..\data\MazeData.h" />

@@ -3,6 +3,7 @@
 #include <array>
 #include <deque>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 // Feed deterministic keyboard events without requiring a window or taking focus.
@@ -72,6 +73,24 @@ int main() {
         require(input.forward == 0 && input.right == 1 && input.gravityToggle &&
                 input.mouseDX == 12 && input.mouseDY == -8 && input.dt == 0.125f,
                 "movement, mouse and gravity input must retain their mappings");
+
+        auto requireSensitivity = [&](float multiplier, float expectedX, float expectedY) {
+            InputState scaled = readInput(multiplier);
+            require(scaled.mouseDX == expectedX && scaled.mouseDY == expectedY,
+                "sensitivity must scale horizontal and vertical mouse look together");
+            require(scaled.forward == input.forward && scaled.right == input.right &&
+                scaled.dt == input.dt && scaled.gravityToggle == input.gravityToggle,
+                "sensitivity must not affect movement, timing or gravity controls");
+        };
+        requireSensitivity(0.5f, 6, -4);
+        requireSensitivity(2.0f, 24, -16);
+        requireSensitivity(0.25f, 3, -2);
+        requireSensitivity(3.0f, 36, -24);
+        requireSensitivity(-10.0f, 3, -2);
+        requireSensitivity(10.0f, 36, -24);
+        requireSensitivity(std::numeric_limits<float>::quiet_NaN(), 12, -8);
+        requireSensitivity(std::numeric_limits<float>::infinity(), 12, -8);
+        requireSensitivity(-std::numeric_limits<float>::infinity(), 12, -8);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;
