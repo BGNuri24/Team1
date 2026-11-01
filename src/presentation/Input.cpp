@@ -16,6 +16,7 @@ InputState readInput(float sensitivity) {
     in.mouseDY = md.y * multiplier;
     in.dt = GetFrameTime();
     in.gravityToggle = IsKeyPressed(KEY_G);
+    in.jumpPressed = IsKeyPressed(KEY_SPACE) || GetMouseWheelMove() != 0;
     return in;
 }
 
