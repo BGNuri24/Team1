@@ -18,6 +18,8 @@
     <ClCompile Include="..\logic\Players.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\GameSettings.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\Game.cpp"><Filter>src\logic</Filter></ClCompile>
+    <ClCompile Include="..\logic\GameJump.cpp"><Filter>src\logic</Filter></ClCompile>
+    <ClCompile Include="..\logic\JumpMovement.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\presentation\LevelSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Input.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\EndScreen.cpp"><Filter>src\presentation</Filter></ClCompile>
@@ -50,6 +52,7 @@
     <ClInclude Include="..\presentation\Application.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\logic\Players.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Game.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\logic\JumpMovement.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\GameSettings.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Difficulty.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\data\PlayerStore.h"><Filter>src\data</Filter></ClInclude>

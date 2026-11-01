@@ -35,6 +35,8 @@
     <ClCompile Include="..\logic\Players.cpp" />
     <ClCompile Include="..\logic\GameSettings.cpp" />
     <ClCompile Include="..\logic\Game.cpp" />
+    <ClCompile Include="..\logic\GameJump.cpp" />
+    <ClCompile Include="..\logic\JumpMovement.cpp" />
     <ClCompile Include="..\presentation\LevelSelect.cpp" />
     <ClCompile Include="..\presentation\Input.cpp" />
     <ClCompile Include="..\presentation\EndScreen.cpp" />
@@ -71,6 +73,7 @@
     <ClInclude Include="..\presentation\Application.h" />
     <ClInclude Include="..\logic\Players.h" />
     <ClInclude Include="..\logic\Game.h" />
+    <ClInclude Include="..\logic\JumpMovement.h" />
     <ClInclude Include="..\logic\GameSettings.h" />
     <ClInclude Include="..\logic\Difficulty.h" />
     <ClInclude Include="..\data\PlayerStore.h" />
