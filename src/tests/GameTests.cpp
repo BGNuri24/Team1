@@ -8,6 +8,7 @@
 #include <vector>
 
 using namespace MazeGeometry;
+void runJumpTests();
 
 static void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
@@ -180,6 +181,7 @@ static void testReachableExit(int size, GameMode mode = GameMode::Normal) {
 int main() {
     try {
         std::srand(1234);
+        runJumpTests();
         testTimerAndGravity();
         testNormalGravity();
         testZeroGravityWallAttachment();
