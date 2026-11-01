@@ -9,6 +9,7 @@
 // Feed deterministic keyboard events without requiring a window or taking focus.
 static std::array<bool, 512> pressed{}, repeated{}, held{};
 static std::deque<int> characters;
+static float wheel = 0;
 bool IsKeyPressed(int key) { return pressed.at(key); }
 bool IsKeyPressedRepeat(int key) { return repeated.at(key); }
 bool IsKeyDown(int key) { return held.at(key); }
@@ -20,6 +21,7 @@ int GetCharPressed() {
 }
 float GetFrameTime() { return 0.125f; }
 Vector2 GetMouseDelta() { return {12, -8}; }
+float GetMouseWheelMove() { return wheel; }
 
 static void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
@@ -91,6 +93,17 @@ int main() {
         requireSensitivity(std::numeric_limits<float>::quiet_NaN(), 12, -8);
         requireSensitivity(std::numeric_limits<float>::infinity(), 12, -8);
         requireSensitivity(-std::numeric_limits<float>::infinity(), 12, -8);
+        held[KEY_SPACE] = true;
+        require(!readInput().jumpPressed, "holding space must not automatically bunny hop");
+        pressed[KEY_SPACE] = true;
+        require(readInput().jumpPressed, "a fresh space press must request a jump");
+        pressed[KEY_SPACE] = false;
+        wheel = -1;
+        require(readInput().jumpPressed, "wheel down must request a jump");
+        wheel = 1;
+        require(readInput().jumpPressed, "wheel up must request a jump");
+        wheel = 0;
+        require(!readInput().jumpPressed, "jump input must clear between presses");
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;
