@@ -6,27 +6,38 @@
 #include <limits>
 #include <stdexcept>
 
-// Feed deterministic keyboard events without requiring a window or taking focus.
+// Supply deterministic keyboard, text, mouse and timing events through raylib stubs without opening a
+// window.
 static std::array<bool, 512> pressed{}, repeated{}, held{};
 static std::deque<int> characters;
 static float wheel = 0;
+// Return the synthetic initial-press state for one key instead of reading the real keyboard.
 bool IsKeyPressed(int key) { return pressed.at(key); }
+// Return the synthetic repeat state used to test held-key behavior.
 bool IsKeyPressedRepeat(int key) { return repeated.at(key); }
+// Return the synthetic held-key state used by movement mappings.
 bool IsKeyDown(int key) { return held.at(key); }
+// Consume the next queued character, or return zero when the synthetic text-input queue is empty.
 int GetCharPressed() {
     if (characters.empty()) return 0;
     int ch = characters.front();
     characters.pop_front();
     return ch;
 }
+// Supply a fixed frame duration in seconds so input timing assertions are reproducible.
 float GetFrameTime() { return 0.125f; }
+// Supply a fixed two-axis mouse delta for checking sensitivity scaling.
 Vector2 GetMouseDelta() { return {12, -8}; }
+// Return the synthetic wheel event used to verify scroll-based jump requests.
 float GetMouseWheelMove() { return wheel; }
 
+// Stop the input suite with a descriptive exception when an assertion fails.
 static void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
 }
 
+// Exercise menu navigation, filtered text editing, movement mapping, sensitivity bounds and fresh jump
+// input using synthetic events.
 int main() {
     try {
         int selected = 0;

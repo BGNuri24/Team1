@@ -3,6 +3,8 @@ param([Parameter(Mandatory = $true)][string]$Destination)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+# Check required source files and the declared raylib version before reusing or publishing a dependency
+# directory.
 function Test-RaylibSource([string]$Path) {
     $requiredFiles = @(
         'LICENSE', 'src\raylib.h', 'src\config.h', 'src\raymath.h', 'src\rlgl.h',
@@ -17,6 +19,8 @@ function Test-RaylibSource([string]$Path) {
     return [bool](Select-String -LiteralPath (Join-Path $Path 'src\raylib.h') -Pattern '^#define RAYLIB_VERSION\s+"5\.5"' -Quiet)
 }
 
+# Remove a temporary restore directory only after verifying its absolute parent and the expected
+# generated-name prefix.
 function Remove-RestoreDirectory([string]$Path, [string]$Parent) {
     if (!$Path -or !(Test-Path -LiteralPath $Path)) { return }
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)
@@ -37,7 +41,7 @@ if (Test-RaylibSource $Destination) {
 $cacheParent = Split-Path $Destination -Parent
 New-Item -ItemType Directory -Path $cacheParent -Force | Out-Null
 
-# Serialise first-time setup when several checkouts build at the same time.
+# Hold an exclusive cache lock so simultaneous builds cannot install raylib into the same destination.
 $lockPath = $Destination + '.restore.lock'
 $lock = $null
 $deadline = [DateTime]::UtcNow.AddSeconds(120)
@@ -73,7 +77,8 @@ try {
     $extractedSource = Join-Path $temporaryFolder 'raylib-5.5'
     if (!(Test-RaylibSource $extractedSource)) { throw 'The downloaded archive does not contain complete raylib 5.5 sources.' }
 
-    # Install only after extraction succeeds, so an interrupted download can be retried.
+    # Stage the validated source beside the cache and publish it with a directory move only after copying
+    # completes.
     $stagingFolder = Join-Path $cacheParent $folderName
     New-Item -ItemType Directory -Path $stagingFolder | Out-Null
     Copy-Item -LiteralPath (Join-Path $extractedSource 'src'), (Join-Path $extractedSource 'LICENSE') -Destination $stagingFolder -Recurse

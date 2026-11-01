@@ -2,21 +2,26 @@
 #include <cstdlib>
 #include <utility>
 
+// Initialize a wall-filled square grid, carve connected passages, and record the generation steps
+// ending at the exit.
 MazeData::MazeData(int size) : n(size), grid(size * size, '#') {
-    // start at (0,0)
+    // Carve the connected passage network from the top-left starting cell.
     carve(0, 0);  
 
-    // even size: connect the corner
+    // For even dimensions, connect the carved grid to the bottom-right corner,
+    // which lies outside the generator's two-cell stepping pattern.
     if (n % 2 == 0) {
         grid[(n - 2) * n + n - 1] = '.'; 
         steps.push_back({n - 2, n - 1});
     }
 
-    // exit, bottom-right
+    // Mark the bottom-right cell as the exit and include it in the generation animation.
     grid[(n - 1) * n + n - 1] = 'E';  
     steps.push_back({n - 1, n - 1});
 }
 
+// Use randomized depth-first traversal in two-cell increments, opening each connecting wall and
+// recording newly carved cells.
 void MazeData::carve(int r, int c) {
     grid[r * n + c] = '.';
     steps.push_back({r, c});
@@ -38,9 +43,13 @@ void MazeData::carve(int r, int c) {
     }
 }
 
+// Return the number of rows and columns in the square maze.
 int MazeData::size() const { return n; }
+// Expose the recorded carving order by reference so the generation screen can animate it without
+// copying the steps.
 const std::vector<MazeStep>& MazeData::generationSteps() const { return steps; }
 
+// Look up a row/column cell and treat coordinates outside the grid as solid walls.
 char MazeData::cell(int r, int c) const {
     if (r < 0 || r >= n || c < 0 || c >= n) return '#';
     return grid[r * n + c];

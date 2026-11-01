@@ -6,13 +6,17 @@
 
 namespace {
     constexpr float Tick = 1.0f / 120;
+    // Stop the jump test with a descriptive exception when a movement invariant is violated.
     void requireJump(bool value, const char* message) {
         if (!value) throw std::runtime_error(message);
     }
+    // Measure horizontal momentum as the magnitude of the movement model's X/Z velocity.
     float speed(const JumpMovement& movement) {
         return std::hypot(movement.velocityX(), movement.velocityZ());
     }
 
+    // Verify walking speed, jump height, landing, expired midair input and a correctly buffered
+    // follow-up hop.
     void testJumpArcAndBuffer() {
         JumpMovement movement;
         movement.step(1, 0, Tick);
@@ -30,7 +34,9 @@ namespace {
         movement.reset();
         movement.requestJump();
         movement.step(0, 0, Tick);
-        movement.requestJump(); // Too early: this must expire before landing.
+        // Request another jump immediately after takeoff to verify that the buffer expires before the
+        // next landing.
+        movement.requestJump();
         for (int frame = 0; frame < 90; ++frame) movement.step(0, 0, Tick);
         requireJump(movement.grounded(), "an early midair jump must not cause a double jump or delayed hop");
 
@@ -47,6 +53,8 @@ namespace {
         requireJump(hopped, "a jump pressed just before landing must chain into the next hop");
     }
 
+    // Check that timed hops retain strafe gains, the speed cap is enforced, landing friction stops
+    // motion, and collisions can clear an axis.
     void testAirStrafeAndFriction() {
         JumpMovement movement;
         movement.requestJump();
@@ -91,6 +99,8 @@ namespace {
             "reset must clear buffered jumps, height and momentum");
     }
 
+    // Exercise the actual camera-height integration, slow-frame wall collision, gravity-transition
+    // resets and ignored input after timeout.
     void testJumpInGame() {
         using namespace MazeGeometry;
         for (GameMode mode : {GameMode::Normal, GameMode::ZeroGravity}) {
@@ -140,6 +150,7 @@ namespace {
             "finished games must ignore jump input");
     }
 
+    // Compare the jump apex and final standing height at 30, 60 and 144 frames per second.
     void testFrameRates() {
         for (float rate : {30.0f, 60.0f, 144.0f}) {
             Game game(15, 100);
@@ -155,6 +166,8 @@ namespace {
     }
 }
 
+// Run the independent movement-model and integrated-game jump checks from the shared gameplay test
+// executable.
 void runJumpTests() {
     testJumpArcAndBuffer();
     testAirStrafeAndFriction();

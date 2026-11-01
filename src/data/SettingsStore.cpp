@@ -8,6 +8,8 @@ const std::filesystem::path FILE_NAME = "save_data/settings.txt";
 const std::filesystem::path TEMPORARY = "save_data/settings.txt.tmp";
 const std::filesystem::path BACKUP = "save_data/settings.txt.bak";
 
+// Parse exactly one mouse_sensitivity integer record, allowing surrounding whitespace and rejecting
+// unexpected content.
 std::optional<int> readSensitivity(const std::filesystem::path& path) {
     std::ifstream input(path);
     std::string key;
@@ -18,20 +20,25 @@ std::optional<int> readSensitivity(const std::filesystem::path& path) {
     return value;
 }
 
+// Attempt to delete the temporary settings file without throwing while cleaning up a failed save.
 void removeTemporary() {
     std::error_code ignored;
     std::filesystem::remove(TEMPORARY, ignored);
 }
 }
 
+// Read the preference without side effects, falling back to the backup only when the primary file is
+// missing.
 std::optional<int> SettingsStore::loadMouseSensitivity() const {
-    // Reading settings never creates directories or rewrites a malformed file.
+    // Read the main file, or its backup if the main file is absent, without changing either file.
     std::error_code error;
     bool exists = std::filesystem::exists(FILE_NAME, error);
     if (error) return std::nullopt;
     return readSensitivity(exists ? FILE_NAME : BACKUP);
 }
 
+// Write the preference through a checked temporary file and backup replacement, returning false when
+// the save cannot complete.
 bool SettingsStore::saveMouseSensitivity(int percent) const {
     std::error_code error;
     std::filesystem::create_directories(FILE_NAME.parent_path(), error);
@@ -42,7 +49,8 @@ bool SettingsStore::saveMouseSensitivity(int percent) const {
     if (hadOriginal && !std::filesystem::is_regular_file(FILE_NAME, error)) return false;
     if (error) return false;
 
-    // Retain an interrupted replacement's original before starting another save.
+    // Restore an orphaned backup before saving so an interrupted replacement does not discard the last
+    // saved value.
     if (!hadOriginal && std::filesystem::exists(BACKUP, error)) {
         if (error || !std::filesystem::is_regular_file(BACKUP, error) || error) return false;
         std::filesystem::rename(BACKUP, FILE_NAME, error);

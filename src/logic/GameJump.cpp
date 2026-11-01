@@ -2,11 +2,17 @@
 #include <algorithm>
 #include <cmath>
 
-// Called only while upright on the floor. Surface walking keeps its own rules.
+// Update jumping and horizontal momentum while floor gravity is active, including the airborne part of a
+// jump.
+// Movement while attached to a wall or ceiling is handled by the surface-movement branch in
+// Game::update.
 bool Game::moveJumping(const InputState& input, const Vector3& wish) {
     if (input.jumpPressed) jumpMovement.requestJump();
     if (!std::isfinite(input.dt) || input.dt <= 0) return false;
-    // Integrate air control, gravity and collision together, including slow frames.
+    // Divide the frame into intervals of at most 1/120 second and check collision after each movement
+    // step.
+    // This keeps jump integration and the maximum bunny-hop displacement small enough to detect
+    // intervening walls.
     const int parts = std::max(1, (int)std::ceil(input.dt * 120.0f));
     const float dt = input.dt / parts;
     for (int part = 0; part < parts; ++part) {

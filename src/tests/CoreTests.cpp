@@ -15,10 +15,13 @@
 #include <utility>
 #include <vector>
 
+// Fail the current test by throwing its explanatory message when an expected invariant is false.
 static void require(bool condition, const std::string& message) {
     if (!condition) throw std::runtime_error(message);
 }
 
+// Verify maze dimensions, boundary handling, the exit, generation-step coverage and connectivity of
+// every passage cell.
 static void testMaze(int size) {
     MazeData maze(size);
     require(maze.size() == size, "maze size does not match requested size");
@@ -66,6 +69,8 @@ static void testMaze(int size) {
     }
 }
 
+// Clear profile and best-time fixture files within this suite's isolated working directory before a
+// persistence test.
 static void clearTestData() {
     std::error_code directoryError;
     std::filesystem::create_directories("save_data", directoryError);
@@ -81,6 +86,8 @@ static void clearTestData() {
     }
 }
 
+// Check profile validation, capacity, record improvement, reload behavior and persisted removal of a
+// player's records.
 static void testPlayerStore() {
     clearTestData();
     {
@@ -124,6 +131,8 @@ static void testPlayerStore() {
         "removing a player should remove their best times");
 }
 
+// Check active-profile selection, validation-result precedence, invalid run times and loading of
+// duplicate or unknown-player records.
 static void testProfilesAndValidation() {
     clearTestData();
     Players players;
@@ -149,7 +158,8 @@ static void testProfilesAndValidation() {
     require(players.add("Bo") == Players::FULL, "full must take priority over duplicate");
     require(players.add("") == Players::INVALID, "invalid must take priority over full");
 
-    // Loading must retain the fastest duplicate record and distinguish maze sizes.
+    // Load conflicting records to verify that the fastest time wins per maze size and unknown player
+    // names are ignored.
     std::ofstream("save_data/best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
     PlayerStore reloaded;
     require(reloaded.bestTime("Bo", 10) == 10.0f && reloaded.bestTime("Bo", 11) == 30.0f,
@@ -157,6 +167,8 @@ static void testProfilesAndValidation() {
     require(reloaded.bestTime("missing", 10) < 0, "unknown player record should be ignored");
 }
 
+// Verify that legacy Normal records and Zero Gravity records load, improve and disappear independently
+// for the same player and size.
 static void testSeparateModeRecords() {
     clearTestData();
     std::ofstream("save_data/players.txt") << "Alex\n";
@@ -195,27 +207,35 @@ static void testSeparateModeRecords() {
         "removing a player must clear records from both modes");
 }
 
+// Read a fixture file's binary contents so tests can compare saved bytes before and after an
+// operation.
 static std::string readFile(const char* path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
+// Remove settings fixture files and blocker paths while allowing an ordinary file to occupy a tested
+// directory path.
 static void clearSettingsTestData() {
     std::error_code error;
     std::filesystem::create_directories("save_data", error);
     require(!error, "could not create settings test directory");
-    // These are exclusively owned by this isolated test fixture.
+    // Remove only the settings files and blocker paths created inside this test suite's isolated working
+    // directory.
     const char* paths[] = {"save_data/settings.txt.tmp/blocker.txt", "save_data/settings.txt/blocker.txt",
         "save_data/settings.txt", "save_data/settings.txt.tmp", "save_data/settings.txt.bak"};
     for (const char* path : paths) {
         error.clear();
         std::filesystem::remove(path, error);
-        // A regular settings file has no blocker child.
+        // Ignore not-a-directory errors when a blocker path's parent is an ordinary settings file rather
+        // than a directory.
         if (error == std::errc::not_a_directory) error.clear();
         require(!error, std::string("could not clear settings test data: ")+path);
     }
 }
 
+// Exercise defaults, clamping, persistence, malformed content, backup recovery and failed-save retries
+// without changing profile data.
 static void testMouseSensitivitySettings() {
     clearSettingsTestData();
     const std::string playersBefore = readFile("save_data/players.txt");
@@ -262,7 +282,8 @@ static void testMouseSensitivitySettings() {
         << "\r\n mouse_sensitivity 175\r\n\t";
     require(GameSettings().sensitivityPercent() == 175, "settings should tolerate surrounding whitespace");
 
-    // An interrupted file replacement can be read without performing writes during load.
+    // Simulate an interrupted replacement with only a backup present and verify that loading recovers
+    // its value without writing files.
     std::filesystem::remove("save_data/settings.txt");
     std::ofstream("save_data/settings.txt.bak") << "mouse_sensitivity 150\n";
     GameSettings recovered;
@@ -272,7 +293,8 @@ static void testMouseSensitivitySettings() {
     require(recovered.save() && GameSettings().sensitivityPercent() == 175,
         "saving after backup recovery should retain the new value");
 
-    // A blocked temporary destination must leave both live and saved values intact.
+    // Block the temporary-file path to verify that save failure retains the new live value and preserves
+    // the previous disk value.
     recovered.setSensitivityPercent(75);
     require(recovered.save(), "save-failure fixture should have a previous setting");
     std::filesystem::create_directory("save_data/settings.txt.tmp");
@@ -299,6 +321,8 @@ static void testMouseSensitivitySettings() {
         "settings changes must not modify profiles or best-time records");
 }
 
+// Run deterministic maze, profile and settings checks, returning a failing process status with the
+// first assertion message.
 int main() {
     try {
         std::srand(1234);

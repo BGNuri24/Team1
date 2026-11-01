@@ -7,9 +7,9 @@
 #include <vector>
 
 struct InputState {
-    // -1..1
+    // Signed forward input relative to the camera: -1 moves backward, 0 is idle, and +1 moves forward.
     float forward;
-    // -1..1
+    // Signed strafe input relative to the camera: -1 moves left, 0 is idle, and +1 moves right.
     float right;
     float mouseDX, mouseDY;
     float dt;
@@ -36,10 +36,11 @@ public:
     GameMode mode() const;
     int row() const;
     int col() const;
-    // 0 fog, 1 seen, 2 walked
+    // Return the exploration state: 0 is unrevealed, 1 is visible but unvisited, and 2 is visited.
     int seenState(int r, int c) const;
     float timeLeft() const;
-    // seconds since the run started
+    // Elapsed simulation time in seconds; it advances during an active run and stops when the run
+    // finishes.
     float timeTaken() const;
     int score() const;
     bool won() const;

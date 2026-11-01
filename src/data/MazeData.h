@@ -11,7 +11,7 @@ public:
     explicit MazeData(int size);
 
     int size() const;
-    // '#' wall, '.' path, 'E' exit
+    // Return '#' for walls or out-of-bounds coordinates, '.' for passages, and 'E' for the exit.
     char cell(int r, int c) const;
     const std::vector<MazeStep>& generationSteps() const;
 private:

@@ -10,10 +10,10 @@ public:
     Players();
     int count() const;
     const std::string& name(int i) const;
-    // the player who plays now
+    // Return the selected profile's name, or Guest when no valid profile is selected.
     const std::string& activeName() const;
     void setActive(int i);
-    // validates, then saves
+    // Validate the name and player limit before saving; return the specific reason an addition fails.
     AddResult add(std::string_view name);
     bool remove(int i);
     float bestTime(int mazeSize, GameMode mode = GameMode::Normal) const;

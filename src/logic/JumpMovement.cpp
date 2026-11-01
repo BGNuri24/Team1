@@ -12,16 +12,25 @@ namespace {
     constexpr float AirWishSpeed = 0.8f;
 }
 
+// Clear horizontal and vertical velocity, jump height and buffered input, returning movement to the
+// initial grounded state.
 void JumpMovement::reset() { *this = JumpMovement{}; }
+// Refresh the short jump buffer so a press shortly before landing can trigger the next takeoff.
 void JumpMovement::requestJump() { bufferedJump = JumpBuffer; }
+// Discard X-axis momentum after collision while preserving motion along the other horizontal axis.
 void JumpMovement::blockX() { vx = 0; }
+// Discard Z-axis momentum after collision while preserving motion along the other horizontal axis.
 void JumpMovement::blockZ() { vz = 0; }
 
+// Advance one movement interval in seconds: consume a grounded jump, apply ground or air acceleration,
+// integrate height, and cap horizontal speed.
 void JumpMovement::step(float wishX, float wishZ, float dt) {
     if (!std::isfinite(dt) || dt <= 0) return;
     const float length = std::hypot(wishX, wishZ);
     if (length > 1) { wishX /= length; wishZ /= length; }
 
+    // Project existing velocity onto the requested direction and add only the remaining allowed speed
+    // along that direction.
     auto accelerate = [&](float wishSpeed, float acceleration) {
         const float remaining = wishSpeed - (vx * wishX + vz * wishZ);
         if (remaining <= 0) return;
@@ -32,7 +41,8 @@ void JumpMovement::step(float wishX, float wishZ, float dt) {
 
     if (onGround) {
         if (!momentum) {
-            // Ordinary walking keeps its original immediate start/stop response.
+            // Before a jump introduces momentum, derive velocity directly from input to preserve
+            // immediate walking controls.
             vx = wishX * MazeGeometry::MovementSpeed;
             vz = wishZ * MazeGeometry::MovementSpeed;
         }
@@ -56,8 +66,10 @@ void JumpMovement::step(float wishX, float wishZ, float dt) {
         }
     }
     if (!onGround) {
-        // Only accelerate along the wish direction. Turning while strafing builds
-        // speed; looking elsewhere never rotates existing momentum for free.
+        // Add air acceleration along the requested movement direction while retaining the existing
+        // velocity vector.
+        // Changing the view alone does not redirect momentum; steering through strafing can increase
+        // speed up to MaxSpeed.
         accelerate(AirWishSpeed, AirAcceleration);
         offset += verticalSpeed * dt - 0.5f * Gravity * dt * dt;
         verticalSpeed -= Gravity * dt;

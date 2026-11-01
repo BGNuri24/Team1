@@ -4,30 +4,37 @@
 
 using namespace MazeGeometry;
 
+// Compute the scalar product used to project movement, measure alignment and recover rotation angles.
 static float dot(const Vector3& a, const Vector3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+// Compute a right-handed perpendicular vector for camera axes and surface-transition rotation axes.
 static Vector3 cross(const Vector3& a, const Vector3& b) {
     return { a.y * b.z - a.z * b.y,
             a.z * b.x - a.x * b.z,
             a.x * b.y - a.y * b.x };
 }
 
+// Return a unit-length direction, or a zero vector when the input is too short to normalize safely.
 static Vector3 normalized(const Vector3& value) {
     float length = std::sqrt(dot(value, value));
     if (length < 0.0001f) return { 0, 0, 0 };
     return { value.x / length, value.y / length, value.z / length };
 }
 
+// Multiply every vector component by the same scalar without changing its direction for a positive
+// factor.
 static Vector3 scaled(const Vector3& value, float amount) {
     return { value.x * amount, value.y * amount, value.z * amount };
 }
 
+// Add vector components to combine offsets, movement directions and interpolation contributions.
 static Vector3 added(const Vector3& a, const Vector3& b) {
     return { a.x + b.x, a.y + b.y, a.z + b.z };
 }
 
+// Rotate a vector around a unit axis by an angle in radians using Rodrigues' rotation formula.
 static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float angle) {
     float cosine = std::cos(angle);
     float sine = std::sin(angle);
@@ -35,6 +42,8 @@ static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float ang
         scaled(axis, dot(axis, value) * (1.0f - cosine)));
 }
 
+// Generate the maze, initialize floor gravity and timers, and reveal the starting area with the camera
+// facing its open passage.
 Game::Game(int mazeSize, float seconds, GameMode mode)
     : gameMode(mode), mazeData(mazeSize), px(0), py(StandingEyeHeight), pz(0), lookDirection{ 1, 0, 0 },
     gravityUp{ 0, 1, 0 }, rollFrom{ 0, 1, 0 }, rollAxis{ 1, 0, 0 },
@@ -43,24 +52,29 @@ Game::Game(int mazeSize, float seconds, GameMode mode)
     hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0), points(0) {
     int n = mazeData.size();
     seen.assign(n * n, 0);
-    // face the open direction at the start
+    // Face the open neighboring passage so the initial camera looks into the maze.
     lookDirection = (mazeData.cell(0, 1) != '#')
         ? Vector3{ 1, 0, 0 } : Vector3{ 0, 0, 1 };
     reveal();
 }
 
+// Convert world X/Z coordinates to a maze cell and treat both wall cells and out-of-bounds cells as
+// solid.
 bool Game::isWall(float x, float z) const {
     int c = cellIndex(x);
     int r = cellIndex(z);
     return mazeData.cell(r, c) == '#';
 }
 
+// Test all four corners of the player's horizontal clearance square against maze walls.
 bool Game::canMove(float x, float z) const {
     const float m = PlayerRadius;
     return !isWall(x - m, z - m) && !isWall(x + m, z - m) &&
         !isWall(x - m, z + m) && !isWall(x + m, z + m);
 }
 
+// Check that the destination still has a passage ceiling or a neighboring wall supporting the current
+// attachment orientation.
 bool Game::hasSurfaceSupport(float x, float z) const {
     int r = cellIndex(z);
     int c = cellIndex(x);
@@ -72,6 +86,8 @@ bool Game::hasSurfaceSupport(float x, float z) const {
     return false;
 }
 
+// Reset jump momentum, capture the displayed pose, and set the logical destination and rotation used
+// by the smooth surface transition.
 void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
     bool attached) {
     jumpMovement.reset();
@@ -93,6 +109,8 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
     attachedToSurface = attached;
 }
 
+// Find the closest exposed wall face or ceiling along the look ray within 2.5 world units, returning
+// its contact point and inward normal.
 bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
     const float maxDistance = 2.5f;
     float nearest = maxDistance;
@@ -155,6 +173,8 @@ bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
     return found;
 }
 
+// Offset the player from the contact plane, validate horizontal clearance and support, and begin the
+// camera transition when attachment is valid.
 bool Game::attachToSurface(const Vector3& normal, const Vector3& contact) {
     Vector3 targetPosition = added(contact, scaled(normal, SurfaceOffset));
     int targetRow = cellIndex(targetPosition.z);
@@ -174,6 +194,8 @@ bool Game::attachToSurface(const Vector3& normal, const Vector3& contact) {
     return true;
 }
 
+// Resolve a cardinal side of the current cell into a wall contact and attempt attachment to that
+// neighboring wall.
 bool Game::transitionToAdjacentWall(int side) {
     int r = row(), c = col();
     Vector3 normal;
@@ -203,6 +225,8 @@ bool Game::transitionToAdjacentWall(int side) {
     return attachToSurface(normal, contact);
 }
 
+// Choose a supporting wall around the proposed destination, favoring the current orientation when
+// distances are similar.
 bool Game::transitionToNearestWall(float x, float z) {
     int r = cellIndex(z);
     int c = cellIndex(x);
@@ -233,6 +257,8 @@ bool Game::transitionToNearestWall(float x, float z) {
     return found && attachToSurface(chosenNormal, chosenContact);
 }
 
+// Return an attached player to floor gravity, or attempt attachment to the wall or ceiling currently
+// under the look ray.
 void Game::toggleGravity() {
     if (attachedToSurface) {
         beginSurfaceTransition({ 0, 1, 0 }, { px, StandingEyeHeight, pz }, false);
@@ -243,6 +269,8 @@ void Game::toggleGravity() {
     if (findAimedSurface(normal, contact)) attachToSurface(normal, contact);
 }
 
+// Reveal the current cell and its surrounding 3-by-3 neighborhood, marking the current cell as
+// visited.
 void Game::reveal() {
     int n = mazeData.size();
     int r = row(), c = col();
@@ -254,14 +282,16 @@ void Game::reveal() {
     seen[r * n + c] = 2;
 }
 
+// Advance an unfinished run's timers, camera orientation and movement, respecting gravity transitions
+// and recording an exit-cell win.
 void Game::update(const InputState& in) {
-    // game is frozen when finished
+    // Ignore further input and timer updates after the run has been won or lost.
     if (hasWon || hasLost) return;
 
-    // time taken (counts up)
+    // Accumulate this frame's duration for the run's elapsed-time result.
     elapsedSec += in.dt;
 
-    // time left (counts down)
+    // Deduct this frame's duration from the countdown and end the run if no time remains.
     timeLeftSec -= in.dt;
     if (timeLeftSec <= 0.0f) {
         timeLeftSec = 0.0f;
@@ -296,8 +326,9 @@ void Game::update(const InputState& in) {
         }
     } else {
         float step = MovementSpeed * in.dt;
-        // Swept substeps keep a slow frame from skipping a whole wall cell.
-        // Keep X before Z and stop immediately if either axis changes surfaces.
+        // Split surface movement into steps no larger than 75% of the collision radius to prevent wall
+        // tunneling.
+        // Resolve X before Z and stop this update when either axis starts a surface transition.
         int substeps = std::max(1, (int)std::ceil(step / (PlayerRadius * 0.75f)));
         float substep = step / substeps;
         for (int part = 0; part < substeps; ++part) {
@@ -333,6 +364,8 @@ void Game::update(const InputState& in) {
     }
 }
 
+// Resolve one horizontal movement axis and return true if collision or lost support starts a surface
+// transition.
 bool Game::moveHorizontal(float movement, float step, bool alongX) {
     float nextX = alongX ? px + movement * step : px;
     float nextZ = alongX ? pz : pz + movement * step;
@@ -353,41 +386,63 @@ bool Game::moveHorizontal(float movement, float step, bool alongX) {
     return false;
 }
 
+// Return the clamped interpolation fraction for the quarter-second surface transition.
 float Game::transitionBlend() const {
     return std::clamp(rollTime / 0.25f, 0.0f, 1.0f);
 }
 
+// Return the displayed world-space position interpolated from the previous pose to the logical
+// transition destination.
 Vector3 Game::position() const {
     float blend = transitionBlend();
     return added(scaled(transitionFromPosition, 1.0f - blend), scaled({ px, py, pz }, blend));
 }
+// Return the displayed X coordinate, including any active surface-transition interpolation.
 float Game::x() const { return position().x; }
+// Return the displayed eye height, including jump height or an active surface transition.
 float Game::y() const { return position().y; }
+// Return the displayed Z coordinate, including any active surface-transition interpolation.
 float Game::z() const { return position().z; }
+// Return the look direction's horizontal angle in radians, measured from +X toward +Z.
 float Game::yaw() const { return std::atan2(lookDirection.z, lookDirection.x); }
+// Normalize the interpolated look direction so rendering remains smooth during a surface transition.
 Vector3 Game::cameraDirection() const {
     float blend = transitionBlend();
     return normalized(added(scaled(transitionFromDirection, 1.0f - blend),
         scaled(lookDirection, blend)));
 }
+// Rotate the previous up vector through the current transition angle and return the camera's
+// normalized up direction.
 Vector3 Game::cameraUp() const {
     return normalized(rotateAround(rollFrom, rollAxis, rollAngle * transitionBlend()));
 }
+// Report whether gravity is attached to a wall or ceiling rather than the floor.
 bool Game::surfaceAttached() const { return attachedToSurface; }
+// Return the mode selected when this run was created.
 GameMode Game::mode() const { return gameMode; }
+// Convert the logical Z position to a maze row, independently of camera-transition interpolation.
 int Game::row() const { return cellIndex(pz); }
+// Convert the logical X position to a maze column, independently of camera-transition interpolation.
 int Game::col() const { return cellIndex(px); }
 
+// Read a cell's exploration state, returning unrevealed for coordinates outside the maze.
 int Game::seenState(int r, int c) const {
     int n = mazeData.size();
     if (r < 0 || r >= n || c < 0 || c >= n) return 0;
     return seen[r * n + c];
 }
 
+// Return the run's remaining countdown in seconds.
 float Game::timeLeft() const { return timeLeftSec; }
+// Return the accumulated simulation seconds used for completed-run results and best-time records.
 float Game::timeTaken() const { return elapsedSec; }
+// Return the points assigned on victory, or the initial zero while no win has been recorded.
 int Game::score() const { return points; }
+// Report whether the logical player position has reached the exit before the countdown expires.
 bool Game::won() const { return hasWon; }
+// Report whether the run ended because the countdown reached zero.
 bool Game::lost() const { return hasLost; }
+// Report whether either terminal result has frozen further gameplay updates.
 bool Game::finished() const { return hasWon || hasLost; }
+// Expose the run's maze as a read-only reference for rendering, animation and route checks.
 const MazeData& Game::maze() const { return mazeData; }

@@ -6,14 +6,15 @@
 
 class PlayerStore {
 public:
-    // loads save_data/players.txt if it exists
+    // Load player names and best-time records from save_data, recovering backup files when available.
     PlayerStore();
     int count() const;
     const std::string& name(int i) const;
     bool contains(const std::string& name) const;
-    // saves the file
+    // Add a valid, unique name within the player limit; undo the addition if saving fails.
     bool add(const std::string& name);
-    // also saves the file
+    // Remove the indexed player and their records for every mode; restore in-memory data on save
+    // failure.
     bool remove(int i);
     float bestTime(const std::string& player, int mazeSize, GameMode mode = GameMode::Normal) const;
     bool recordBestTime(const std::string& player, int mazeSize, float seconds,
