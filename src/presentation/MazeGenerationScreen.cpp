@@ -6,6 +6,7 @@
 
 static const float BUILD_DURATION = 4.5f;
 
+// Reset preview timing and allocate a hidden-cell mask matching the newly generated maze.
 void MazeGenerationScreen::begin(const Game& game) {
     elapsed = 0.0f;
     shownSteps = 0;
@@ -13,6 +14,8 @@ void MazeGenerationScreen::begin(const Game& game) {
     revealed.assign(cellCount * cellCount, 0);
 }
 
+// Reveal recorded carving steps over the preview duration and report completion or a keyboard/mouse
+// skip request.
 bool MazeGenerationScreen::update(const Game& game) {
     elapsed += GetFrameTime();
     const std::vector<MazeStep>& steps = game.maze().generationSteps();
@@ -28,6 +31,8 @@ bool MazeGenerationScreen::update(const Game& game) {
         || menuClicked(uiRect(774, 631, 162, 38));
 }
 
+// Draw the progressive maze blueprint, generation percentage and selected mode without advancing the
+// run's gameplay timer.
 void MazeGenerationScreen::draw(const Game& game) const {
     using namespace MenuTheme;
     int mazeSize = game.maze().size();

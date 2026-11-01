@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+// Collect movement, sensitivity-scaled mouse deltas, frame seconds and fresh gravity/jump requests
+// without changing the game state.
 InputState readInput(float sensitivity) {
     InputState in;
     in.forward = (float)(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
@@ -20,15 +22,20 @@ InputState readInput(float sensitivity) {
     return in;
 }
 
+// Move selection through a nonempty option list with wraparound; opposing navigation presses cancel
+// each other.
 void updateMenuSelection(int& selected, int count) {
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selected = (selected + 1) % count;
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selected = (selected + count - 1) % count;
 }
 
+// Report a fresh Enter or Space press as confirmation for menu navigation.
 bool menuConfirmed() {
     return IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE);
 }
 
+// Consume queued characters accepted by the supplied filter up to the length limit, then handle one
+// backspace deletion and report any change.
 bool editText(std::string& text, int maxLength, bool (*allowed)(int)) {
     bool changed = false;
     for (int ch = GetCharPressed(); ch > 0; ch = GetCharPressed()) {

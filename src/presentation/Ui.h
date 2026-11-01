@@ -37,7 +37,8 @@ void drawMenuText(const char* text, int x, int y, int size,
     Color color = MenuTheme::Paper);
 void drawMenuTextFit(const char* text, int x, int y, int width, int size,
     Color color = MenuTheme::Paper);
-// Mouse selection only changes when the pointer moves or clicks.
+// Update the selected option only on pointer movement or a click so a stationary mouse does not override
+// keyboard navigation.
 bool menuPointer(Rectangle bounds, int index, int& selected);
 bool menuClicked(Rectangle bounds);
 Rectangle menuBackBounds();

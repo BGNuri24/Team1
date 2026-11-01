@@ -11,6 +11,8 @@ constexpr Color AMBER = {244, 190, 102, 255};
 constexpr Color MINT = {112, 229, 185, 255};
 constexpr float WALL_HEIGHT = 0.65f;
 
+// Use breadth-first search to reconstruct a start-to-exit route used only by the decorative background
+// animation.
 std::vector<MazeStep> solve(const MazeData& maze) {
     const int size = maze.size();
     std::vector<int> previous(size * size, -1);
@@ -42,10 +44,12 @@ std::vector<MazeStep> solve(const MazeData& maze) {
     return result;
 }
 
+// Convert a background-maze cell into a centered 3D position at the supplied decorative height.
 Vector3 location(const MazeStep& step, float half, float height) {
     return {step.col - half, height, step.row - half};
 }
 
+// Submit one colored background-wall quad to the active rlgl geometry batch.
 void face(Color color, Vector3 a, Vector3 b, Vector3 c, Vector3 d) {
     rlColor4ub(color.r, color.g, color.b, color.a);
     rlVertex3f(a.x, a.y, a.z);
@@ -54,6 +58,8 @@ void face(Color color, Vector3 a, Vector3 b, Vector3 c, Vector3 d) {
     rlVertex3f(d.x, d.y, d.z);
 }
 
+// Draw the exposed wall faces around the background maze's passages using its centered decorative
+// coordinates.
 void drawWalls(const MazeData& maze, float half) {
     rlSetTexture(0);
     rlBegin(RL_QUADS);
@@ -80,12 +86,14 @@ void drawWalls(const MazeData& maze, float half) {
     rlEnd();
 }
 
+// Draw a horizontal route segment between two background positions with the supplied width and color.
 void pathSegment(Vector3 from, Vector3 to, float width, Color color) {
     DrawCube({(from.x + to.x) * 0.5f, from.y, (from.z + to.z) * 0.5f},
              std::fabs(to.x - from.x) + width, 0.025f,
              std::fabs(to.z - from.z) + width, color);
 }
 
+// Animate the route's traveling marker, fading trail and exit accent using elapsed animation time.
 void drawRoute(const std::vector<MazeStep>& route, float half, float time) {
     if (route.size() < 2) return;
     const float progress = std::min(std::fmod(time * 5.0f, (float)route.size() + 24.0f),
@@ -122,13 +130,16 @@ void drawRoute(const std::vector<MazeStep>& route, float half, float time) {
 }
 }
 
+// Generate a separate decorative maze and precompute the route followed by its animated marker.
 MenuBackground::MenuBackground() : maze(29), route(solve(maze)) {}
 
+// Orbit a perspective camera around the decorative maze, then apply screen-space shading to preserve
+// menu-text contrast.
 void MenuBackground::draw(float time) const {
     const float size = (float)maze.size();
     const float half = (size - 1.0f) * 0.5f;
     const float angle = 0.65f + time * 0.025f;
-    // Offset the camera's focus so the maze sits beside the menu, not behind its text.
+    // Shift the orbit's focal point to frame the animated maze beside the main-menu text.
     const Vector3 target = {-std::sin(angle) * size * 0.24f, 0,
                              std::cos(angle) * size * 0.24f};
     Camera3D camera{};

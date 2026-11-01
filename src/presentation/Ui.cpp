@@ -2,32 +2,41 @@
 #include <algorithm>
 #include <cmath>
 
+// Choose the uniform scale that fits the 1000-by-700 reference layout inside the current window.
 float uiScale() {
     return std::min(GetScreenWidth() / 1000.0f, GetScreenHeight() / 700.0f);
 }
 
+// Convert a reference-layout X coordinate to window pixels, including the horizontal centering offset.
 int uiX(int x) {
     float scale = uiScale();
     return (int)((GetScreenWidth() - 1000.0f * scale) / 2.0f + x * scale);
 }
 
+// Convert a reference-layout Y coordinate to window pixels, including the vertical centering offset.
 int uiY(int y) {
     float scale = uiScale();
     return (int)((GetScreenHeight() - 700.0f * scale) / 2.0f + y * scale);
 }
 
+// Scale a reference length or font size to integer pixels without adding a position offset.
 int uiSize(int size) {
     return (int)(size * uiScale());
 }
 
+// Scale a reference Y coordinate and font size, then draw text horizontally centered in the window.
 void drawCentered(const char* text, int y, int size, Color color) {
     drawCenteredAt(text, uiY(y), uiSize(size), color);
 }
 
+// Draw horizontally centered text using a Y coordinate and font size already expressed in window
+// pixels.
 void drawCenteredAt(const char* text, int y, int size, Color color) {
     DrawText(text, (GetScreenWidth() - MeasureText(text, size)) / 2, y, size, color);
 }
 
+// Draw a vertical option list in reference coordinates, adding a marker and highlight to the selected
+// entry.
 void drawOptions(const char* const* labels, int count, int selected, int startY) {
     for (int i = 0; i < count; i++) {
         const char* line = TextFormat("%s%s", i == selected ? "> " : "  ", labels[i]);
@@ -35,6 +44,7 @@ void drawOptions(const char* const* labels, int count, int selected, int startY)
     }
 }
 
+// Dim the current frame, draw a centered scaled popup, and return its bounds in window pixels.
 Rectangle drawPopup(int width, int height, Color border, Color fill, float dim) {
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, dim));
     int w = uiSize(width), h = uiSize(height);
@@ -47,6 +57,7 @@ Rectangle drawPopup(int width, int height, Color border, Color fill, float dim) 
     return { (float)x, (float)y, (float)w, (float)h };
 }
 
+// Draw a centered input string at pixel coordinates and append a time-based blinking caret.
 void drawTextEntry(const std::string& text, int y, int size) {
     int width = MeasureText(text.c_str(), size);
     int x = (GetScreenWidth() - width) / 2;
@@ -55,26 +66,33 @@ void drawTextEntry(const std::string& text, int y, int size) {
         DrawText("_", x + width + uiSize(4), y, size, MenuTheme::Amber);
 }
 
+// Convert a complete reference-layout rectangle to centered, scaled window-pixel bounds.
 Rectangle uiRect(int x, int y, int width, int height) {
     return { (float)uiX(x), (float)uiY(y), (float)uiSize(width), (float)uiSize(height) };
 }
 
+// Draw themed text after converting its reference position and font size to window pixels.
 void drawMenuText(const char* text, int x, int y, int size, Color color) {
     DrawText(text, uiX(x), uiY(y), std::max(1, uiSize(size)), color);
 }
 
+// Convert reference dimensions to pixels and reduce the pixel font size while the measured label
+// exceeds the available width.
 void drawMenuTextFit(const char* text, int x, int y, int width, int size, Color color) {
     int pixels = std::max(1, uiSize(size));
     while (pixels > 1 && MeasureText(text, pixels) > uiSize(width)) --pixels;
     DrawText(text, uiX(x), uiY(y), pixels, color);
 }
 
+// Render the shared gradient, architectural grid and animated corridor signal, offset by the chosen
+// menu variation.
 void drawMenuBackdrop(int variation) {
     using namespace MenuTheme;
     ClearBackground(Ink);
     DrawRectangleGradientV(0, 0, GetScreenWidth(), GetScreenHeight(),
         Color{ 16, 35, 42, 255 }, Ink);
-    // Architectural grid, open corridors and a slow travelling signal.
+    // Layer an architectural grid, corridor lines and a moving signal to create the shared animated menu
+    // backdrop.
     for (int x = 24; x < 1000; x += 32)
         DrawLine(uiX(x), 0, uiX(x), GetScreenHeight(), Fade(Border, 0.14f));
     for (int y = 20; y < 700; y += 32)
@@ -112,6 +130,7 @@ void drawMenuBackdrop(int variation) {
     }
 }
 
+// Draw the section marker, title and subtitle at the common reference-layout heading positions.
 void drawMenuHeading(const char* section, const char* title, const char* subtitle) {
     using namespace MenuTheme;
     DrawRectangle(uiX(64), uiY(57), uiSize(24), std::max(2, uiSize(3)), Amber);
@@ -120,16 +139,20 @@ void drawMenuHeading(const char* section, const char* title, const char* subtitl
     drawMenuText(subtitle, 64, 154, 18, Muted);
 }
 
+// Draw the shared footer divider and its navigation or gameplay hint.
 void drawMenuFooter(const char* hint) {
     DrawLine(uiX(64), uiY(624), uiX(936), uiY(624), MenuTheme::Border);
     drawMenuText(hint, 64, 646, 15, MenuTheme::Muted);
 }
 
+// Draw a rounded theme panel and border using bounds that are already expressed in window pixels.
 void drawMenuPanel(Rectangle bounds, Color border) {
     DrawRectangleRounded(bounds, 0.05f, 8, MenuTheme::Panel);
     DrawRectangleRoundedLinesEx(bounds, 0.05f, 8, std::max(1.0f, uiScale()), border);
 }
 
+// Render a selectable themed button with an optional detail line, fitted label and accent indicator
+// inside pixel-space bounds.
 void drawMenuButton(Rectangle bounds, const char* label, bool selected,
     const char* detail, Color accent) {
     using namespace MenuTheme;
@@ -151,12 +174,16 @@ void drawMenuButton(Rectangle bounds, const char* label, bool selected,
         (int)(bounds.y + bounds.height / 2) - uiSize(9), uiSize(18), selected ? accent : Border);
 }
 
+// Set the hover cursor for a pixel-space rectangle and return true only for a fresh left click inside
+// it.
 bool menuClicked(Rectangle bounds) {
     const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
     if (over) SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
     return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 
+// Select the hovered option only when the pointer moves or clicks, preserving keyboard focus beneath a
+// stationary cursor.
 bool menuPointer(Rectangle bounds, int index, int& selected) {
     const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
     const Vector2 delta = GetMouseDelta();
@@ -165,12 +192,18 @@ bool menuPointer(Rectangle bounds, int index, int& selected) {
     return click;
 }
 
+// Return the common back button's reference rectangle converted to window pixels.
 Rectangle menuBackBounds() { return uiRect(810, 45, 126, 36); }
+// Render the common back button using its live hover state.
 void drawMenuBack() {
     drawMenuButton(menuBackBounds(), "Back", CheckCollisionPointRec(GetMousePosition(), menuBackBounds()));
 }
+// Return the shared entry dialog's confirmation-button hit rectangle in window pixels.
 Rectangle entryConfirmBounds() { return uiRect(318, 408, 174, 42); }
+// Return the shared entry dialog's cancel-button hit rectangle in window pixels.
 Rectangle entryCancelBounds() { return uiRect(508, 408, 174, 42); }
+// Render the shared confirmation and cancellation buttons with confirmation highlighted as the default
+// action.
 void drawEntryActions() {
     drawMenuButton(entryConfirmBounds(), "Confirm", true);
     drawMenuButton(entryCancelBounds(), "Cancel", false);

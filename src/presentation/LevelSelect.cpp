@@ -4,19 +4,23 @@
 #include "../logic/Difficulty.h"
 #include <cstdlib>
 
-// Normal presets, Custom, and a separate Zero Gravity level.
+// Place Custom after the normal presets and Zero Gravity after Custom in the selectable option list.
 static const int CUSTOM_OPTION = DIFFICULTY_COUNT;
 static const int ZERO_GRAVITY_OPTION = DIFFICULTY_COUNT + 1;
 static const int OPTION_COUNT = DIFFICULTY_COUNT + 2;
 
+// Initialize an idle level menu with no confirmed size or duration and Normal mode as its default.
 LevelSelect::LevelSelect()
     : selected(0), typing(false), showError(false), chosenSize(0), chosenSeconds(0),
     chosenMode(GameMode::Normal) {}
 
+// Handle preset selection or validated custom-size entry, recording the chosen size, time limit and
+// mode before requesting a new run.
 Screen LevelSelect::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (typing) {
-        // typed characters: digits only, max 2
+        // Accept at most two decimal digits and clear the previous validation message when the value
+        // changes.
         if (editText(text, 2, [](int ch) { return ch >= '0' && ch <= '9'; }))
             showError = false;
         if (IsKeyPressed(KEY_ENTER) || menuClicked(entryConfirmBounds())) {
@@ -28,7 +32,8 @@ Screen LevelSelect::update() {
                 typing = false;
                 return Screen::PLAYING;
             }
-            // invalid: stay and show the error
+            // Keep the entry dialog open and show its validation error when the size is outside the
+            // allowed range.
             showError = true;
         }
         if (IsKeyPressed(KEY_ESCAPE) || menuClicked(entryCancelBounds())) {
@@ -58,16 +63,19 @@ Screen LevelSelect::update() {
             chosenMode = GameMode::ZeroGravity;
             return Screen::PLAYING;
         }
-        // Custom: start typing
+        // Open a fresh custom-size entry after the preset and Zero Gravity options have been handled.
         typing = true;
         text.clear();
         showError = false;
-        // drop leftover typed characters
+        // Drain queued character events so the key used to open the dialog does not populate its input
+        // field.
         while (GetCharPressed() > 0) {}
     }
     return Screen::LEVEL_SELECT;
 }
 
+// Draw the level options and contextual briefing, including the custom-size dialog and its validation
+// feedback when active.
 void LevelSelect::draw() const {
     using namespace MenuTheme;
     drawMenuBackdrop(2);
@@ -97,7 +105,8 @@ void LevelSelect::draw() const {
     const Color accent = zero ? Mint : Amber;
     drawMenuPanel(uiRect(510, 210, 426, 370));
     drawMenuText(zero ? "A DIFFERENT PERSPECTIVE" : "THE ROUTE BRIEF", 538, 236, 14, accent);
-    // Abstract corridor diagram, distinct from the animated 3D main menu.
+    // Draw a decorative corridor diagram in the level briefing panel; its lines do not represent the
+    // generated maze.
     for (int i = 0; i < 6; ++i) {
         int x = 574 + i * 24, y = 282 + i * 17;
         DrawLine(uiX(x), uiY(y), uiX(878 - i * 19), uiY(y), Border);
@@ -132,6 +141,9 @@ void LevelSelect::draw() const {
     }
 }
 
+// Return the side length recorded by the latest confirmed level choice.
 int LevelSelect::size() const { return chosenSize; }
+// Return the countdown duration recorded by the latest confirmed level choice.
 float LevelSelect::seconds() const { return chosenSeconds; }
+// Return the gravity mode recorded by the latest confirmed level choice.
 GameMode LevelSelect::mode() const { return chosenMode; }

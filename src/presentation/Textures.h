@@ -1,16 +1,17 @@
 #pragma once
 #include "raylib.h"
 
-// All textures used by the 3D view.
+// Group the GPU texture handles used for maze surfaces and decorative wall signs.
 struct Textures {
     Texture2D wall;
     Texture2D floor;
     Texture2D ceiling;
-    // Four 512x128 signs stacked vertically, with transparent padding per slot.
+    // Store four 512-by-128 sign slots in one 512-by-512 atlas; transparent padding separates each sign
+    // from its slot boundary.
     Texture2D decals;
 };
 
-// builds the textures (call after InitWindow)
+// Generate and upload the maze materials after InitWindow has created a valid graphics context.
 Textures createTextures();
-// frees them (call before CloseWindow)
+// Unload the texture handles before CloseWindow destroys the graphics context.
 void destroyTextures(Textures& t);

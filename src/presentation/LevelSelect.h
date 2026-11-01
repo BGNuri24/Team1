@@ -6,19 +6,20 @@
 class LevelSelect {
 public:
     LevelSelect();
-    // PLAYING = level chosen, MAIN_MENU = back, LEVEL_SELECT = stay
+    // Return PLAYING after a valid choice, MAIN_MENU when navigating back, or LEVEL_SELECT while
+    // choosing.
     Screen update();
     void draw() const;
-    // chosen maze size
+    // Return the selected square maze's side length in cells.
     int size() const;
-    // chosen time limit
+    // Return the selected level's countdown duration in seconds.
     float seconds() const;
     GameMode mode() const;
 private:
     int selected;
-    // true while the player types a custom size
+    // Keep custom-size entry active until the player confirms a valid value or cancels.
     bool typing;
-    // the typed digits
+    // Store the custom-size digits as text until confirmation validates and converts them.
     std::string text;
     bool showError;
     int chosenSize;

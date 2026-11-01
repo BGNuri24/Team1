@@ -2,20 +2,26 @@
 #include "Ui.h"
 #include "Input.h"
 
+// Retain access to shared profiles and initialize selection, name entry and error display to their
+// idle states.
 PlayerSelect::PlayerSelect(Players& p) : players(p), selected(0), typing(false), error(0) {}
 
+// Count selectable profiles and include the new-player option only when profile capacity remains.
 int PlayerSelect::optionCount() const {
-    // all players, plus "+ New player" while there is room
+    // Count saved profiles plus the new-player option when the profile limit has not been reached.
     return players.count() < MAX_PLAYERS ? players.count() + 1 : players.count();
 }
 
+// Handle profile selection, name validation and deletion, advancing to level selection only after a
+// profile is selected or saved successfully.
 Screen PlayerSelect::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (typing) {
         if (editText(text, MAX_NAME_LENGTH, isNameCharacter)) error = 0;
         if (IsKeyPressed(KEY_ENTER) || menuClicked(entryConfirmBounds())) {
             Players::AddResult r = players.add(text);
-            // the new player plays
+            // Select the newly saved profile and continue to level selection only after creation
+            // succeeds.
             if (r == Players::ADDED) {
                 players.setActive(players.count() - 1);
                 typing = false;
@@ -54,16 +60,18 @@ Screen PlayerSelect::update() {
             players.setActive(selected);
             return Screen::LEVEL_SELECT;
         }
-        // "+ New player"
+        // Open an empty name-entry dialog when the new-player option is selected.
         typing = true;
         text.clear();
         error = 0;
-        // drop leftover typed characters
+        // Drain queued character events so the key used to open the dialog is not included in the new
+        // name.
         while (GetCharPressed() > 0) {}
     }
     return Screen::PLAYER_SELECT;
 }
 
+// Render the explorer register, profile actions and any active name-entry dialog or persistence error.
 void PlayerSelect::draw() const {
     using namespace MenuTheme;
     drawMenuBackdrop(1);
@@ -71,7 +79,7 @@ void PlayerSelect::draw() const {
     drawMenuBack();
     drawMenuPanel(uiRect(64, 210, 316, 380));
     drawMenuText("EXPLORER REGISTER", 88, 237, 14, Amber);
-    // A compass-like maze stamp gives the register its own visual identity.
+    // Build the explorer-register emblem from concentric compass rings and a decorative maze pattern.
     Vector2 center = { (float)uiX(222), (float)uiY(365) };
     DrawCircleLinesV(center, (float)uiSize(68), Border);
     DrawCircleLinesV(center, (float)uiSize(53), Fade(Mint, 0.3f));

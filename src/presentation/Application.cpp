@@ -1,6 +1,8 @@
 #include "Application.h"
 #include "raylib.h"
 
+// Connect menus to shared profiles and settings, initialize the selected-run values, and start at the
+// main menu.
 Application::Application()
     : playerSelect(players),
     pauseMenu(settings),
@@ -11,12 +13,16 @@ Application::Application()
     newBestTime(false),
     screen(Screen::MAIN_MENU) {}
 
+// Process the current screen repeatedly until navigation requests Quit or the operating system closes
+// the window.
 void Application::run() {
     while (screen != Screen::QUIT && !WindowShouldClose()) {
         screen = updateCurrentScreen();
     }
 }
 
+// Dispatch one frame to the handler for the active application state and return its requested next
+// state.
 Screen Application::updateCurrentScreen() {
     switch (screen) {
     case Screen::MAIN_MENU:

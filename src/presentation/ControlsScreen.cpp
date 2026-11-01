@@ -2,6 +2,8 @@
 #include "Ui.h"
 
 namespace {
+    // Draw a scaled keyboard-key illustration and center its label inside the supplied
+    // reference-layout width.
     void keycap(const char* label, int x, int y, int width = 42) {
         drawMenuPanel(uiRect(x, y, width, 36));
         int size = uiSize(16);
@@ -10,6 +12,7 @@ namespace {
     }
 }
 
+// Return to the main menu on Enter, Escape or the back button; otherwise remain on the controls guide.
 Screen ControlsScreen::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER) || menuClicked(menuBackBounds()))
@@ -17,6 +20,8 @@ Screen ControlsScreen::update() {
     return Screen::CONTROLS;
 }
 
+// Render the themed control cards for walking, jumping, mouse look, menu actions and Zero Gravity
+// attachment.
 void ControlsScreen::draw() const {
     using namespace MenuTheme;
     drawMenuBackdrop(3);

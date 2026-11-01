@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <ctime>
 
+// Create the resizable raylib window, run the application, and destroy GPU resources before closing
+// the graphics context.
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1000, 700, "Maze");

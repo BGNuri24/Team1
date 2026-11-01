@@ -14,11 +14,14 @@ constexpr Color AMBER = {244, 190, 102, 255};
 constexpr Color PAPER = {238, 233, 215, 255};
 constexpr Color MUTED = {134, 158, 166, 255};
 
+// Return the scaled hit rectangle for one main-menu option using the shared reference-layout
+// coordinates.
 Rectangle optionBounds(int index) {
     return {(float)uiX(64), (float)uiY(332 + index * 72),
              (float)uiSize(330), (float)uiSize(60)};
 }
 
+// Construct the main menu's small labyrinth emblem from scaled line segments.
 void drawMazeMark() {
     const float x = (float)uiX(65), y = (float)uiY(70);
     const float unit = uiScale() * 6.0f;
@@ -31,8 +34,11 @@ void drawMazeMark() {
 }
 }
 
+// Select the first menu option while the background member builds its independent animated maze.
 MainMenu::MainMenu() : selected(0) {}
 
+// Combine keyboard selection and intentional pointer input, returning the selected destination only
+// when confirmed.
 Screen MainMenu::update() {
     updateMenuSelection(selected, COUNT);
     const Vector2 mouse = GetMousePosition();
@@ -56,6 +62,8 @@ Screen MainMenu::update() {
     return Screen::MAIN_MENU;
 }
 
+// Render the animated maze background, title and navigation buttons with a moving accent on the
+// selected option.
 void MainMenu::draw() const {
     const float time = (float)GetTime();
     background.draw(time);

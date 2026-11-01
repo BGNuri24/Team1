@@ -6,7 +6,8 @@
 class PlayerSelect {
 public:
     explicit PlayerSelect(Players& players);
-    // LEVEL_SELECT = player chosen, MAIN_MENU = back, PLAYER_SELECT = stay
+    // Return LEVEL_SELECT after selecting a profile, MAIN_MENU when navigating back, or PLAYER_SELECT
+    // otherwise.
     Screen update();      
     void draw() const;
 private:
@@ -14,9 +15,10 @@ private:
 
     Players& players;
     int selected;
-    // true while typing a new name
+    // Track whether the new-player name entry is active instead of the profile list.
     bool typing;          
     std::string text;
-    // 0 none, 1 invalid name, 2 duplicate
+    // Select the displayed error: 0 clears it, 1 reports invalid entry, 2 reports a duplicate, and 3
+    // reports a save failure.
     int error;            
 };

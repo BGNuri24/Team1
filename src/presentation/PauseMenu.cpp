@@ -12,15 +12,24 @@ namespace {
         PauseAction::RESUME, PauseAction::RESTART, PauseAction::CHANGE_PLAYER, PauseAction::MAIN_MENU
     };
 
+    // Return the scaled hit rectangle for a pause action at the supplied row index.
     Rectangle actionBounds(int index) { return uiRect(270, 202 + index * 60, 460, 49); }
+    // Return the full sensitivity-panel rectangle used to select its keyboard-adjustable option.
     Rectangle sensitivityBounds() { return uiRect(270, 457, 460, 104); }
+    // Return the slider's enlarged hit area, which also defines the horizontal sensitivity mapping.
     Rectangle sliderBounds() { return uiRect(344, 508, 296, 34); }
+    // Return the scaled hit rectangle for decreasing sensitivity by one configured step.
     Rectangle minusBounds() { return uiRect(292, 508, 34, 34); }
+    // Return the scaled hit rectangle for increasing sensitivity by one configured step.
     Rectangle plusBounds() { return uiRect(674, 508, 34, 34); }
+    // Return the scaled hit rectangle for restoring the default sensitivity.
     Rectangle resetBounds() { return uiRect(598, 572, 132, 30); }
 
+    // Accept both an initial key press and repeat events so held adjustment keys continue changing
+    // sensitivity.
     bool repeatedKey(int key) { return IsKeyPressed(key) || IsKeyPressedRepeat(key); }
 
+    // Draw a compact sensitivity-adjustment button with hover feedback and a centered label.
     void smallButton(Rectangle bounds, const char* label) {
         bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
         DrawRectangleRounded(bounds, .15f, 6, over ? Color{ 51,58,50,255 } : Color{ 24,43,49,255 });
@@ -31,14 +40,20 @@ namespace {
     }
 }
 
+// Bind the pause menu to the application's live settings and initially select Resume.
 PauseMenu::PauseMenu(GameSettings& settings) : settings(settings), selected(0) {}
 
+// Return selection to Resume and cancel slider dragging without changing the saved or live
+// sensitivity.
 void PauseMenu::reset() { selected = 0; dragging = false; }
 
+// Attempt to save pending preferences and retain the outcome for the inline persistence-error message.
 void PauseMenu::persistSensitivity() {
     saveFailed = !settings.save();
 }
 
+// Process pause navigation, slider dragging and discrete sensitivity changes, saving at interaction
+// boundaries and returning any chosen pause action.
 PauseAction PauseMenu::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     updateMenuSelection(selected, ACTION_COUNT + 1);
@@ -96,7 +111,8 @@ PauseAction PauseMenu::update() {
             finishedDrag = true;
         }
     }
-    // A drag writes only on release; arrow keys and buttons save once per adjustment.
+    // Persist a slider change when dragging ends, or after a keyboard/button adjustment, instead of
+    // writing on every drag frame.
     if (discreteChange || finishedDrag) persistSensitivity();
 
     if (IsKeyPressed(KEY_ESCAPE)) {
@@ -113,6 +129,8 @@ PauseAction PauseMenu::update() {
     return PauseAction::NONE;
 }
 
+// Render the pause overlay, action list, sensitivity range and current value, reset button and any
+// save-failure feedback.
 void PauseMenu::draw() const {
     using namespace MenuTheme;
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, .78f));

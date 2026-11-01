@@ -1,6 +1,8 @@
 #include "EndScreen.h"
 #include "Ui.h"
 
+// Format a nonnegative duration as minutes, seconds and one decimal digit using raylib's temporary
+// text buffer.
 static const char* formatTime(float t) {
     int minutes = (int)t / 60;
     int seconds = (int)t % 60;
@@ -8,6 +10,7 @@ static const char* formatTime(float t) {
     return TextFormat("%02d:%02d.%d", minutes, seconds, tenths);
 }
 
+// Wait for confirmation, Escape or the report button before returning to the main menu.
 Screen EndScreen::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE) || menuClicked(uiRect(330, 504, 340, 48)))
@@ -15,6 +18,8 @@ Screen EndScreen::update() {
     return Screen::END;
 }
 
+// Overlay the run outcome, elapsed and remaining time, score, and the active player's best result on
+// the finished maze.
 void EndScreen::draw(const Game& game, const std::string& playerName,
     float bestTime, bool newBestTime) const {
     using namespace MenuTheme;

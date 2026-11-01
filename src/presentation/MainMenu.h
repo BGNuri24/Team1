@@ -5,7 +5,7 @@
 class MainMenu {
 public:
     MainMenu();
-    // returns the next screen (MAIN_MENU = stay here)
+    // Return the requested destination screen, or MAIN_MENU when no navigation action is selected.
     Screen update();     
     void draw() const;
 private:

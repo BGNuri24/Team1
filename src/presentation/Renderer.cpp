@@ -12,8 +12,9 @@ constexpr Color AMBER = {244, 190, 102, 255};
 constexpr Color MINT = {113, 216, 182, 255};
 constexpr int MAX_CEILING_LIGHTS = 6;
 
-// Per-pixel fog and a broad, soft light that follows the player's view.
-// All shader source is embedded: a fresh checkout needs no asset downloads.
+// Embed the GLSL programs for interpolated ceiling-light spill, per-fragment view lighting and distance
+// fog.
+// Keeping the shader sources here avoids separate shader-file paths or runtime asset downloads.
 const char* VERTEX_SHADER = R"glsl(#version 330
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;
@@ -26,12 +27,16 @@ out vec2 fragTexCoord;
 out vec4 fragColor;
 out vec3 worldPosition;
 out vec3 ceilingIllumination;
+// Transform the vertex and pass texture coordinates, color, world position and ceiling-light
+// contribution to the fragment stage.
 void main() {
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;
     worldPosition = vec3(matModel * vec4(vertexPosition, 1.0));
-    // Broad fixture spill interpolates smoothly across each panel; fog and the
-    // player's soft light remain per-pixel without six light loops per pixel.
+    // Calculate nearby fixture contributions at each vertex and interpolate their combined illumination
+    // across the surface.
+    // The fragment shader evaluates view lighting and fog separately, avoiding a fixture loop for every
+    // fragment.
     ceilingIllumination = vec3(0.0);
     for (int i = 0; i < ceilingLightCount; ++i) {
         vec3 delta = ceilingLights[i] - worldPosition;
@@ -52,6 +57,8 @@ uniform vec3 eyePosition;
 uniform vec3 viewDirection;
 uniform float emission;
 out vec4 finalColor;
+// Shade the sampled surface using ambient, view-directed and ceiling light, then blend distance fog
+// while retaining material alpha.
 void main() {
     vec4 surface = texture(texture0, fragTexCoord) * fragColor * colDiffuse;
     vec3 offset = worldPosition - eyePosition;
@@ -70,17 +77,21 @@ void main() {
 struct Corner { float x, y, z, u, v; };
 struct Wall { float lx, lz, rx, rz; int row, col, side; };
 
-// Decorations are authored in cell coordinates; physics and the camera use world units.
+// Convert authored decoration coordinates to world space: scale X/Z by cell width and Y by ceiling
+// height.
 Vector3 world(Vector3 point) {
     return {point.x*MazeGeometry::CellSize, point.y*MazeGeometry::CeilingHeight,
              point.z*MazeGeometry::CellSize};
 }
 
+// Draw a decoration cube after scaling its center and dimensions from authored cell coordinates into
+// world space.
 void detailCube(Vector3 point, float width, float height, float depth, Color color) {
     DrawCube(world(point), width*MazeGeometry::CellSize, height*MazeGeometry::CeilingHeight,
              depth*MazeGeometry::CellSize, color);
 }
 
+// Submit one vertex with its color and UV coordinates after converting its position to world units.
 void emit(const Corner& point, Color color) {
     rlColor4ub(color.r, color.g, color.b, color.a);
     rlTexCoord2f(point.u, point.v);
@@ -88,11 +99,13 @@ void emit(const Corner& point, Color color) {
     rlVertex3f(position.x, position.y, position.z);
 }
 
+// Submit four ordered corners to the currently active quad batch using a shared vertex color.
 void quad(const Corner& a, const Corner& b, const Corner& c, const Corner& d, Color color) {
     emit(a, color); emit(b, color); emit(c, color); emit(d, color);
 }
 
-// Local coordinates on an exposed wall. The offset keeps trim above the material.
+// Map wall-local horizontal and vertical bounds onto an exposed face, offsetting the strip to avoid
+// depth overlap.
 void wallStrip(const Wall& wall, float left, float right, float bottom, float top,
                Color color, float inset = 0.004f) {
     float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
@@ -104,6 +117,8 @@ void wallStrip(const Wall& wall, float left, float right, float bottom, float to
          {x1, top, z1, right, 1-top}, {x0, top, z0, left, 1-top}, color);
 }
 
+// Visit open cells within the renderer's bounded neighborhood and distance cutoff before issuing their
+// draw callbacks.
 template <typename Draw> void nearbyCells(const Game& game, Draw draw) {
     int reach = (int)VIEW_DISTANCE + 1;
     int size = game.maze().size();
@@ -117,6 +132,8 @@ template <typename Draw> void nearbyCells(const Game& game, Draw draw) {
         }
 }
 
+// Enumerate passage edges adjacent to solid cells, supplying consistently oriented wall-face
+// coordinates to the draw callback.
 template <typename Draw> void exposedWalls(const Game& game, Draw draw) {
     nearbyCells(game, [&](int row, int col) {
         float x = (float)col, z = (float)row;
@@ -127,17 +144,21 @@ template <typename Draw> void exposedWalls(const Game& game, Draw draw) {
     });
 }
 
+// Submit a horizontal decorative quad with authored half-width and half-depth at the requested height.
 void floorPatch(float x, float z, float y, float halfWidth, float halfDepth, Color color) {
     quad({x-halfWidth,y,z-halfDepth,0,0}, {x-halfWidth,y,z+halfDepth,0,1},
          {x+halfWidth,y,z+halfDepth,1,1}, {x+halfWidth,y,z-halfDepth,1,0}, color);
 }
 
+// Choose fixture cells deterministically from the row/column pattern and intersections with at least
+// three open neighbors.
 bool ceilingFixture(const Game& game, int row, int col) {
     int neighbours = (game.maze().cell(row-1,col) != '#') + (game.maze().cell(row+1,col) != '#')
         + (game.maze().cell(row,col-1) != '#') + (game.maze().cell(row,col+1) != '#');
     return (row+col)%3 == 0 || neighbours >= 3;
 }
 
+// Expand a nonzero floor segment into a thin quad, using width as its perpendicular half-width.
 void floorLine(float x0, float z0, float x1, float z1, float width, Color color) {
     float dx = x1-x0, dz = z1-z0;
     float length = std::sqrt(dx*dx+dz*dz);
@@ -147,16 +168,21 @@ void floorLine(float x0, float z0, float x1, float z1, float width, Color color)
          {x1-nx,.006f,z1-nz,1,1}, {x1+nx,.006f,z1+nz,1,0}, color);
 }
 
+// Normalize an angle in radians to the signed interval around zero so compass offsets follow the
+// shortest turn.
 float wrapAngle(float angle) {
     return std::atan2(std::sin(angle), std::cos(angle));
 }
 
+// Draw the translucent rounded backing and border shared by in-game information panels.
 void hudPanel(Rectangle bounds) {
     DrawRectangleRounded(bounds, 0.10f, 8, {9, 22, 29, 225});
     DrawRectangleRoundedLinesEx(bounds, 0.10f, 8, std::max(1.0f, uiScale()), {55, 80, 83, 175});
 }
 }
 
+// Initialize the perspective camera, upload procedural textures and load shader uniform locations,
+// falling back when the custom shader is unavailable.
 Renderer::Renderer() {
     cam = Camera3D{};
     cam.up = {0, 1, 0};
@@ -175,11 +201,14 @@ Renderer::Renderer() {
     }
 }
 
+// Unload owned textures and the custom shader while the application's graphics context still exists.
 Renderer::~Renderer() {
     destroyTextures(tex);
     if (atmosphere.id) UnloadShader(atmosphere);
 }
 
+// Copy the game's displayed camera pose, render lit geometry and emissive details, then draw the HUD
+// and explored-area minimap.
 void Renderer::draw(const Game& game) {
     cam.position = game.position();
     const Vector3 direction = game.cameraDirection();
@@ -198,7 +227,8 @@ void Renderer::draw(const Game& game) {
     }
     drawMaze(game);
     drawDetails(game);
-    // Flush before changing a uniform, so the surfaces keep their own lighting.
+    // Submit queued surface geometry before enabling emission so it retains the lighting uniforms used
+    // when it was queued.
     rlDrawRenderBatchActive();
     if (atmosphere.id) {
         float emission = 1;
@@ -215,6 +245,8 @@ void Renderer::draw(const Game& game) {
     drawMinimap(game);
 }
 
+// Batch nearby floor, ceiling and exposed wall surfaces, followed by shallow wall trim, with textures
+// and culling state managed explicitly.
 void Renderer::drawMaze(const Game& game) {
     rlDisableBackfaceCulling();
     rlSetTexture(tex.wall.id);
@@ -242,7 +274,7 @@ void Renderer::drawMaze(const Game& game) {
     rlSetTexture(rlGetTextureIdDefault());
     rlBegin(RL_QUADS);
     exposedWalls(game, [](const Wall& wall) {
-        // Flush ribs and skirting; every piece stays against the collision surface.
+        // Draw shallow vertical ribs and base trim directly against each exposed wall's collision plane.
         wallStrip(wall, .015f, .043f, .03f, .97f, {48, 78, 82, 255});
         wallStrip(wall, .957f, .985f, .03f, .97f, {32, 54, 61, 255});
         wallStrip(wall, 0, 1, .025f, .065f, {21, 39, 45, 255});
@@ -250,11 +282,14 @@ void Renderer::drawMaze(const Game& game) {
     });
     rlEnd();
     rlSetTexture(rlGetTextureIdDefault());
-    // Culling is global OpenGL state, not stored with queued batch vertices.
+    // Submit the two-sided geometry before restoring backface culling; queued vertices do not retain the
+    // previous culling state.
     rlDrawRenderBatchActive();
     rlEnableBackfaceCulling();
 }
 
+// Select up to six nearby fixtures by squared camera distance and upload their world positions to the
+// active atmosphere shader.
 void Renderer::updateCeilingLights(const Game& game) {
     Vector3 positions[MAX_CEILING_LIGHTS]{};
     float distances[MAX_CEILING_LIGHTS]{};
@@ -279,6 +314,7 @@ void Renderer::updateCeilingLights(const Game& game) {
     if (count) SetShaderValueV(atmosphere,ceilingLightsLocation,positions,SHADER_UNIFORM_VEC3,count);
 }
 
+// Place decorative sign-atlas panels, conduits, grilles and floor markings on nearby maze surfaces.
 void Renderer::drawDetails(const Game& game) {
     rlDisableBackfaceCulling();
     rlSetTexture(tex.decals.id);
@@ -301,7 +337,7 @@ void Renderer::drawDetails(const Game& game) {
     rlBegin(RL_QUADS);
     exposedWalls(game,[](const Wall& wall) {
         int hash = wall.row*53+wall.col*17+wall.side*13;
-        // Brushed copper service conduit runs above the plaques.
+        // Place the horizontal copper conduit and its mounting clips above the decorative wall plaques.
         wallStrip(wall,.03f,.97f,.718f,.727f,{129,113,81,255},.007f);
         wallStrip(wall,.10f,.12f,.704f,.742f,{51,70,68,255},.010f);
         wallStrip(wall,.88f,.90f,.704f,.742f,{51,70,68,255},.010f);
@@ -327,7 +363,8 @@ void Renderer::drawDetails(const Game& game) {
             floorLine(x,z-.07f,x,z+.07f,.004f,{147,133,98,180});
         }
         if (neighbours == 1) {
-            // A small service hatch marking at dead ends, with no directional arrows.
+            // Add service-hatch floor markings to cells with a single open neighbor; they do not point
+            // toward the exit.
             for (int i=0;i<5;++i)
                 floorLine(x-.17f+i*.06f,z+.31f,x-.14f+i*.06f,z+.25f,.006f,{158,126,72,200});
         }
@@ -338,6 +375,8 @@ void Renderer::drawDetails(const Game& game) {
     rlEnableBackfaceCulling();
 }
 
+// Render visited-cell breadcrumbs, ceiling fixtures and the animated mint exit gateway during the
+// emissive pass.
 void Renderer::drawLights(const Game& game) {
     const Color accent = game.mode() == GameMode::ZeroGravity ? MINT : AMBER;
     const float time = (float)GetTime();
@@ -358,7 +397,8 @@ void Renderer::drawLights(const Game& game) {
     nearbyCells(game, [&](int row, int col) {
         float x = (float)col, z = (float)row;
         if (game.seenState(row, col) == 2) {
-            // Breadcrumbs mark only places actually walked, never the solution.
+            // Draw floor breadcrumbs only in cells marked as visited so unexplored passages remain
+            // undisclosed.
             for (int i = -1; i <= 1; ++i)
                 floorPatch(x + i*.055f, z, .004f, .009f, .009f, Fade(accent, .62f));
         }
@@ -367,7 +407,8 @@ void Renderer::drawLights(const Game& game) {
     rlDrawRenderBatchActive();
     rlEnableBackfaceCulling();
 
-    // Suspended warm diffusers and slender supports sit above attachment clearance.
+    // Position ceiling diffuser bodies and supports close to the ceiling, clear of the attached player's
+    // camera and collision radius.
     nearbyCells(game, [&](int row, int col) {
         if (!ceilingFixture(game,row,col)) return;
         const float x = (float)col, z = (float)row;
@@ -381,7 +422,7 @@ void Renderer::drawLights(const Game& game) {
             detailCube({x+sx*side,.984f,z+sz*side},.005f,.028f,.005f,{136,119,86,255});
     });
 
-    // A recognizable doorway replaces the old solid green cube.
+    // Draw the mint gateway at the exit cell when it is within the renderer's distance limit.
     const int last = game.maze().size()-1;
     float dx = last-game.x()/MazeGeometry::CellSize, dz = last-game.z()/MazeGeometry::CellSize;
     if (dx*dx + dz*dz > VIEW_DISTANCE*VIEW_DISTANCE) return;
@@ -411,6 +452,8 @@ void Renderer::drawLights(const Game& game) {
     }
 }
 
+// Display the remaining time, mode, compass heading and applicable controls, with warning colors when
+// time is short.
 void Renderer::drawHud(const Game& game) {
     using namespace MenuTheme;
     const int margin = uiSize(22);
@@ -431,7 +474,7 @@ void Renderer::drawHud(const Game& game) {
     DrawRectangle(margin+uiSize(18), margin+uiSize(108), uiSize(184), std::max(1, uiSize(2)), Border);
     DrawRectangle(margin+uiSize(18), margin+uiSize(108), (int)(uiSize(184)*ratio), std::max(1, uiSize(2)), urgent ? Danger : Amber);
 
-    // Heading tape: the cardinal directions refer to the actual maze axes.
+    // Project compass ticks relative to camera yaw, with east at +X and south at +Z in maze coordinates.
     const int center = GetScreenWidth()/2;
     const int compassWidth = uiSize(220);
     const int compassY = margin+uiSize(12);
@@ -456,7 +499,8 @@ void Renderer::drawHud(const Game& game) {
     if (zero)
         text(game.surfaceAttached() ? "G  return to floor" : "G  attach to a wall or ceiling", margin, footer-uiSize(28), 15, Mint);
     text("FIND THE GREEN GATE", GetScreenWidth()-margin-MeasureText("FIND THE GREEN GATE",uiSize(14)), footer, 14, Muted);
-    // Tiny aim marker is also useful for attaching in Zero Gravity.
+    // Draw a central reticle to show the look direction used when aiming Zero Gravity surface
+    // attachment.
     int cx = GetScreenWidth()/2, cy = GetScreenHeight()/2;
     Color aim = Fade(Paper, .45f);
     DrawLine(cx-uiSize(5), cy, cx-uiSize(2), cy, aim);
@@ -465,6 +509,8 @@ void Renderer::drawHud(const Game& game) {
     DrawLine(cx, cy+uiSize(2), cx, cy+uiSize(5), aim);
 }
 
+// Draw only revealed maze cells and the player's marker, distinguishing visited passages without
+// disclosing the solution.
 void Renderer::drawMinimap(const Game& game) {
     using namespace MenuTheme;
     int size = game.maze().size();
@@ -494,7 +540,8 @@ void Renderer::drawMinimap(const Game& game) {
     DrawLineEx({px,py}, {px+std::cos(game.yaw())*radius*3, py+std::sin(game.yaw())*radius*3},
                std::max(1.0f, uiScale()), Paper);
     const char* caption = "YOUR STEPS, YOUR MAP";
-    // DrawText clamps to ten pixels; shorten the label instead of shrinking below it.
+    // Respect DrawText's ten-pixel minimum font size and switch to a shorter caption when the minimap
+    // label would overflow.
     int captionSize = std::max(10, uiSize(10));
     if (MeasureText(caption, captionSize) > board) caption = "YOUR ROUTE";
     DrawText(caption, x, y+board+uiSize(12), captionSize, Muted);

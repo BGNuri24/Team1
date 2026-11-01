@@ -4,7 +4,8 @@
 namespace {
 constexpr int SIZE = 256;
 
-// Deterministic surface grain: creating materials never changes maze randomness.
+// Derive surface grain from pixel coordinates so texture generation does not consume the maze
+// generator's random sequence.
 void grain(Image& image, int strength) {
     for (int y = 0; y < image.height; ++y) {
         for (int x = 0; x < image.width; ++x) {
@@ -21,6 +22,8 @@ void grain(Image& image, int strength) {
     }
 }
 
+// Draw light top/left edges and dark bottom/right edges to give a rectangular texture panel a beveled
+// appearance.
 void frame(Image& image, int x, int y, int width, int height, Color light, Color dark) {
     ImageDrawRectangle(&image, x, y, width, 2, light);
     ImageDrawRectangle(&image, x, y, 2, height, light);
@@ -28,6 +31,8 @@ void frame(Image& image, int x, int y, int width, int height, Color light, Color
     ImageDrawRectangle(&image, x + width - 2, y, 2, height, dark);
 }
 
+// Upload the image and free its CPU pixels, then enable mipmaps, anisotropic filtering and repeating
+// texture coordinates.
 Texture2D upload(Image& image) {
     Texture2D texture = LoadTextureFromImage(image);
     UnloadImage(image);
@@ -37,13 +42,15 @@ Texture2D upload(Image& image) {
     return texture;
 }
 
+// Build the engraved teal wall panel with recessed maze motifs, fasteners and brass detailing.
 Texture2D wallMaterial() {
     Image image = GenImageColor(SIZE, SIZE, {23, 43, 49, 255});
     ImageDrawRectangle(&image, 12, 12, 232, 232, {51, 86, 91, 255});
     frame(image, 12, 12, 232, 232, {79, 116, 117, 255}, {14, 31, 37, 255});
     ImageDrawRectangle(&image, 25, 29, 206, 189, {43, 75, 81, 255});
     frame(image, 25, 29, 206, 189, {28, 54, 61, 255}, {63, 98, 102, 255});
-    // Recessed architectural maze motif. It is a material, not a route hint.
+    // Draw nested recessed lines into the wall material as decoration independent of the generated maze
+    // layout.
     for (int i = 0; i < 4; ++i) {
         int x = 47 + i * 23, y = 55 + i * 23;
         ImageDrawRectangle(&image, x, y, 164 - i * 23, 3, {28, 55, 62, 255});
@@ -57,12 +64,13 @@ Texture2D wallMaterial() {
         ImageDrawCircle(&image, x, y, 3, {14, 31, 37, 255});
         ImageDrawPixel(&image, x - 1, y - 1, {137, 141, 122, 255});
     }
-    // Fine brass seams at the foot of each panel.
+    // Add a narrow brass seam along the lower edge of the wall texture before applying surface grain.
     ImageDrawRectangle(&image, 37, 233, 182, 2, {122, 105, 70, 255});
     grain(image, 3);
     return upload(image);
 }
 
+// Build a dark plated floor texture with panel grooves and warm corner inlays.
 Texture2D floorMaterial() {
     Image image = GenImageColor(SIZE, SIZE, {16, 28, 34, 255});
     ImageDrawRectangle(&image, 7, 7, 242, 242, {53, 67, 70, 255});
@@ -70,7 +78,8 @@ Texture2D floorMaterial() {
     frame(image, 23, 23, 210, 210, {33, 48, 53, 255}, {64, 79, 80, 255});
     for (int y = 42; y < 220; y += 8)
         ImageDrawRectangle(&image, 38, y, 180, 1, {47, 61, 65, 255});
-    // Small warm corner inlays keep the floor readable without a bright grid.
+    // Mark the floor panel's corners with warm inlays to distinguish its edges without outlining the
+    // entire tile.
     for (int x : {15, 226}) for (int y : {15, 226}) {
         ImageDrawRectangle(&image, x, y, 15, 2, {146, 125, 83, 255});
         ImageDrawRectangle(&image, x, y, 2, 15, {146, 125, 83, 255});
@@ -79,6 +88,7 @@ Texture2D floorMaterial() {
     return upload(image);
 }
 
+// Build a vented ceiling panel texture with contrasting seams and repeated grille lines.
 Texture2D ceilingMaterial() {
     Image image = GenImageColor(SIZE, SIZE, {21, 37, 45, 255});
     ImageDrawRectangle(&image, 8, 8, 240, 240, {36, 58, 65, 255});
@@ -98,6 +108,7 @@ void signText(Image& image, const char* text, int center, int y, int width,
     ImageDrawText(&image, text, center-MeasureText(text, fontSize)/2, y, fontSize, color);
 }
 
+// Draw one padded sign frame inside the atlas at the supplied vertical slot offset.
 void signBacking(Image& image, int top, Color accent) {
     ImageDrawRectangle(&image, 8, top+8, 496, 112, {10, 24, 31, 238});
     frame(image, 8, top+8, 496, 112, {77, 101, 103, 255}, {22, 46, 54, 255});
@@ -108,6 +119,8 @@ void signBacking(Image& image, int top, Color accent) {
     }
 }
 
+// Build the four-slot decorative sign atlas, upload it with clamped UV wrapping, and release the
+// source image.
 Texture2D decalMaterial() {
     constexpr Color AMBER = {244, 190, 102, 255};
     constexpr Color PAPER = {238, 233, 215, 255};
@@ -116,7 +129,8 @@ Texture2D decalMaterial() {
     Image image = GenImageColor(512, 512, BLANK);
 
     signBacking(image, 0, AMBER);
-    // A small engraved labyrinth badge, distinct from navigation arrows.
+    // Construct the first sign's labyrinth emblem from line segments without encoding a direction
+    // through the maze.
     ImageDrawRectangle(&image, 40, 37, 52, 3, AMBER);
     ImageDrawRectangle(&image, 40, 37, 3, 52, AMBER);
     ImageDrawRectangle(&image, 89, 37, 3, 52, AMBER);
@@ -134,7 +148,8 @@ Texture2D decalMaterial() {
 
     signBacking(image, 256, AMBER);
     for (int i = 0; i < 4; ++i) {
-        // Diagonal service hatching remains decorative, never a route pointer.
+        // Add repeated diagonal maintenance markings to the sign; their orientation has no navigation
+        // meaning.
         int y = 286 + i*16;
         ImageDrawLine(&image, 34, y+9, 49, y-6, AMBER);
         ImageDrawLine(&image, 35, y+9, 50, y-6, AMBER);
@@ -153,10 +168,13 @@ Texture2D decalMaterial() {
 }
 }
 
+// Create the wall, floor, ceiling and decal textures and return their GPU handles as one resource
+// group.
 Textures createTextures() {
     return {wallMaterial(), floorMaterial(), ceilingMaterial(), decalMaterial()};
 }
 
+// Unload every GPU texture owned by the resource group before its graphics context is destroyed.
 void destroyTextures(Textures& textures) {
     UnloadTexture(textures.wall);
     UnloadTexture(textures.floor);

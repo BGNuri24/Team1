@@ -8,7 +8,7 @@ public:
     explicit PauseMenu(GameSettings& settings);
     PauseAction update();
     void draw() const;
-    // highlight "Resume" again each time the pause opens
+    // Select Resume and cancel slider dragging when the pause menu is opened again.
     void reset();
 private:
     void persistSensitivity();
