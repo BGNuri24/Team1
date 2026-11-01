@@ -74,6 +74,7 @@ bool Game::hasSurfaceSupport(float x, float z) const {
 
 void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
     bool attached) {
+    jumpMovement.reset();
     transitionFromPosition = { px, py, pz };
     transitionFromDirection = lookDirection;
     rollFrom = cameraUp();
@@ -288,37 +289,41 @@ void Game::update(const InputState& in) {
     float movementLength = std::sqrt(dot(movement, movement));
     if (movementLength > 1.0f) movement = scaled(movement, 1.0f / movementLength);
 
-    float step = MovementSpeed * in.dt;
-    // Swept substeps keep a slow frame from skipping a whole wall cell.
-    // Keep X before Z and stop immediately if either axis changes surfaces.
-    int substeps = std::max(1, (int)std::ceil(step / (PlayerRadius * 0.75f)));
-    float substep = step / substeps;
-    for (int part = 0; part < substeps; ++part) {
-        if (moveHorizontal(movement.x, substep, true) || moveHorizontal(movement.z, substep, false)) {
+    if (!attachedToSurface) {
+        if (moveJumping(in, movement)) {
             reveal();
             return;
         }
-    }
+    } else {
+        float step = MovementSpeed * in.dt;
+        // Swept substeps keep a slow frame from skipping a whole wall cell.
+        // Keep X before Z and stop immediately if either axis changes surfaces.
+        int substeps = std::max(1, (int)std::ceil(step / (PlayerRadius * 0.75f)));
+        float substep = step / substeps;
+        for (int part = 0; part < substeps; ++part) {
+            if (moveHorizontal(movement.x, substep, true) || moveHorizontal(movement.z, substep, false)) {
+                reveal();
+                return;
+            }
+        }
 
-    if (attachedToSurface && std::fabs(gravityUp.y) < 0.5f) {
-        float nextY = py + movement.y * step;
-        if (nextY < PlayerRadius) {
-            beginSurfaceTransition({ 0, 1, 0 }, { px, StandingEyeHeight, pz }, false);
-            reveal();
-            return;
+        if (attachedToSurface && std::fabs(gravityUp.y) < 0.5f) {
+            float nextY = py + movement.y * step;
+            if (nextY < PlayerRadius) {
+                beginSurfaceTransition({ 0, 1, 0 }, { px, StandingEyeHeight, pz }, false);
+                reveal();
+                return;
+            }
+            if (nextY > CeilingHeight - PlayerRadius) {
+                beginSurfaceTransition({ 0, -1, 0 }, { px, CeilingHeight - SurfaceOffset, pz }, true);
+                reveal();
+                return;
+            }
+            py = nextY;
         }
-        if (nextY > CeilingHeight - PlayerRadius) {
-            beginSurfaceTransition({ 0, -1, 0 }, { px, CeilingHeight - SurfaceOffset, pz }, true);
-            reveal();
-            return;
+        else if (attachedToSurface) {
+            py = std::clamp(py + movement.y * step, PlayerRadius, CeilingHeight - PlayerRadius);
         }
-        py = nextY;
-    }
-    else if (attachedToSurface) {
-        py = std::clamp(py + movement.y * step, PlayerRadius, CeilingHeight - PlayerRadius);
-    }
-    else {
-        py = StandingEyeHeight;
     }
 
     reveal();

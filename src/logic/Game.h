@@ -3,6 +3,7 @@
 #include "../data/MazeData.h"
 #include "../data/GameMode.h"
 #include "../data/MazeGeometry.h"
+#include "JumpMovement.h"
 #include <vector>
 
 struct InputState {
@@ -13,6 +14,7 @@ struct InputState {
     float mouseDX, mouseDY;
     float dt;
     bool gravityToggle;
+    bool jumpPressed = false;
 };
 
 class Game {
@@ -45,6 +47,8 @@ public:
     bool finished() const;
     const MazeData& maze() const;
 private:
+    bool moveJumping(const InputState& input, const Vector3& wish);
+    JumpMovement jumpMovement;
     float transitionBlend() const;
     bool moveHorizontal(float movement, float step, bool alongX);
     bool isWall(float x, float z) const;
