@@ -9,6 +9,7 @@
     <RootNamespace>MazeGameTests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <NativeTest>true</NativeTest>
+    <UseRaylib>true</UseRaylib>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -29,6 +30,8 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\CoreTests.cpp" />
+    <ClCompile Include="..\tests\UiTests.cpp" />
+    <ClCompile Include="..\presentation\Ui.cpp" />
     <ClCompile Include="..\tests\DatabaseTests.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
@@ -38,5 +41,11 @@
     <ClCompile Include="..\logic\GameSettings.cpp" />
   </ItemGroup>
   <ItemDefinitionGroup><Link><AdditionalDependencies>winsqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies></Link></ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectReference Include="raylib.vcxproj">
+      <Project>{69AE195E-2FF5-44DB-8691-B9807CD47C68}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
