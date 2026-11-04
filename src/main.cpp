@@ -6,7 +6,7 @@
 // Create the resizable raylib window, run the application, and destroy GPU resources before closing
 // the graphics context.
 int main() {
-    SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1000, 700, "Maze");
 
     Image appIcon = LoadImage("T1_.png");
