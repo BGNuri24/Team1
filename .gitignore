@@ -12,3 +12,5 @@ build-*/
 /save_data/settings.txt
 /save_data/settings.txt.tmp
 /save_data/settings.txt.bak
+/save_data/maze_game.db
+/save_data/maze_game.db-*
