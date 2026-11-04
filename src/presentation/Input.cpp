@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+// Keep simulation and cursor capture inactive while the user is outside the game window.
+bool gameplayWindowActive() { return IsWindowFocused() && !IsWindowMinimized(); }
+
+// Give pause requests priority over the current frame's movement and countdown updates.
+bool gameplayPauseRequested() { return !gameplayWindowActive() || IsKeyPressed(KEY_ESCAPE); }
+
 // Collect movement, sensitivity-scaled mouse deltas, frame seconds and fresh gravity/jump requests
 // without changing the game state.
 InputState readInput(float sensitivity) {

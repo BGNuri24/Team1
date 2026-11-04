@@ -11,6 +11,10 @@
 static std::array<bool, 512> pressed{}, repeated{}, held{};
 static std::deque<int> characters;
 static float wheel = 0;
+static bool focused = true, minimized = false;
+// Supply window-state events without changing the real desktop's focus.
+bool IsWindowFocused() { return focused; }
+bool IsWindowMinimized() { return minimized; }
 // Return the synthetic initial-press state for one key instead of reading the real keyboard.
 bool IsKeyPressed(int key) { return pressed.at(key); }
 // Return the synthetic repeat state used to test held-key behavior.
@@ -115,6 +119,17 @@ int main() {
         require(readInput().jumpPressed, "wheel up must request a jump");
         wheel = 0;
         require(!readInput().jumpPressed, "jump input must clear between presses");
+        require(gameplayWindowActive() && !gameplayPauseRequested(), "an active idle window must allow gameplay");
+        pressed[KEY_ESCAPE] = true;
+        require(gameplayPauseRequested(), "Escape must request a pause before gameplay input is consumed");
+        pressed[KEY_ESCAPE] = false;
+        focused = false;
+        require(!gameplayWindowActive() && gameplayPauseRequested(), "losing focus must pause the run");
+        focused = true;
+        minimized = true;
+        require(!gameplayWindowActive() && gameplayPauseRequested(), "minimization must pause even if focus remains reported");
+        minimized = false;
+        require(gameplayWindowActive() && !gameplayPauseRequested(), "restored focus must permit an explicit resume");
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;
