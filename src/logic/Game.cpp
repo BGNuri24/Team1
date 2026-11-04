@@ -287,6 +287,7 @@ void Game::reveal() {
 void Game::update(const InputState& in) {
     // Ignore further input and timer updates after the run has been won or lost.
     if (hasWon || hasLost) return;
+    if (!std::isfinite(in.dt) || in.dt < 0.0f) return;
 
     // Accumulate this frame's duration for the run's elapsed-time result.
     elapsedSec += in.dt;

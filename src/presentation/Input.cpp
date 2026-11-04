@@ -31,6 +31,7 @@ InputState readInput(float sensitivity) {
 // Move selection through a nonempty option list with wraparound; opposing navigation presses cancel
 // each other.
 void updateMenuSelection(int& selected, int count) {
+    if (count <= 0) return;
     if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) selected = (selected + 1) % count;
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) selected = (selected + count - 1) % count;
 }

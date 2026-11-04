@@ -57,6 +57,9 @@ int main() {
         require(selected == 0, "opposing presses should cancel");
         updateMenuSelection(selected, 1);
         require(selected == 0, "single-option menu should remain valid");
+        selected = 2;
+        updateMenuSelection(selected, 0);
+        require(selected == 2, "empty menus should leave their selection unchanged");
         pressed.fill(false);
         require(!menuConfirmed(), "idle menu should not confirm");
         pressed[KEY_SPACE] = true;

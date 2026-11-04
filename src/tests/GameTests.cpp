@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <queue>
 #include <stdexcept>
 #include <vector>
@@ -13,6 +14,16 @@ void runJumpTests();
 // Turn a failed gameplay expectation into an exception carrying the test's explanatory message.
 static void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
+}
+
+// Ignore invalid frame durations so malformed timing input cannot move the run timer backward or make
+// its state non-finite.
+static void testInvalidFrameDuration() {
+    Game game(10, 30.0f);
+    game.update({ 1, 0, 0, 0, -1.0f, false });
+    game.update({ 1, 0, 0, 0, std::numeric_limits<float>::quiet_NaN(), false });
+    require(game.timeTaken() == 0.0f && game.timeLeft() == 30.0f && !game.finished(),
+        "invalid frame durations must not change gameplay state");
 }
 
 // Check timer expiry and frozen results, then verify ceiling attachment and return-to-floor
@@ -203,6 +214,7 @@ int main() {
         std::srand(1234);
         runJumpTests();
         testTimerAndGravity();
+        testInvalidFrameDuration();
         testNormalGravity();
         testZeroGravityWallAttachment();
         testWideCorridorClearance();
