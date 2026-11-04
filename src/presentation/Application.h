@@ -47,5 +47,6 @@ private:
     GameMode currentMode;
     float bestTime;
     bool newBestTime;
+    bool bestTimeSaveFailed = false;
     Screen screen;
 };

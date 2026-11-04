@@ -71,6 +71,7 @@ Screen Application::updatePlaying() {
     if (game->finished()) {
         EnableCursor();
         newBestTime = game->won() && players.recordWin(currentSize, game->timeTaken(), currentMode);
+        bestTimeSaveFailed = game->won() && players.bestTimeStorageFailed();
         bestTime = players.bestTime(currentSize, currentMode);
         return Screen::END;
     }
@@ -114,7 +115,7 @@ Screen Application::updateEnd() {
     Screen next = endScreen.update();
     drawFrame([&] {
         renderer.draw(*game);
-        endScreen.draw(*game, players.activeName(), bestTime, newBestTime);
+        endScreen.draw(*game, players.activeName(), bestTime, newBestTime, bestTimeSaveFailed);
         });
 
     if (next != Screen::END) {

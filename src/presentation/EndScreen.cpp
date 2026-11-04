@@ -21,7 +21,7 @@ Screen EndScreen::update() {
 // Overlay the run outcome, elapsed and remaining time, score, and the active player's best result on
 // the finished maze.
 void EndScreen::draw(const Game& game, const std::string& playerName,
-    float bestTime, bool newBestTime) const {
+    float bestTime, bool newBestTime, bool bestTimeSaveFailed) const {
     using namespace MenuTheme;
     const Color accent = game.won() ? Mint : Danger;
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, 0.83f));
@@ -47,7 +47,8 @@ void EndScreen::draw(const Game& game, const std::string& playerName,
     }
     const char* record = bestTime < 0.0f ? "No escape recorded for this level yet."
         : TextFormat("%s   %s", newBestTime ? "A NEW PERSONAL BEST" : "PERSONAL BEST", formatTime(bestTime));
-    drawCentered(record, 456, 18, newBestTime ? Amber : Muted);
+    drawCentered(bestTimeSaveFailed ? "Best time could not be saved. Check save_data access." : record,
+        456, 16, bestTimeSaveFailed ? Danger : newBestTime ? Amber : Muted);
     drawMenuButton(uiRect(330, 504, 340, 48), "Back to main menu", true);
     drawCentered("ENTER / ESC  continue", 603, 14, Muted);
 }

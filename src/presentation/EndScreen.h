@@ -7,5 +7,5 @@ class EndScreen {
 public:
     Screen update();
     void draw(const Game& game, const std::string& playerName,
-        float bestTime, bool newBestTime) const;
+        float bestTime, bool newBestTime, bool bestTimeSaveFailed = false) const;
 };
