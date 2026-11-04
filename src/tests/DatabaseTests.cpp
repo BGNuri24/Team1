@@ -83,6 +83,64 @@ namespace {
             "a failed locked write must report its failure and preserve the previous score");
         check(first.recordBestTime("Alex",25,5) && !first.bestTimeStorageFailed(),
             "a write should succeed after the lock is released");
+        check(second.remove(0), "another store should be able to remove the profile");
+        check(!first.recordBestTime("Alex",25,1) && !first.bestTimeStorageFailed(),
+            "a stale profile list must not recreate scores for a deleted database profile");
+    }
+
+    // Force the score deletion to fail after profile deletion and verify that the transaction restores both.
+    void atomicProfileDeletion() {
+        clear();
+        std::ofstream("save_data/players.txt") << "Alex\nBo\n";
+        const auto original = contents("save_data/players.txt");
+        PlayerStore store;
+        check(store.recordBestTime("Alex",25,12) && store.recordBestTime("Bo",25,15), "deletion fixture must save scores");
+        sqlite3* database = nullptr;
+        check(sqlite3_open("save_data/maze_game.db",&database) == SQLITE_OK, "trigger fixture must open");
+        const int created = sqlite3_exec(database,
+            "CREATE TRIGGER fail_score_delete BEFORE DELETE ON best_times BEGIN SELECT RAISE(ABORT,'test failure'); END;",
+            nullptr,nullptr,nullptr);
+        sqlite3_close(database);
+        check(created == SQLITE_OK, "trigger fixture must install");
+        check(!store.remove(0) && store.count() == 2 && store.name(0) == "Alex",
+            "a failed deletion must not change the in-memory profile list");
+        PlayerStore restored;
+        check(restored.count() == 2 && restored.name(0) == "Alex" && restored.bestTime("Alex",25) == 12,
+            "a failure after profile deletion must restore the persisted profile and all scores");
+        check(sqlite3_open("save_data/maze_game.db",&database) == SQLITE_OK, "trigger removal fixture must open");
+        const int dropped = sqlite3_exec(database,"DROP TRIGGER fail_score_delete",nullptr,nullptr,nullptr);
+        sqlite3_close(database);
+        check(dropped == SQLITE_OK && store.remove(0), "deletion must succeed after its blocker is removed");
+        std::ofstream("save_data/players.txt") << "Ghost\n";
+        PlayerStore reopened;
+        check(reopened.count() == 1 && reopened.name(0) == "Bo" && reopened.bestTime("Bo",25) == 15,
+            "SQLite profile order must remain authoritative after migration");
+        check(contents("save_data/players.txt") != original, "fixture must have modified its legacy backup");
+        check(reopened.add("Alex") && reopened.bestTime("Alex",25) < 0,
+            "reusing a deleted name must not resurrect its old scores");
+    }
+
+    // Upgrade an existing scores-only database without replacing its results or reimporting stale scores.
+    void scoreDatabaseUpgrade() {
+        clear();
+        std::ofstream("save_data/players.txt") << "Bo\nAlex\n";
+        std::ofstream("save_data/best_times.txt") << "Alex 25 1\n";
+        const auto originalProfiles = contents("save_data/players.txt");
+        const auto originalScores = contents("save_data/best_times.txt");
+        sqlite3* database = nullptr;
+        check(sqlite3_open("save_data/maze_game.db",&database) == SQLITE_OK, "upgrade fixture must open");
+        const int created = sqlite3_exec(database,
+            "CREATE TABLE best_times(player TEXT,maze_size INTEGER,mode TEXT,seconds REAL,PRIMARY KEY(player,maze_size,mode));"
+            "INSERT INTO best_times VALUES('Alex',25,'normal',18);"
+            "CREATE TABLE storage_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);"
+            "INSERT INTO storage_metadata VALUES('legacy_best_times_imported','1');",nullptr,nullptr,nullptr);
+        sqlite3_close(database);
+        check(created == SQLITE_OK, "upgrade fixture must create an older database schema");
+        PlayerStore upgraded;
+        check(!upgraded.bestTimeStorageFailed() && upgraded.count() == 2 && upgraded.name(0) == "Bo" &&
+            upgraded.bestTime("Alex",25) == 18, "upgrade must preserve profile order and existing scores");
+        check(contents("save_data/players.txt") == originalProfiles && contents("save_data/best_times.txt") == originalScores,
+            "database upgrade must not rewrite either legacy backup");
     }
 
     // Preserve corrupt databases and allow an incomplete import to retry without a partial import marker.
@@ -99,7 +157,8 @@ namespace {
         std::ofstream("save_data/players.txt") << "Alex\n";
         std::filesystem::create_directory("save_data/best_times.txt");
         PlayerStore interrupted;
-        check(interrupted.bestTimeStorageFailed(), "an unreadable import source must fail initialization");
+        check(interrupted.bestTimeStorageFailed() && interrupted.count() == 0,
+            "an unreadable import source must not publish uncommitted profiles");
         std::filesystem::remove("save_data/best_times.txt");
         std::ofstream("save_data/best_times.txt") << "Alex 25 18\n";
         PlayerStore recovered;
@@ -120,4 +179,6 @@ void runDatabaseTests() {
     migration();
     updatesAndLocks();
     failuresAndRecovery();
+    atomicProfileDeletion();
+    scoreDatabaseUpgrade();
 }

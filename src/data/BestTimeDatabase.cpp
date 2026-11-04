@@ -7,6 +7,7 @@
 #include <fstream>
 #include <locale>
 #include <sstream>
+#include <utility>
 
 namespace {
     const std::filesystem::path DatabasePath = "save_data/maze_game.db";
@@ -67,6 +68,57 @@ namespace {
         if (mode == GameMode::Normal) return "normal";
         if (mode == GameMode::ZeroGravity) return "zero_gravity";
         return nullptr;
+    }
+
+    // Read stable profile order without exposing partial results when a query fails.
+    bool readPlayers(Connection& connection, std::vector<std::string>& players) {
+        Statement query;
+        if (!query.prepare(connection, "SELECT name FROM players ORDER BY sort_order")) return false;
+        std::vector<std::string> result;
+        int status = SQLITE_ROW;
+        while ((status = sqlite3_step(query.handle)) == SQLITE_ROW) {
+            const auto value = sqlite3_column_text(query.handle, 0);
+            if (!value) return false;
+            result.emplace_back((const char*)value);
+            if (!isValidPlayerName(result.back()) || result.size() > MAX_PLAYERS) return false;
+        }
+        if (status != SQLITE_DONE) return false;
+        players = std::move(result);
+        return true;
+    }
+
+    // Treat the metadata key as a migration marker only after its surrounding transaction commits.
+    bool hasMarker(Connection& connection, const char* key, bool& exists) {
+        Statement marker;
+        if (!marker.prepare(connection, "SELECT 1 FROM storage_metadata WHERE key=?1") || !marker.text(1,key)) return false;
+        const int status = sqlite3_step(marker.handle);
+        if (status != SQLITE_ROW && status != SQLITE_DONE) return false;
+        exists = status == SQLITE_ROW;
+        return true;
+    }
+
+    // Import profile order without rewriting either legacy file, and fail on an unreadable source.
+    bool readLegacyPlayers(std::vector<std::string>& players) {
+        std::filesystem::path source = "save_data/players.txt";
+        std::error_code error;
+        bool exists = std::filesystem::exists(source,error);
+        if (error) return false;
+        if (!exists) {
+            source += ".bak";
+            exists = std::filesystem::exists(source,error);
+            if (error) return false;
+        }
+        players.clear();
+        if (!exists) return true;
+        std::ifstream input(source);
+        if (!input) return false;
+        std::string name;
+        while (std::getline(input,name)) {
+            if (!name.empty() && name.back() == '\r') name.pop_back();
+            if (players.size() < MAX_PLAYERS && isValidPlayerName(name) &&
+                std::find(players.begin(),players.end(),name) == players.end()) players.push_back(name);
+        }
+        return !input.bad();
     }
 
     // Bind the complete unique key consistently for selects, inserts and improvements.
@@ -132,7 +184,7 @@ namespace {
 }
 
 // Commit the schema, imported results and import marker together so an interrupted migration can retry.
-bool BestTimeDatabase::initialize(const std::vector<std::string>& players) {
+bool BestTimeDatabase::initialize(std::vector<std::string>& players) {
     ready = false;
     failed = true;
     std::error_code error;
@@ -148,19 +200,58 @@ bool BestTimeDatabase::initialize(const std::vector<std::string>& players) {
         "mode TEXT NOT NULL CHECK(mode IN ('normal','zero_gravity')),"
         "seconds REAL NOT NULL CHECK(seconds>=0),"
         "PRIMARY KEY(player,maze_size,mode));"
-        "CREATE TABLE IF NOT EXISTS storage_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);")) return false;
-    bool imported = false;
-    {
-        Statement marker;
-        if (!marker.prepare(connection, "SELECT value FROM storage_metadata WHERE key='legacy_best_times_imported'")) return false;
-        const int result = sqlite3_step(marker.handle);
-        if (result != SQLITE_ROW && result != SQLITE_DONE) return false;
-        imported = result == SQLITE_ROW;
+        "CREATE TABLE IF NOT EXISTS storage_metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);"
+        "CREATE TABLE IF NOT EXISTS players("
+        "name TEXT PRIMARY KEY NOT NULL CHECK(length(name) BETWEEN 1 AND 12 AND name NOT GLOB '*[^A-Za-z0-9_]*'),"
+        "sort_order INTEGER NOT NULL UNIQUE CHECK(sort_order>=0));")) return false;
+    bool profilesImported = false;
+    if (!hasMarker(connection,"legacy_players_imported",profilesImported)) return false;
+    if (!profilesImported) {
+        std::vector<std::string> legacyPlayers;
+        if (!readLegacyPlayers(legacyPlayers)) return false;
+        for (int index = 0; index < (int)legacyPlayers.size(); ++index) {
+            Statement insert;
+            if (!insert.prepare(connection,"INSERT INTO players(name,sort_order) VALUES(?1,?2)") ||
+                !insert.text(1,legacyPlayers[index]) || sqlite3_bind_int(insert.handle,2,index) != SQLITE_OK ||
+                sqlite3_step(insert.handle) != SQLITE_DONE) return false;
+        }
+        if (!connection.execute("INSERT INTO storage_metadata(key,value) VALUES('legacy_players_imported','1')")) return false;
     }
-    if (!imported && (!importLegacy(connection, players) || !connection.execute(
+    std::vector<std::string> storedPlayers;
+    if (!readPlayers(connection,storedPlayers)) return false;
+    bool imported = false;
+    if (!hasMarker(connection,"legacy_best_times_imported",imported)) return false;
+    if (!imported && (!importLegacy(connection, storedPlayers) || !connection.execute(
         "INSERT INTO storage_metadata(key,value) VALUES('legacy_best_times_imported','1')"))) return false;
     if (!transaction.commit()) return false;
+    players = std::move(storedPlayers);
     ready = true;
+    failed = false;
+    return true;
+}
+
+// Serialize capacity checks, orphan cleanup and insertion so two store instances cannot exceed the limit.
+bool BestTimeDatabase::addPlayer(const std::string& player, std::vector<std::string>& players) {
+    failed = false;
+    if (!isValidPlayerName(player)) return false;
+    failed = true;
+    if (!ready) return false;
+    Connection connection;
+    if (!connection.open()) return false;
+    Transaction transaction(connection);
+    std::vector<std::string> current;
+    if (!transaction.active || !readPlayers(connection,current)) return false;
+    if (current.size() >= MAX_PLAYERS || std::find(current.begin(),current.end(),player) != current.end()) {
+        failed = false;
+        return false;
+    }
+    Statement cleanup, insert;
+    if (!cleanup.prepare(connection,"DELETE FROM best_times WHERE player=?1") || !cleanup.text(1,player) ||
+        sqlite3_step(cleanup.handle) != SQLITE_DONE ||
+        !insert.prepare(connection,"INSERT INTO players(name,sort_order) SELECT ?1,COALESCE(MAX(sort_order),-1)+1 FROM players") ||
+        !insert.text(1,player) || sqlite3_step(insert.handle) != SQLITE_DONE ||
+        !readPlayers(connection,current) || !transaction.commit()) return false;
+    players = std::move(current);
     failed = false;
     return true;
 }
@@ -189,6 +280,12 @@ bool BestTimeDatabase::record(const std::string& player, int size, float seconds
     Connection connection;
     if (!connection.open()) return false;
     Transaction transaction(connection);
+    std::vector<std::string> players;
+    if (!transaction.active || !readPlayers(connection,players)) return false;
+    if (std::find(players.begin(),players.end(),player) == players.end()) {
+        failed = false;
+        return false;
+    }
     bool changed = false;
     if (!transaction.active || !writeBest(connection, player, size, seconds, mode, changed) ||
         !transaction.commit()) return false;
@@ -196,14 +293,22 @@ bool BestTimeDatabase::record(const std::string& player, int size, float seconds
     return changed;
 }
 
-// Delete only the named profile's rows in one SQL statement, preserving every other record.
-bool BestTimeDatabase::removePlayer(const std::string& player) {
+// Roll back both deletions if either statement fails; publish the in-memory profile list only on commit.
+bool BestTimeDatabase::removePlayer(const std::string& player, std::vector<std::string>& players) {
     failed = true;
     if (!ready) return false;
     Connection connection;
-    Statement remove;
-    if (!connection.open() || !remove.prepare(connection, "DELETE FROM best_times WHERE player=?1") ||
-        !remove.text(1, player) || sqlite3_step(remove.handle) != SQLITE_DONE) return false;
+    if (!connection.open()) return false;
+    Transaction transaction(connection);
+    Statement profile, scores;
+    std::vector<std::string> remaining;
+    if (!transaction.active || !profile.prepare(connection,"DELETE FROM players WHERE name=?1") ||
+        !profile.text(1,player) || sqlite3_step(profile.handle) != SQLITE_DONE) return false;
+    if (!sqlite3_changes(connection.handle)) { failed = false; return false; }
+    if (!scores.prepare(connection,"DELETE FROM best_times WHERE player=?1") || !scores.text(1,player) ||
+        sqlite3_step(scores.handle) != SQLITE_DONE || !readPlayers(connection,remaining) ||
+        !transaction.commit()) return false;
+    players = std::move(remaining);
     failed = false;
     return true;
 }

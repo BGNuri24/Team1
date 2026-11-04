@@ -24,6 +24,13 @@ int uiSize(int size) {
     return (int)(size * uiScale());
 }
 
+// Scale the actual glyph measurement rather than asking DrawText for unsupported sub-ten-pixel sizes.
+float fittedMenuFontSize(const char* text, float maximumSize, float width) {
+    if (!text || !*text || width <= 0 || maximumSize <= 0) return 0;
+    const float measured = MeasureTextEx(GetFontDefault(), text, maximumSize, maximumSize / 10).x;
+    return measured > width ? maximumSize * width / measured : maximumSize;
+}
+
 // Scale a reference Y coordinate and font size, then draw text horizontally centered in the window.
 void drawCentered(const char* text, int y, int size, Color color) {
     drawCenteredAt(text, uiY(y), uiSize(size), color);
@@ -79,9 +86,9 @@ void drawMenuText(const char* text, int x, int y, int size, Color color) {
 // Convert reference dimensions to pixels and reduce the pixel font size while the measured label
 // exceeds the available width.
 void drawMenuTextFit(const char* text, int x, int y, int width, int size, Color color) {
-    int pixels = std::max(1, uiSize(size));
-    while (pixels > 1 && MeasureText(text, pixels) > uiSize(width)) --pixels;
-    DrawText(text, uiX(x), uiY(y), pixels, color);
+    const float pixels = fittedMenuFontSize(text, (float)uiSize(size), (float)uiSize(width));
+    if (pixels > 0)
+        DrawTextEx(GetFontDefault(), text, {(float)uiX(x), (float)uiY(y)}, pixels, pixels / 10, color);
 }
 
 // Render the shared gradient, architectural grid and animated corridor signal, offset by the chosen
@@ -163,13 +170,16 @@ void drawMenuButton(Rectangle bounds, const char* label, bool selected,
     if (selected)
         DrawRectangle((int)bounds.x, (int)(bounds.y + bounds.height * 0.28f),
             std::max(2, uiSize(3)), (int)(bounds.height * 0.44f), accent);
-    int labelSize = uiSize(detail ? 25 : 22);
-    while (labelSize > 1 && MeasureText(label, labelSize) > bounds.width - uiSize(64)) --labelSize;
-    DrawText(label, (int)bounds.x + uiSize(22),
-        (int)bounds.y + (detail ? uiSize(13) : (int)(bounds.height - labelSize) / 2),
-        labelSize, selected ? Paper : Muted);
-    if (detail)
-        DrawText(detail, (int)bounds.x + uiSize(22), (int)bounds.y + uiSize(45), uiSize(14), Muted);
+    const float available = bounds.width - uiSize(64);
+    const float labelSize = fittedMenuFontSize(label, (float)uiSize(detail ? 25 : 22), available);
+    if (labelSize > 0)
+        DrawTextEx(GetFontDefault(), label,
+            {bounds.x + uiSize(22), bounds.y + (detail ? (float)uiSize(13) : (bounds.height - labelSize) / 2)},
+            labelSize, labelSize / 10, selected ? Paper : Muted);
+    const float detailSize = detail ? fittedMenuFontSize(detail, (float)uiSize(14), available) : 0;
+    if (detailSize > 0)
+        DrawTextEx(GetFontDefault(), detail, {bounds.x + uiSize(22), bounds.y + uiSize(45)},
+            detailSize, detailSize / 10, Muted);
     DrawText(selected ? ">" : "+", (int)(bounds.x + bounds.width) - uiSize(32),
         (int)(bounds.y + bounds.height / 2) - uiSize(9), uiSize(18), selected ? accent : Border);
 }

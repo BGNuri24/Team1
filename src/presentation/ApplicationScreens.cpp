@@ -55,6 +55,11 @@ Screen Application::updateGenerating() {
     bool complete = generationScreen.update(*game);
     drawFrame([&] { generationScreen.draw(*game); });
     if (complete) {
+        if (!gameplayWindowActive()) {
+            EnableCursor();
+            pauseMenu.reset();
+            return Screen::PAUSED;
+        }
         DisableCursor();
         return Screen::PLAYING;
     }
@@ -64,8 +69,14 @@ Screen Application::updateGenerating() {
 // Apply sensitivity-adjusted input and render the run, then handle completion records or open the
 // pause menu.
 Screen Application::updatePlaying() {
+    // Freeze immediately, including on the frame that focus is lost or Escape is pressed.
+    if (gameplayPauseRequested()) {
+        EnableCursor();
+        pauseMenu.reset();
+        drawFrame([&] { renderer.draw(*game); pauseMenu.draw(); });
+        return Screen::PAUSED;
+    }
     game->update(readInput(settings.sensitivityMultiplier()));
-    bool pause = IsKeyPressed(KEY_ESCAPE);
     drawFrame([&] { renderer.draw(*game); });
 
     if (game->finished()) {
@@ -75,18 +86,14 @@ Screen Application::updatePlaying() {
         bestTime = players.bestTime(currentSize, currentMode);
         return Screen::END;
     }
-    if (pause) {
-        EnableCursor();
-        pauseMenu.reset();
-        return Screen::PAUSED;
-    }
     return Screen::PLAYING;
 }
 
 // Render the frozen run behind the pause overlay and route its action to resume, restart, profile
 // selection or the main menu.
 Screen Application::updatePaused() {
-    PauseAction action = pauseMenu.update();
+    // Returning focus leaves the run paused until the user explicitly chooses Resume.
+    PauseAction action = gameplayWindowActive() ? pauseMenu.update() : PauseAction::NONE;
     drawFrame([&] {
         renderer.draw(*game);
         pauseMenu.draw();

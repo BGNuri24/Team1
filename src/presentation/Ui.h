@@ -7,6 +7,8 @@ float uiScale();
 int uiX(int x);
 int uiY(int y);
 int uiSize(int size);
+// Fit text to a pixel-space width using the same proportional spacing used by DrawTextEx.
+float fittedMenuFontSize(const char* text, float maximumSize, float width);
 
 void drawCentered(const char* text, int y, int size, Color color);
 void drawCenteredAt(const char* text, int y, int size, Color color);

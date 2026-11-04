@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 void runDatabaseTests();
+void runUiTests();
 
 // Fail the current test by throwing its explanatory message when an expected invariant is false.
 static void require(bool condition, const std::string& message) {
@@ -163,6 +164,10 @@ static void testProfilesAndValidation() {
     // Load conflicting records to verify that the fastest time wins per maze size and unknown player
     // names are ignored.
     // Start a new database to exercise the one-time legacy import rather than an existing database.
+    {
+        std::ofstream legacyProfiles("save_data/players.txt");
+        for (int i = 0; i < players.count(); ++i) legacyProfiles << players.name(i) << '\n';
+    }
     std::filesystem::remove("save_data/maze_game.db");
     std::ofstream("save_data/best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
     PlayerStore reloaded;
@@ -338,6 +343,7 @@ int main() {
         testSeparateModeRecords();
         testMouseSensitivitySettings();
         runDatabaseTests();
+        runUiTests();
     }
     catch (const std::exception& error) {
         std::cerr << "Test failure: " << error.what() << '\n';
