@@ -14,6 +14,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+void runDatabaseTests();
 
 // Fail the current test by throwing its explanatory message when an expected invariant is false.
 static void require(bool condition, const std::string& message) {
@@ -77,7 +78,8 @@ static void clearTestData() {
     require(!directoryError, "could not create test save-data directory");
     const char* files[] = {
         "save_data/players.txt", "save_data/players.txt.bak", "save_data/players.txt.tmp",
-        "save_data/best_times.txt", "save_data/best_times.txt.bak", "save_data/best_times.txt.tmp"
+        "save_data/best_times.txt", "save_data/best_times.txt.bak", "save_data/best_times.txt.tmp",
+        "save_data/maze_game.db", "save_data/maze_game.db-journal"
     };
     for (const char* file : files) {
         std::error_code error;
@@ -160,6 +162,8 @@ static void testProfilesAndValidation() {
 
     // Load conflicting records to verify that the fastest time wins per maze size and unknown player
     // names are ignored.
+    // Start a new database to exercise the one-time legacy import rather than an existing database.
+    std::filesystem::remove("save_data/maze_game.db");
     std::ofstream("save_data/best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
     PlayerStore reloaded;
     require(reloaded.bestTime("Bo", 10) == 10.0f && reloaded.bestTime("Bo", 11) == 30.0f,
@@ -333,6 +337,7 @@ int main() {
         testProfilesAndValidation();
         testSeparateModeRecords();
         testMouseSensitivitySettings();
+        runDatabaseTests();
     }
     catch (const std::exception& error) {
         std::cerr << "Test failure: " << error.what() << '\n';

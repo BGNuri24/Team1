@@ -13,6 +13,7 @@
 	<ClInclude Include="..\data\GameMode.h"><Filter>src\data</Filter></ClInclude>
     <ClCompile Include="..\main.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="..\data\PlayerStore.cpp"><Filter>src\data</Filter></ClCompile>
+    <ClCompile Include="..\data\BestTimeDatabase.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\data\SettingsStore.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\data\MazeData.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\logic\Players.cpp"><Filter>src\logic</Filter></ClCompile>
@@ -56,6 +57,7 @@
     <ClInclude Include="..\logic\GameSettings.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Difficulty.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\data\PlayerStore.h"><Filter>src\data</Filter></ClInclude>
+    <ClInclude Include="..\data\BestTimeDatabase.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\MazeData.h"><Filter>src\data</Filter></ClInclude>
   </ItemGroup>
 </Project>

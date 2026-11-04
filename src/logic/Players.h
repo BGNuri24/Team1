@@ -18,6 +18,8 @@ public:
     bool remove(int i);
     float bestTime(int mazeSize, GameMode mode = GameMode::Normal) const;
     bool recordWin(int mazeSize, float seconds, GameMode mode = GameMode::Normal);
+    // Report whether the last best-time operation failed because storage was unavailable.
+    bool bestTimeStorageFailed() const;
 private:
     PlayerStore store;
     int activeIndex;

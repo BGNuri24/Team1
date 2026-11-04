@@ -52,3 +52,6 @@ float Players::bestTime(int mazeSize, GameMode mode) const {
 bool Players::recordWin(int mazeSize, float seconds, GameMode mode) {
     return store.recordBestTime(activeName(), mazeSize, seconds, mode);
 }
+
+// Forward database failure state so the results screen can distinguish it from an unimproved time.
+bool Players::bestTimeStorageFailed() const { return store.bestTimeStorageFailed(); }

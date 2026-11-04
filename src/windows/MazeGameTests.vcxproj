@@ -29,11 +29,14 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\CoreTests.cpp" />
+    <ClCompile Include="..\tests\DatabaseTests.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
+    <ClCompile Include="..\data\BestTimeDatabase.cpp" />
     <ClCompile Include="..\data\SettingsStore.cpp" />
     <ClCompile Include="..\logic\Players.cpp" />
     <ClCompile Include="..\logic\GameSettings.cpp" />
   </ItemGroup>
+  <ItemDefinitionGroup><Link><AdditionalDependencies>winsqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies></Link></ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

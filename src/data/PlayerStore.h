@@ -3,10 +3,11 @@
 #include <vector>
 #include "Validation.h"
 #include "GameMode.h"
+#include "BestTimeDatabase.h"
 
 class PlayerStore {
 public:
-    // Load player names and best-time records from save_data, recovering backup files when available.
+    // Load profiles from the text file and initialize the SQLite score database with a one-time import.
     PlayerStore();
     int count() const;
     const std::string& name(int i) const;
@@ -19,18 +20,11 @@ public:
     float bestTime(const std::string& player, int mazeSize, GameMode mode = GameMode::Normal) const;
     bool recordBestTime(const std::string& player, int mazeSize, float seconds,
         GameMode mode = GameMode::Normal);
+    // Distinguish a database error from a run that simply did not improve the existing record.
+    bool bestTimeStorageFailed() const;
 private:
-    struct BestTime {
-        std::string player;
-        int mazeSize;
-        float seconds;
-        GameMode mode = GameMode::Normal;
-    };
-
     void load();
     bool save() const;
-    void loadBestTimes();
-    bool saveBestTimes() const;
     std::vector<std::string> names;
-    std::vector<BestTime> bestTimes;
+    BestTimeDatabase bestTimes;
 };

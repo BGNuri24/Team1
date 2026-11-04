@@ -30,6 +30,7 @@
   <ItemGroup>
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
+    <ClCompile Include="..\data\BestTimeDatabase.cpp" />
     <ClCompile Include="..\data\SettingsStore.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />
     <ClCompile Include="..\logic\Players.cpp" />
@@ -77,6 +78,7 @@
     <ClInclude Include="..\logic\GameSettings.h" />
     <ClInclude Include="..\logic\Difficulty.h" />
     <ClInclude Include="..\data\PlayerStore.h" />
+    <ClInclude Include="..\data\BestTimeDatabase.h" />
     <ClInclude Include="..\data\MazeData.h" />
   </ItemGroup>
   <ItemGroup>
@@ -85,5 +87,6 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>
+  <ItemDefinitionGroup><Link><AdditionalDependencies>winsqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies></Link></ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
