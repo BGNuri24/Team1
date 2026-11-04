@@ -5,7 +5,11 @@
 
 class EndScreen {
 public:
-    Screen update();
+    void reset();
+    Screen update(float deltaSeconds);
     void draw(const Game& game, const std::string& playerName,
         float bestTime, bool newBestTime, bool bestTimeSaveFailed = false) const;
+
+private:
+    float animationTime = 0.0f;
 };

@@ -81,6 +81,7 @@ Screen Application::updatePlaying() {
 
     if (game->finished()) {
         EnableCursor();
+        endScreen.reset();
         newBestTime = game->won() && players.recordWin(currentSize, game->timeTaken(), currentMode);
         bestTimeSaveFailed = game->won() && players.bestTimeStorageFailed();
         bestTime = players.bestTime(currentSize, currentMode);
@@ -119,7 +120,7 @@ Screen Application::updatePaused() {
 
 // Draw the completed run and result report, releasing the run when navigation leaves the end screen.
 Screen Application::updateEnd() {
-    Screen next = endScreen.update();
+    Screen next = endScreen.update(GetFrameTime());
     drawFrame([&] {
         renderer.draw(*game);
         endScreen.draw(*game, players.activeName(), bestTime, newBestTime, bestTimeSaveFailed);
