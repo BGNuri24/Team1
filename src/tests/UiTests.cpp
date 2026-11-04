@@ -1,5 +1,6 @@
 #include "../presentation/Ui.h"
 #include <cmath>
+#include <filesystem>
 #include <stdexcept>
 
 namespace {
@@ -45,7 +46,8 @@ void runUiTests() {
     EndTextureMode();
     Image image = LoadImageFromTexture(preview.texture);
     ImageFlipVertical(&image);
-    ExportImage(image,"ui-text-small.png");
+    std::filesystem::create_directories("docs/assets");
+    ExportImage(image,"docs/assets/ui-text-small.png");
     UnloadImage(image);
     UnloadRenderTexture(preview);
 }
