@@ -6,9 +6,9 @@ Each `best_times` row contains `player`, `maze_size`, `mode` (`normal` or `zero_
 
 On first use, the game imports valid scores from `save_data/best_times.txt`, or its `.bak` file when the main text file is absent. It imports only existing profiles, keeps the fastest duplicate for each size and mode, and skips malformed records. The import and its completion marker commit together. A failed import can be retried on the next launch. The original text files remain unchanged as a backup; subsequent scores are saved only in the database.
 
-Player names remain in `save_data/players.txt`. Sensitivity remains in `save_data/settings.txt`. These files are independent of the score database. Deleting a profile also deletes that player's database records.
+Profiles are stored in the database's `players` table, ordered by `sort_order`. Existing `players.txt` profiles (or its `.bak` file) are imported once. Both profile deletion and deletion of all associated scores commit in one transaction; an error rolls back both. Adding a profile also checks the five-player limit inside a transaction. Existing score-only databases are upgraded without replacing their results. Legacy TXT files are left untouched as backups and are no longer written by the game. Sensitivity remains separate in `save_data/settings.txt`.
 
-To transfer progress to another PC, close the game and copy both `maze_game.db` and `players.txt` into the other copy's `save_data` folder. Copy `settings.txt` too if you want the same preferences. The database and its temporary journal files are ignored by Git; include the database explicitly when sharing personal progress in a ZIP.
+To transfer progress to another PC, close the game and copy `maze_game.db` into the other copy's `save_data` folder; it contains both profiles and scores. Copy `settings.txt` too if you want the same preferences. The database and its temporary journal files are ignored by Git; include the database explicitly when sharing personal progress in a ZIP.
 
 To inspect results in any SQLite database viewer, open a copy of the database and run:
 

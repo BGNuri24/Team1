@@ -7,7 +7,7 @@
 
 class PlayerStore {
 public:
-    // Load profiles from the text file and initialize the SQLite score database with a one-time import.
+    // Load SQLite profiles and scores, importing legacy text files only during the initial migration.
     PlayerStore();
     int count() const;
     const std::string& name(int i) const;
@@ -23,8 +23,6 @@ public:
     // Distinguish a database error from a run that simply did not improve the existing record.
     bool bestTimeStorageFailed() const;
 private:
-    void load();
-    bool save() const;
     std::vector<std::string> names;
     BestTimeDatabase bestTimes;
 };
