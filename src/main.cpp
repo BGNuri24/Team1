@@ -8,6 +8,15 @@
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1000, 700, "Maze");
+
+    Image appIcon = LoadImage("T1_.png");
+    if (appIcon.data == nullptr) {
+        appIcon = LoadImage("docs/assets/T1_.png");
+    }
+    if (appIcon.data != nullptr) {
+        SetWindowIcon(appIcon);
+        UnloadImage(appIcon);
+    }
     SetWindowMinSize(640, 480);
     SetExitKey(KEY_NULL);
     SetTargetFPS(120);

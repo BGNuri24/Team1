@@ -37,6 +37,11 @@
     <ClCompile Include="..\presentation\Ui.cpp"><Filter>src\presentation</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="MazeGame.rc" />
+    <None Include="T1_.ico" />
+    <None Include="T1_.png" />
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="..\presentation\Ui.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\Textures.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\Screen.h"><Filter>src\presentation</Filter></ClInclude>
