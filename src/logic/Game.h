@@ -4,6 +4,7 @@
 #include "../data/GameMode.h"
 #include "../data/MazeGeometry.h"
 #include "JumpMovement.h"
+#include "../data/MazeTheme.h"
 #include <vector>
 
 struct InputState {
@@ -34,6 +35,8 @@ public:
     Vector3 cameraUp() const;
     bool surfaceAttached() const;
     GameMode mode() const;
+    // Return the palette selected once when this run was created.
+    MazeTheme theme() const;
     int row() const;
     int col() const;
     // Return the exploration state: 0 is unrevealed, 1 is visible but unvisited, and 2 is visited.
@@ -65,6 +68,7 @@ private:
     void reveal();
 
     GameMode gameMode;
+    MazeTheme mazeTheme;
     MazeData mazeData;
     float px, py, pz;
     Vector3 lookDirection;

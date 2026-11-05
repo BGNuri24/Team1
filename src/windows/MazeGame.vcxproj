@@ -51,6 +51,7 @@
     <ClCompile Include="..\presentation\Renderer.cpp" />
     <ClCompile Include="..\presentation\PlayerSelect.cpp" />
     <ClCompile Include="..\presentation\Textures.cpp" />
+    <ClCompile Include="..\presentation\MazePalette.cpp" />
     <ClCompile Include="..\presentation\Ui.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -60,6 +61,9 @@
 	<ClInclude Include="..\data\GameMode.h" />
     <ClInclude Include="..\presentation\Ui.h" />
     <ClInclude Include="..\presentation\Textures.h" />
+    <ClInclude Include="..\presentation\MazePalette.h" />
+    <ClInclude Include="..\data\MazeTheme.h" />
+    <ClInclude Include="..\logic\MazeThemeSelection.h" />
     <ClInclude Include="..\presentation\Screen.h" />
     <ClInclude Include="..\presentation\Renderer.h" />
     <ClInclude Include="..\presentation\PlayerSelect.h" />

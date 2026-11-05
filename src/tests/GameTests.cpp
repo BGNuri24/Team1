@@ -1,4 +1,6 @@
 #include "../logic/Game.h"
+#include "../logic/MazeThemeSelection.h"
+#include <array>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -209,8 +211,40 @@ static void testReachableExit(int size, GameMode mode = GameMode::Normal) {
 
 // Run jump, gravity, clearance and route-completion checks across supported sizes with deterministic
 // maze randomness.
+// Cover every non-repeating random-draw mapping and ensure visual randomness leaves maze carving unchanged.
+static void testRunThemes() {
+    for (int previous=-1;previous<MazeThemeCount;++previous) {
+        std::array<bool,MazeThemeCount> found{};
+        const int choices = previous < 0 ? MazeThemeCount : MazeThemeCount-1;
+        for (int draw=0;draw<choices;++draw) {
+            const int selected = (int)themeFromDraw(draw,previous);
+            require(selected >= 0 && selected < MazeThemeCount && selected != previous && !found[selected],
+                "random draws must map uniquely to valid themes excluding the previous one");
+            found[selected] = true;
+        }
+    }
+    std::srand(9917);
+    MazeData baseline(15);
+    std::srand(9917);
+    Game themed(15,100);
+    for (int row=0;row<15;++row) for (int col=0;col<15;++col)
+        require(themed.maze().cell(row,col) == baseline.cell(row,col),
+            "choosing a visual theme must not change the maze-carving random sequence");
+    const MazeTheme chosen = themed.theme();
+    for (int frame=0;frame<20;++frame) themed.update({0,0,0,0,1.0f/60,false});
+    require(themed.theme() == chosen, "a run's palette must stay fixed during gameplay updates");
+    MazeTheme previous = chosen;
+    for (int run=0;run<12;++run) {
+        Game next(10,100,run%2 ? GameMode::Normal : GameMode::ZeroGravity);
+        require(next.theme() != previous && (int)next.theme() >= 0 && (int)next.theme() < MazeThemeCount,
+            "new runs must choose an allowed theme without immediately repeating one");
+        previous = next.theme();
+    }
+}
+
 int main() {
     try {
+        testRunThemes();
         std::srand(1234);
         runJumpTests();
         testTimerAndGravity();

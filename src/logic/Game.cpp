@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "MazeThemeSelection.h"
 #include <algorithm>
 #include <cmath>
 
@@ -45,7 +46,7 @@ static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float ang
 // Generate the maze, initialize floor gravity and timers, and reveal the starting area with the camera
 // facing its open passage.
 Game::Game(int mazeSize, float seconds, GameMode mode)
-    : gameMode(mode), mazeData(mazeSize), px(0), py(StandingEyeHeight), pz(0), lookDirection{ 1, 0, 0 },
+    : gameMode(mode), mazeTheme(chooseMazeTheme()), mazeData(mazeSize), px(0), py(StandingEyeHeight), pz(0), lookDirection{ 1, 0, 0 },
     gravityUp{ 0, 1, 0 }, rollFrom{ 0, 1, 0 }, rollAxis{ 1, 0, 0 },
     rollAngle(0), rollTime(0.25f), transitionFromPosition{ 0, StandingEyeHeight, 0 },
     transitionFromDirection{ 1, 0, 0 }, attachedToSurface(false),
@@ -421,6 +422,8 @@ Vector3 Game::cameraUp() const {
 bool Game::surfaceAttached() const { return attachedToSurface; }
 // Return the mode selected when this run was created.
 GameMode Game::mode() const { return gameMode; }
+// Expose the run's immutable theme without rerolling it during rendering, pausing or results.
+MazeTheme Game::theme() const { return mazeTheme; }
 // Convert the logical Z position to a maze row, independently of camera-transition interpolation.
 int Game::row() const { return cellIndex(pz); }
 // Convert the logical X position to a maze column, independently of camera-transition interpolation.
