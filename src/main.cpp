@@ -1,7 +1,5 @@
-#include "raylib.h"
 #include "presentation/Application.h"
-#include <cstdlib>
-#include <ctime>
+#include "raylib.h"
 
 // Create the resizable raylib window, run the application, and destroy GPU resources before closing
 // the graphics context.
@@ -20,7 +18,6 @@ int main() {
     SetWindowMinSize(640, 480);
     SetExitKey(KEY_NULL);
     SetTargetFPS(120);
-    srand((unsigned)time(0));
 
     {
         Application application;

@@ -1,14 +1,16 @@
 #pragma once
-#include "raylib.h"
-#include "../data/MazeData.h"
 #include "../data/GameMode.h"
+#include "../data/MazeData.h"
 #include "../data/MazeGeometry.h"
-#include "JumpMovement.h"
 #include "../data/MazeTheme.h"
+#include "JumpMovement.h"
+#include "raylib.h"
+#include <optional>
 #include <vector>
 
 struct InputState {
-    // Signed forward input relative to the camera: -1 moves backward, 0 is idle, and +1 moves forward.
+    // Signed forward input relative to the camera: -1 moves backward, 0 is idle, and +1 moves
+    // forward.
     float forward;
     // Signed strafe input relative to the camera: -1 moves left, 0 is idle, and +1 moves right.
     float right;
@@ -20,7 +22,9 @@ struct InputState {
 
 class Game {
 public:
-    Game(int mazeSize, float seconds, GameMode mode = GameMode::Normal);
+    Game(int mazeSize, float seconds, GameMode mode = GameMode::Normal,
+         std::optional<std::uint32_t> seed = std::nullopt,
+         std::optional<MazeTheme> theme = std::nullopt);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
@@ -37,6 +41,8 @@ public:
     GameMode mode() const;
     // Return the palette selected once when this run was created.
     MazeTheme theme() const;
+    // Reuse this value and theme() with the same level parameters to reproduce a loaded run.
+    std::uint32_t seed() const;
     int row() const;
     int col() const;
     // Return the exploration state: 0 is unrevealed, 1 is visible but unvisited, and 2 is visited.
@@ -50,6 +56,7 @@ public:
     bool lost() const;
     bool finished() const;
     const MazeData& maze() const;
+
 private:
     bool moveJumping(const InputState& input, const Vector3& wish);
     JumpMovement jumpMovement;
@@ -62,12 +69,12 @@ private:
     bool attachToSurface(const Vector3& normal, const Vector3& contact);
     bool transitionToAdjacentWall(int side);
     bool transitionToNearestWall(float x, float z);
-    void beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
-        bool attached);
+    void beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition, bool attached);
     void toggleGravity();
     void reveal();
 
     GameMode gameMode;
+    std::uint32_t runSeed;
     MazeTheme mazeTheme;
     MazeData mazeData;
     float px, py, pz;
