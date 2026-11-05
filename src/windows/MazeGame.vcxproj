@@ -38,6 +38,7 @@
     <ClCompile Include="..\logic\Players.cpp" />
     <ClCompile Include="..\logic\GameSettings.cpp" />
     <ClCompile Include="..\logic\Game.cpp" />
+    <ClCompile Include="..\logic\GravityObstacles.cpp" />
     <ClCompile Include="..\logic\GameJump.cpp" />
     <ClCompile Include="..\logic\JumpMovement.cpp" />
     <ClCompile Include="..\presentation\LevelSelect.cpp" />
@@ -51,6 +52,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp" />
     <ClCompile Include="..\presentation\MenuBackground.cpp" />
     <ClCompile Include="..\presentation\Renderer.cpp" />
+    <ClCompile Include="..\presentation\RendererObstacles.cpp" />
     <ClCompile Include="..\presentation\HudRenderer.cpp" />
     <ClCompile Include="..\presentation\PlayerSelect.cpp" />
     <ClCompile Include="..\presentation\Textures.cpp" />
@@ -81,6 +83,8 @@
     <ClInclude Include="..\presentation\Application.h" />
     <ClInclude Include="..\logic\Players.h" />
     <ClInclude Include="..\logic\Game.h" />
+    <ClInclude Include="..\logic\GravityObstacles.h" />
+    <ClInclude Include="..\data\GravityObstacle.h" />
     <ClInclude Include="..\logic\JumpMovement.h" />
     <ClInclude Include="..\logic\GameSettings.h" />
     <ClInclude Include="..\logic\Difficulty.h" />

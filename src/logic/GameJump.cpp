@@ -4,7 +4,7 @@
 
 // Update jumping and horizontal momentum while floor gravity is active, including the airborne part of a
 // jump.
-// Movement while attached to a wall or ceiling is handled by the surface-movement branch in
+// Movement while attached to the ceiling is handled by the surface-movement branch in
 // Game::update.
 bool Game::moveJumping(const InputState& input, const Vector3& wish) {
     if (input.jumpPressed) jumpMovement.requestJump();
@@ -16,8 +16,10 @@ bool Game::moveJumping(const InputState& input, const Vector3& wish) {
     const int parts = std::max(1, (int)std::ceil(input.dt * 120.0f));
     const float dt = input.dt / parts;
     for (int part = 0; part < parts; ++part) {
+        const Vector3 previous = {px, py, pz};
         jumpMovement.step(wish.x, wish.z, dt);
         py = MazeGeometry::StandingEyeHeight + jumpMovement.height();
+        if (checkObstacleCollision(previous, {px, py, pz}, false, false)) return true;
         const float dx = jumpMovement.velocityX() * dt;
         const float dz = jumpMovement.velocityZ() * dt;
         const float oldX = px, oldZ = pz;

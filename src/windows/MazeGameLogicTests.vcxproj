@@ -30,8 +30,10 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\GameTests.cpp" />
+    <ClCompile Include="..\tests\ObstacleTests.cpp" />
     <ClCompile Include="..\tests\JumpTests.cpp" />
     <ClCompile Include="..\logic\Game.cpp" />
+    <ClCompile Include="..\logic\GravityObstacles.cpp" />
     <ClCompile Include="..\logic\GameJump.cpp" />
     <ClCompile Include="..\logic\JumpMovement.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />

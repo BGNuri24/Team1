@@ -22,6 +22,7 @@
     <ClCompile Include="..\logic\Players.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\GameSettings.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\Game.cpp"><Filter>src\logic</Filter></ClCompile>
+    <ClCompile Include="..\logic\GravityObstacles.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\GameJump.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\logic\JumpMovement.cpp"><Filter>src\logic</Filter></ClCompile>
     <ClCompile Include="..\presentation\LevelSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
@@ -35,6 +36,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\MenuBackground.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Renderer.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\presentation\RendererObstacles.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\PlayerSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Textures.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\MazePalette.cpp"><Filter>src\presentation</Filter></ClCompile>
@@ -65,6 +67,8 @@
     <ClInclude Include="..\presentation\Application.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\logic\Players.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Game.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\logic\GravityObstacles.h"><Filter>src\logic</Filter></ClInclude>
+    <ClInclude Include="..\data\GravityObstacle.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\logic\JumpMovement.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\GameSettings.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\logic\Difficulty.h"><Filter>src\logic</Filter></ClInclude>

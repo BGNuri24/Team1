@@ -1,5 +1,6 @@
 #pragma once
 #include "../data/GameMode.h"
+#include "../data/GravityObstacle.h"
 #include "../data/MazeData.h"
 #include "../data/MazeGeometry.h"
 #include "../data/MazeTheme.h"
@@ -19,6 +20,9 @@ struct InputState {
     bool gravityToggle;
     bool jumpPressed = false;
 };
+
+// Distinguish a timed-out run from a lethal barrier collision on the result screen.
+enum class FailureReason { None, TimeExpired, ObstacleHit };
 
 class Game {
 public:
@@ -54,6 +58,8 @@ public:
     int score() const;
     bool won() const;
     bool lost() const;
+    FailureReason failureReason() const;
+    const std::vector<GravityObstacle>& obstacles() const;
     bool finished() const;
     const MazeData& maze() const;
 
@@ -64,19 +70,17 @@ private:
     bool moveHorizontal(float movement, float step, bool alongX);
     bool isWall(float x, float z) const;
     bool canMove(float x, float z) const;
-    bool hasSurfaceSupport(float x, float z) const;
-    bool findAimedSurface(Vector3& normal, Vector3& contact) const;
-    bool attachToSurface(const Vector3& normal, const Vector3& contact);
-    bool transitionToAdjacentWall(int side);
-    bool transitionToNearestWall(float x, float z);
     void beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition, bool attached);
     void toggleGravity();
+    bool checkObstacleCollision(Vector3 from, Vector3 to, bool fromCeiling, bool toCeiling);
     void reveal();
 
     GameMode gameMode;
     std::uint32_t runSeed;
     MazeTheme mazeTheme;
     MazeData mazeData;
+    std::vector<GravityObstacle> gravityObstacles;
+    FailureReason failure = FailureReason::None;
     float px, py, pz;
     Vector3 lookDirection;
     Vector3 gravityUp;

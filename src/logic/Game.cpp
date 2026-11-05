@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "GravityObstacles.h"
 #include "MazeThemeSelection.h"
 #include <algorithm>
 #include <cmath>
@@ -56,6 +57,8 @@ Game::Game(int mazeSize, float seconds, GameMode mode, std::optional<std::uint32
       points(0) {
     int n = mazeData.size();
     seen.assign(n * n, 0);
+    if (gameMode == GameMode::ZeroGravity)
+        gravityObstacles = generateGravityObstacles(mazeData, runSeed);
     // Face the open neighboring passage so the initial camera looks into the maze.
     lookDirection = (mazeData.cell(0, 1) != '#') ? Vector3{1, 0, 0} : Vector3{0, 0, 1};
     reveal();
@@ -76,24 +79,6 @@ bool Game::canMove(float x, float z) const {
            !isWall(x + m, z + m);
 }
 
-// Check that the destination still has a passage ceiling or a neighboring wall supporting the
-// current attachment orientation.
-bool Game::hasSurfaceSupport(float x, float z) const {
-    int r = cellIndex(z);
-    int c = cellIndex(x);
-    if (std::fabs(gravityUp.y) > 0.5f)
-        return mazeData.cell(r, c) != '#';
-    if (gravityUp.x > 0.5f)
-        return mazeData.cell(r, c - 1) == '#';
-    if (gravityUp.x < -0.5f)
-        return mazeData.cell(r, c + 1) == '#';
-    if (gravityUp.z > 0.5f)
-        return mazeData.cell(r - 1, c) == '#';
-    if (gravityUp.z < -0.5f)
-        return mazeData.cell(r + 1, c) == '#';
-    return false;
-}
-
 // Reset jump momentum, capture the displayed pose, and set the logical destination and rotation
 // used by the smooth surface transition.
 void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
@@ -106,7 +91,8 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
     rollAngle = std::acos(std::clamp(dot(rollFrom, newUp), -1.0f, 1.0f));
     rollAxis = normalized(cross(rollFrom, newUp));
     if (dot(rollAxis, rollAxis) < 0.5f) {
-        rollAxis = normalized(cross(lookDirection, rollFrom));
+        // Roll around the corridor heading during a half-turn, preserving forward travel.
+        rollAxis = normalized(added(lookDirection, scaled(rollFrom, -dot(lookDirection, rollFrom))));
         if (dot(rollAxis, rollAxis) < 0.5f)
             rollAxis = {1, 0, 0};
     }
@@ -118,183 +104,13 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
     attachedToSurface = attached;
 }
 
-// Find the closest exposed wall face or ceiling along the look ray within 2.5 world units,
-// returning its contact point and inward normal.
-bool Game::findAimedSurface(Vector3& normal, Vector3& contact) const {
-    const float maxDistance = 2.5f;
-    float nearest = maxDistance;
-    bool found = false;
-
-    auto consider = [&](float distance, const Vector3& surfaceNormal, const Vector3& point) {
-        if (distance > 0.02f && distance < nearest) {
-            nearest = distance;
-            normal = surfaceNormal;
-            contact = point;
-            found = true;
-        }
-    };
-
-    if (lookDirection.y > 0.001f) {
-        float distance = (CeilingHeight - py) / lookDirection.y;
-        float hitX = px + lookDirection.x * distance;
-        float hitZ = pz + lookDirection.z * distance;
-        if (distance > 0.0f && distance < nearest &&
-            mazeData.cell(cellIndex(hitZ), cellIndex(hitX)) != '#')
-            consider(distance, {0, -1, 0}, {hitX, CeilingHeight, hitZ});
-    }
-
-    int reach = (int)std::ceil(maxDistance / CellSize) + 1;
-    int r0 = std::max(0, row() - reach);
-    int r1 = std::min(mazeData.size() - 1, row() + reach);
-    int c0 = std::max(0, col() - reach);
-    int c1 = std::min(mazeData.size() - 1, col() + reach);
-
-    auto testWallFace = [&](int r, int c, int wallR, int wallC, const Vector3& faceNormal,
-                            float plane, bool verticalX) {
-        if (mazeData.cell(r, c) == '#' || mazeData.cell(wallR, wallC) != '#')
-            return;
-        if (dot(lookDirection, faceNormal) >= -0.001f)
-            return;
-
-        float component = verticalX ? lookDirection.x : lookDirection.z;
-        if (std::fabs(component) < 0.001f)
-            return;
-        float origin = verticalX ? px : pz;
-        float distance = (plane - origin) / component;
-        if (distance <= 0.02f || distance >= nearest)
-            return;
-
-        float hitX = px + lookDirection.x * distance;
-        float hitY = py + lookDirection.y * distance;
-        float hitZ = pz + lookDirection.z * distance;
-        if (hitY < 0.0f || hitY > CeilingHeight || hitX < cellCenter(c) - HalfCell ||
-            hitX > cellCenter(c) + HalfCell || hitZ < cellCenter(r) - HalfCell ||
-            hitZ > cellCenter(r) + HalfCell)
-            return;
-        consider(distance, faceNormal, {hitX, hitY, hitZ});
-    };
-
-    for (int r = r0; r <= r1; r++) {
-        for (int c = c0; c <= c1; c++) {
-            float x = cellCenter(c);
-            float z = cellCenter(r);
-            testWallFace(r, c, r - 1, c, {0, 0, 1}, z - HalfCell, false);
-            testWallFace(r, c, r + 1, c, {0, 0, -1}, z + HalfCell, false);
-            testWallFace(r, c, r, c - 1, {1, 0, 0}, x - HalfCell, true);
-            testWallFace(r, c, r, c + 1, {-1, 0, 0}, x + HalfCell, true);
-        }
-    }
-    return found;
-}
-
-// Offset the player from the contact plane, validate horizontal clearance and support, and begin
-// the camera transition when attachment is valid.
-bool Game::attachToSurface(const Vector3& normal, const Vector3& contact) {
-    Vector3 targetPosition = added(contact, scaled(normal, SurfaceOffset));
-    int targetRow = cellIndex(targetPosition.z);
-    int targetCol = cellIndex(targetPosition.x);
-    if (!canMove(targetPosition.x, targetPosition.z))
-        return false;
-
-    bool supported = false;
-    if (normal.y < -0.5f)
-        supported = mazeData.cell(targetRow, targetCol) != '#';
-    else if (normal.x > 0.5f)
-        supported = mazeData.cell(targetRow, targetCol - 1) == '#';
-    else if (normal.x < -0.5f)
-        supported = mazeData.cell(targetRow, targetCol + 1) == '#';
-    else if (normal.z > 0.5f)
-        supported = mazeData.cell(targetRow - 1, targetCol) == '#';
-    else if (normal.z < -0.5f)
-        supported = mazeData.cell(targetRow + 1, targetCol) == '#';
-    if (!supported)
-        return false;
-
-    targetPosition.y =
-        normal.y < -0.5f ? CeilingHeight - SurfaceOffset
-                         : std::clamp(targetPosition.y, PlayerRadius, CeilingHeight - PlayerRadius);
-    beginSurfaceTransition(normal, targetPosition, true);
-    return true;
-}
-
-// Resolve a cardinal side of the current cell into a wall contact and attempt attachment to that
-// neighboring wall.
-bool Game::transitionToAdjacentWall(int side) {
-    int r = row(), c = col();
-    Vector3 normal;
-    Vector3 contact{px, py, pz};
-    int wallR = r, wallC = c;
-    if (side == 0) {
-        wallR--;
-        normal = {0, 0, 1};
-        contact.z = cellCenter(r) - HalfCell;
-    } else if (side == 1) {
-        wallR++;
-        normal = {0, 0, -1};
-        contact.z = cellCenter(r) + HalfCell;
-    } else if (side == 2) {
-        wallC--;
-        normal = {1, 0, 0};
-        contact.x = cellCenter(c) - HalfCell;
-    } else {
-        wallC++;
-        normal = {-1, 0, 0};
-        contact.x = cellCenter(c) + HalfCell;
-    }
-    if (mazeData.cell(wallR, wallC) != '#')
-        return false;
-    return attachToSurface(normal, contact);
-}
-
-// Choose a supporting wall around the proposed destination, favoring the current orientation when
-// distances are similar.
-bool Game::transitionToNearestWall(float x, float z) {
-    int r = cellIndex(z);
-    int c = cellIndex(x);
-    if (mazeData.cell(r, c) == '#')
-        return false;
-
-    float bestScore = 1000.0f;
-    Vector3 chosenNormal{0, 0, 0};
-    Vector3 chosenContact{0, 0, 0};
-    bool found = false;
-    auto consider = [&](int wallR, int wallC, const Vector3& normal, const Vector3& contact,
-                        float distance) {
-        if (mazeData.cell(wallR, wallC) != '#')
-            return;
-        float score = distance - 0.2f * dot(normal, gravityUp);
-        if (score < bestScore) {
-            bestScore = score;
-            chosenNormal = normal;
-            chosenContact = contact;
-            found = true;
-        }
-    };
-
-    float clampedX = std::clamp(x, cellCenter(c) - HalfCell, cellCenter(c) + HalfCell);
-    float clampedZ = std::clamp(z, cellCenter(r) - HalfCell, cellCenter(r) + HalfCell);
-    consider(r - 1, c, {0, 0, 1}, {clampedX, py, cellCenter(r) - HalfCell},
-             std::fabs(z - (cellCenter(r) - HalfCell)));
-    consider(r + 1, c, {0, 0, -1}, {clampedX, py, cellCenter(r) + HalfCell},
-             std::fabs(z - (cellCenter(r) + HalfCell)));
-    consider(r, c - 1, {1, 0, 0}, {cellCenter(c) - HalfCell, py, clampedZ},
-             std::fabs(x - (cellCenter(c) - HalfCell)));
-    consider(r, c + 1, {-1, 0, 0}, {cellCenter(c) + HalfCell, py, clampedZ},
-             std::fabs(x - (cellCenter(c) + HalfCell)));
-    return found && attachToSurface(chosenNormal, chosenContact);
-}
-
-// Return an attached player to floor gravity, or attempt attachment to the wall or ceiling
-// currently under the look ray.
+// Switch directly between floor and ceiling without aiming or changing the player's X/Z position.
+// Sweep the whole transfer first so flipping through a nearby barrier is still lethal.
 void Game::toggleGravity() {
-    if (attachedToSurface) {
-        beginSurfaceTransition({0, 1, 0}, {px, StandingEyeHeight, pz}, false);
-        return;
-    }
-
-    Vector3 normal, contact;
-    if (findAimedSurface(normal, contact))
-        attachToSurface(normal, contact);
+    const bool ceiling = !attachedToSurface;
+    const Vector3 target = {px, ceiling ? CeilingHeight - StandingEyeHeight : StandingEyeHeight, pz};
+    if (checkObstacleCollision({px, py, pz}, target, attachedToSurface, ceiling)) return;
+    beginSurfaceTransition(ceiling ? Vector3{0, -1, 0} : Vector3{0, 1, 0}, target, ceiling);
 }
 
 // Reveal the current cell and its surrounding 3-by-3 neighborhood, marking the current cell as
@@ -328,12 +144,14 @@ void Game::update(const InputState& in) {
     if (timeLeftSec <= 0.0f) {
         timeLeftSec = 0.0f;
         hasLost = true;
+        failure = FailureReason::TimeExpired;
         return;
     }
 
     rollTime = std::min(rollTime + in.dt, 0.25f);
     if (gameMode == GameMode::ZeroGravity && in.gravityToggle && rollTime >= 0.25f)
         toggleGravity();
+    if (hasLost) return;
     if (rollTime < 0.25f) {
         reveal();
         return;
@@ -362,8 +180,7 @@ void Game::update(const InputState& in) {
     } else {
         float step = MovementSpeed * in.dt;
         // Split surface movement into steps no larger than 75% of the collision radius to prevent
-        // wall tunneling. Resolve X before Z and stop this update when either axis starts a surface
-        // transition.
+        // wall tunneling. Resolve X before Z and stop immediately if either axis hits a barrier.
         int substeps = std::max(1, (int)std::ceil(step / (PlayerRadius * 0.75f)));
         float substep = step / substeps;
         for (int part = 0; part < substeps; ++part) {
@@ -372,23 +189,6 @@ void Game::update(const InputState& in) {
                 reveal();
                 return;
             }
-        }
-
-        if (attachedToSurface && std::fabs(gravityUp.y) < 0.5f) {
-            float nextY = py + movement.y * step;
-            if (nextY < PlayerRadius) {
-                beginSurfaceTransition({0, 1, 0}, {px, StandingEyeHeight, pz}, false);
-                reveal();
-                return;
-            }
-            if (nextY > CeilingHeight - PlayerRadius) {
-                beginSurfaceTransition({0, -1, 0}, {px, CeilingHeight - SurfaceOffset, pz}, true);
-                reveal();
-                return;
-            }
-            py = nextY;
-        } else if (attachedToSurface) {
-            py = std::clamp(py + movement.y * step, PlayerRadius, CeilingHeight - PlayerRadius);
         }
     }
 
@@ -399,24 +199,26 @@ void Game::update(const InputState& in) {
     }
 }
 
-// Resolve one horizontal movement axis and return true if collision or lost support starts a
-// surface transition.
+// Resolve horizontal clearance without ever attaching to a side wall. Test each accepted segment
+// against hazards before committing the destination, so the player stops at the failed approach.
 bool Game::moveHorizontal(float movement, float step, bool alongX) {
-    float nextX = alongX ? px + movement * step : px;
-    float nextZ = alongX ? pz : pz + movement * step;
+    const float nextX = alongX ? px + movement * step : px;
+    const float nextZ = alongX ? pz : pz + movement * step;
     if (canMove(nextX, nextZ)) {
-        if (!attachedToSurface || hasSurfaceSupport(nextX, nextZ)) {
-            (alongX ? px : pz) = alongX ? nextX : nextZ;
-        } else if (std::fabs(gravityUp.y) < 0.5f) {
-            if (!transitionToNearestWall(nextX, nextZ))
-                beginSurfaceTransition({0, 1, 0}, {nextX, StandingEyeHeight, nextZ}, false);
-            return true;
-        }
-    } else if (gameMode == GameMode::ZeroGravity && std::fabs(movement) > 0.001f) {
-        int side = alongX ? (movement > 0.0f ? 3 : 2) : (movement > 0.0f ? 1 : 0);
-        return transitionToAdjacentWall(side);
+        if (checkObstacleCollision({px, py, pz}, {nextX, py, nextZ},
+                                   attachedToSurface, attachedToSurface)) return true;
+        px = nextX;
+        pz = nextZ;
     }
     return false;
+}
+
+// Freeze an obstacle loss through the same finished-run state used by the existing end-screen flow.
+bool Game::checkObstacleCollision(Vector3 from, Vector3 to, bool fromCeiling, bool toCeiling) {
+    if (!hitsGravityObstacle(gravityObstacles, from, fromCeiling, to, toCeiling)) return false;
+    hasLost = true;
+    failure = FailureReason::ObstacleHit;
+    return true;
 }
 
 // Return the clamped interpolation fraction for the quarter-second surface transition.
@@ -458,7 +260,7 @@ Vector3 Game::cameraDirection() const {
 Vector3 Game::cameraUp() const {
     return normalized(rotateAround(rollFrom, rollAxis, rollAngle * transitionBlend()));
 }
-// Report whether gravity is attached to a wall or ceiling rather than the floor.
+// Report whether the player is walking on the ceiling rather than the floor.
 bool Game::surfaceAttached() const {
     return attachedToSurface;
 }
@@ -509,10 +311,20 @@ int Game::score() const {
 bool Game::won() const {
     return hasWon;
 }
-// Report whether the run ended because the countdown reached zero.
+// Report whether the run ended because of a timeout or an obstacle collision.
 bool Game::lost() const {
     return hasLost;
 }
+// Expose the failure cause so the report never describes a barrier collision as a timeout.
+FailureReason Game::failureReason() const {
+    return failure;
+}
+
+// Expose the immutable run layout to rendering and route validation.
+const std::vector<GravityObstacle>& Game::obstacles() const {
+    return gravityObstacles;
+}
+
 // Report whether either terminal result has frozen further gameplay updates.
 bool Game::finished() const {
     return hasWon || hasLost;

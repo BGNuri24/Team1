@@ -134,10 +134,10 @@ namespace {
         gravity.update({0, 0, 0, -400, 0, false});
         gravity.update({0, 0, 0, 0, 0, true});
         gravity.update({0, 0, 0, 0, .25f, false, true});
-        requireJump(gravity.surfaceAttached() && std::fabs(gravity.y() - (CeilingHeight - SurfaceOffset)) < .001f,
+        requireJump(gravity.surfaceAttached() && std::fabs(gravity.y() - (CeilingHeight - StandingEyeHeight)) < .001f,
             "attaching mid-jump must safely clear floor momentum and height");
         gravity.update({0, 0, 0, 0, .1f, false, true});
-        requireJump(std::fabs(gravity.y() - (CeilingHeight - SurfaceOffset)) < .001f,
+        requireJump(std::fabs(gravity.y() - (CeilingHeight - StandingEyeHeight)) < .001f,
             "Space must not launch the player out of an attached ceiling");
         gravity.update({0, 0, 0, 0, .25f, true});
         gravity.update({0, 0, 0, 0, .25f, false});

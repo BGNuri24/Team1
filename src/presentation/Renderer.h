@@ -18,6 +18,7 @@ private:
     void drawMaze(const Game& game);
     void drawLights(const Game& game);
     void drawDetails(const Game& game);
+    void drawObstacles(const Game& game, bool glow);
     void updateCeilingLights(const Game& game);
 
     Camera3D cam;

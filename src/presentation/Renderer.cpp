@@ -200,6 +200,7 @@ void Renderer::draw(const Game& game) {
     }
     drawMaze(game);
     drawDetails(game);
+    drawObstacles(game, false);
     // Submit queued surface geometry before enabling emission so it retains the lighting uniforms
     // used when it was queued.
     rlDrawRenderBatchActive();
@@ -208,6 +209,7 @@ void Renderer::draw(const Game& game) {
         SetShaderValue(atmosphere, emissionLocation, &emission, SHADER_UNIFORM_FLOAT);
     }
     drawLights(game);
+    drawObstacles(game, true);
     if (atmosphere.id)
         EndShaderMode();
     EndMode3D();
