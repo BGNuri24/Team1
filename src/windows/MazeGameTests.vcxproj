@@ -31,11 +31,16 @@
   <ItemGroup>
     <ClCompile Include="..\tests\CoreTests.cpp" />
     <ClCompile Include="..\tests\UiTests.cpp" />
+    <ClCompile Include="..\tests\ResourceTests.cpp" />
+    <ClCompile Include="..\presentation\Textures.cpp" />
+    <ClCompile Include="..\presentation\MazePalette.cpp" />
     <ClCompile Include="..\presentation\Ui.cpp" />
     <ClCompile Include="..\tests\DatabaseTests.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
-    <ClCompile Include="..\data\BestTimeDatabase.cpp" />
+    <ClCompile Include="..\data\GameDatabase.cpp" />
+    <ClCompile Include="..\data\DatabaseQueries.cpp" />
+    <ClCompile Include="..\data\DatabaseMigrations.cpp" />
     <ClCompile Include="..\data\SettingsStore.cpp" />
     <ClCompile Include="..\logic\Players.cpp" />
     <ClCompile Include="..\logic\GameSettings.cpp" />

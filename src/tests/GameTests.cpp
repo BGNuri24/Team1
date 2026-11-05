@@ -21,7 +21,7 @@ static void require(bool condition, const char* message) {
 // Ignore invalid frame durations so malformed timing input cannot move the run timer backward or make
 // its state non-finite.
 static void testInvalidFrameDuration() {
-    Game game(10, 30.0f);
+    Game game(10, 30.0f, GameMode::Normal, 1234);
     game.update({ 1, 0, 0, 0, -1.0f, false });
     game.update({ 1, 0, 0, 0, std::numeric_limits<float>::quiet_NaN(), false });
     require(game.timeTaken() == 0.0f && game.timeLeft() == 30.0f && !game.finished(),
@@ -79,7 +79,7 @@ static void testNormalGravity() {
 
 // Walk into a boundary in Zero Gravity and verify automatic attachment to the visible wall plane.
 static void testZeroGravityWallAttachment() {
-    Game game(10, 30.0f, GameMode::ZeroGravity);
+    Game game(10, 30.0f, GameMode::ZeroGravity, 1234);
     constexpr float pi = 3.14159265358979323846f;
     float turn = std::remainder(-pi / 2 - game.yaw(), 2 * pi);
     game.update({ 0, 0, turn / 0.0025f, 0, 0, false });
@@ -95,7 +95,7 @@ static void testZeroGravityWallAttachment() {
 // Check the widened corridor's usable space and ensure aimed wall attachment uses the same world-space
 // dimensions.
 static void testWideCorridorClearance() {
-    Game game(15, 1000);
+    Game game(15, 1000, GameMode::Normal, 1234);
     constexpr float pi = 3.14159265358979323846f;
     float turn = std::remainder(-pi/2 - game.yaw(), 2*pi);
     game.update({0,0,turn/.0025f,0,0,false});
@@ -168,7 +168,7 @@ static void followPath(Game& game, const std::vector<int>& path) {
 // Reach a corridor with open space beyond a wall and confirm that a slow movement frame cannot cross
 // the solid cell.
 static void testNoWallTunneling() {
-    Game game(25, 10000);
+    Game game(25, 10000, GameMode::Normal, 1234);
     const int size = game.maze().size();
     const int dr[] = {-1,1,0,0}, dc[] = {0,0,-1,1};
     int origin = -1, direction = -1;
@@ -199,7 +199,7 @@ static void testNoWallTunneling() {
 // Follow a computed route to the exit and verify victory scoring plus frozen elapsed time after
 // completion.
 static void testReachableExit(int size, GameMode mode = GameMode::Normal) {
-    Game game(size, 10000.0f, mode);
+    Game game(size, 10000.0f, mode, 1234);
     followPath(game, pathTo(game,size*size-1));
     require(game.won() && !game.lost(), "following a valid path must win");
     require(game.score() == size * 100 + (int)std::ceil(game.timeLeft()) * 10,
@@ -213,39 +213,49 @@ static void testReachableExit(int size, GameMode mode = GameMode::Normal) {
 // maze randomness.
 // Cover every non-repeating random-draw mapping and ensure visual randomness leaves maze carving unchanged.
 static void testRunThemes() {
-    for (int previous=-1;previous<MazeThemeCount;++previous) {
-        std::array<bool,MazeThemeCount> found{};
-        const int choices = previous < 0 ? MazeThemeCount : MazeThemeCount-1;
-        for (int draw=0;draw<choices;++draw) {
-            const int selected = (int)themeFromDraw(draw,previous);
-            require(selected >= 0 && selected < MazeThemeCount && selected != previous && !found[selected],
-                "random draws must map uniquely to valid themes excluding the previous one");
+    for (int previous = -1; previous < MazeThemeCount; ++previous) {
+        std::array<bool, MazeThemeCount> found{};
+        const int choices = previous < 0 ? MazeThemeCount : MazeThemeCount - 1;
+        for (int draw = 0; draw < choices; ++draw) {
+            const int selected = (int)themeFromDraw(draw, previous);
+            require(selected >= 0 && selected < MazeThemeCount && selected != previous &&
+                        !found[selected],
+                    "random draws must map uniquely to valid themes excluding the previous one");
             found[selected] = true;
         }
     }
-    std::srand(9917);
-    MazeData baseline(15);
-    std::srand(9917);
-    Game themed(15,100);
-    for (int row=0;row<15;++row) for (int col=0;col<15;++col)
-        require(themed.maze().cell(row,col) == baseline.cell(row,col),
-            "choosing a visual theme must not change the maze-carving random sequence");
+    MazeData baseline(15, 9917);
+    Game themed(15, 100, GameMode::Normal, 9917);
+    Game reproduced(15, 100, GameMode::Normal, themed.seed());
+    require(themed.theme() == reproduced.theme(), "the same seed must reproduce its default theme");
+    for (int row = 0; row < 15; ++row)
+        for (int col = 0; col < 15; ++col)
+            require(themed.maze().cell(row, col) == baseline.cell(row, col) &&
+                        reproduced.maze().cell(row, col) == baseline.cell(row, col),
+                    "choosing a visual theme must not change the maze-carving random sequence");
     const MazeTheme chosen = themed.theme();
-    for (int frame=0;frame<20;++frame) themed.update({0,0,0,0,1.0f/60,false});
+    for (int frame = 0; frame < 20; ++frame)
+        themed.update({0, 0, 0, 0, 1.0f / 60, false});
     require(themed.theme() == chosen, "a run's palette must stay fixed during gameplay updates");
-    MazeTheme previous = chosen;
-    for (int run=0;run<12;++run) {
-        Game next(10,100,run%2 ? GameMode::Normal : GameMode::ZeroGravity);
-        require(next.theme() != previous && (int)next.theme() >= 0 && (int)next.theme() < MazeThemeCount,
-            "new runs must choose an allowed theme without immediately repeating one");
+    MazeThemeSelector selector(1234), repeated(1234);
+    MazeTheme previous = selector.next();
+    require(repeated.next() == previous, "seeded theme sequences must be reproducible");
+    for (int run = 0; run < 12; ++run) {
+        Game next(10, 100, run % 2 ? GameMode::Normal : GameMode::ZeroGravity, run,
+                  selector.next());
+        require(next.theme() == repeated.next(),
+                "an independent seeded selector must reproduce every choice");
+        require(next.theme() != previous && (int)next.theme() >= 0 &&
+                    (int)next.theme() < MazeThemeCount,
+                "new runs must choose an allowed theme without immediately repeating one");
         previous = next.theme();
     }
 }
 
+
 int main() {
     try {
         testRunThemes();
-        std::srand(1234);
         runJumpTests();
         testTimerAndGravity();
         testInvalidFrameDuration();

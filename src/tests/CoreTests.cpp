@@ -25,7 +25,7 @@ static void require(bool condition, const std::string& message) {
 // Verify maze dimensions, boundary handling, the exit, generation-step coverage and connectivity of
 // every passage cell.
 static void testMaze(int size) {
-    MazeData maze(size);
+    MazeData maze(size, 1234);
     require(maze.size() == size, "maze size does not match requested size");
     require(maze.cell(0, 0) != '#', "maze start is blocked");
     require(maze.cell(size - 1, size - 1) == 'E', "maze exit is missing");
@@ -96,41 +96,41 @@ static void testPlayerStore() {
     {
         PlayerStore players;
         require(players.count() == 0, "player store should start empty");
-        require(players.add("Alex1"), "valid player should be added");
-        require(!players.add("Alex1"), "duplicate player should be rejected");
-        require(!players.add("bad-name"), "invalid player characters should be rejected");
-        require(!players.add(""), "empty player name should be rejected");
-        require(players.recordBestTime("Alex1", 10, 41.5f),
+        require(players.add("Alex1") == StorageStatus::Success, "valid player should be added");
+        require(players.add("Alex1") == StorageStatus::Duplicate, "duplicate player should be rejected");
+        require(players.add("bad-name") == StorageStatus::Invalid, "invalid player characters should be rejected");
+        require(players.add("") == StorageStatus::Invalid, "empty player name should be rejected");
+        require(players.recordBestTime("Alex1", 10, 41.5f) == RecordResult::Updated,
             "valid best time should be recorded");
-        require(!players.recordBestTime("Alex1", 10, 45.0f),
+        require(players.recordBestTime("Alex1", 10, 45.0f) == RecordResult::Unchanged,
             "slower time should not replace the best time");
-        require(players.recordBestTime("Alex1", 10, 40.0f),
+        require(players.recordBestTime("Alex1", 10, 40.0f) == RecordResult::Updated,
             "faster time should replace the best time");
-        require(!players.recordBestTime("missing", 10, 30.0f),
+        require(players.recordBestTime("missing", 10, 30.0f) == RecordResult::Invalid,
             "time for an unknown player should be rejected");
-        require(!players.recordBestTime("Alex1", 9, 30.0f),
+        require(players.recordBestTime("Alex1", 9, 30.0f) == RecordResult::Invalid,
             "time for an invalid maze size should be rejected");
 
-        require(players.add("Bo"), "second player should be added");
-        require(players.add("Cy"), "third player should be added");
-        require(players.add("Dee"), "fourth player should be added");
-        require(players.add("Eve"), "fifth player should be added");
-        require(!players.add("Finn"), "player limit should be enforced");
+        require(players.add("Bo") == StorageStatus::Success, "second player should be added");
+        require(players.add("Cy") == StorageStatus::Success, "third player should be added");
+        require(players.add("Dee") == StorageStatus::Success, "fourth player should be added");
+        require(players.add("Eve") == StorageStatus::Success, "fifth player should be added");
+        require(players.add("Finn") == StorageStatus::Full, "player limit should be enforced");
     }
 
     {
         PlayerStore players;
         require(players.count() == MAX_PLAYERS, "players should persist after reload");
         require(players.name(0) == "Alex1", "player order should persist after reload");
-        require(players.bestTime("Alex1", 10) == 40.0f,
+        require(players.bestTime("Alex1", 10).seconds == 40.0f,
             "best time should persist after reload");
-        require(players.remove(0), "existing player should be removable");
-        require(!players.remove(100), "invalid player index should be rejected");
+        require(players.remove(0) == StorageStatus::Success, "existing player should be removable");
+        require(players.remove(100) == StorageStatus::Invalid, "invalid player index should be rejected");
     }
 
     PlayerStore players;
     require(players.count() == MAX_PLAYERS - 1, "removal should persist");
-    require(players.bestTime("Alex1", 10) < 0.0f,
+    require(!players.bestTime("Alex1", 10).seconds,
         "removing a player should remove their best times");
 }
 
@@ -146,14 +146,14 @@ static void testProfilesAndValidation() {
     require(players.add("Alex_1234567") == Players::DUPLICATE, "duplicate result changed");
     require(players.add("Bo") == Players::ADDED, "second profile should work");
     players.setActive(1);
-    require(players.recordWin(10, 12.5f), "active player should save their time");
-    require(!players.recordWin(51, 1.0f), "oversized maze record must be rejected");
-    require(!players.recordWin(10, std::numeric_limits<float>::infinity()),
+    require(players.recordWin(10, 12.5f) == RecordResult::Updated, "active player should save their time");
+    require(players.recordWin(51, 1.0f) == RecordResult::Invalid, "oversized maze record must be rejected");
+    require(players.recordWin(10, std::numeric_limits<float>::infinity()) == RecordResult::Invalid,
         "infinite time must be rejected");
-    require(!players.recordWin(10, std::numeric_limits<float>::quiet_NaN()),
+    require(players.recordWin(10, std::numeric_limits<float>::quiet_NaN()) == RecordResult::Invalid,
         "NaN time must be rejected");
     require(players.remove(0), "earlier profile should be removable");
-    require(players.activeName() == "Bo" && players.bestTime(10) == 12.5f,
+    require(players.activeName() == "Bo" && players.bestTime(10).seconds == 12.5f,
         "removing an earlier profile must preserve active player and record");
     require(players.add("Cy") == Players::ADDED && players.add("Dee") == Players::ADDED &&
         players.add("Eve") == Players::ADDED && players.add("Finn") == Players::ADDED,
@@ -171,9 +171,9 @@ static void testProfilesAndValidation() {
     std::filesystem::remove("save_data/maze_game.db");
     std::ofstream("save_data/best_times.txt") << "Bo 10 20\nBo 10 10\nBo 10 15\nBo 11 30\nmissing 10 1\n";
     PlayerStore reloaded;
-    require(reloaded.bestTime("Bo", 10) == 10.0f && reloaded.bestTime("Bo", 11) == 30.0f,
+    require(reloaded.bestTime("Bo", 10).seconds == 10.0f && reloaded.bestTime("Bo", 11).seconds == 30.0f,
         "record lookup must match both player and maze size");
-    require(reloaded.bestTime("missing", 10) < 0, "unknown player record should be ignored");
+    require(!reloaded.bestTime("missing", 10).seconds, "unknown player record should be ignored");
 }
 
 // Verify that legacy Normal records and Zero Gravity records load, improve and disappear independently
@@ -187,32 +187,32 @@ static void testSeparateModeRecords() {
         << "Alex 25 1 unknown\nAlex 25 2 normal extra\n";
 
     PlayerStore store;
-    require(store.bestTime("Alex", 25) == 30.0f,
+    require(store.bestTime("Alex", 25).seconds == 30.0f,
         "legacy and normal records must load into normal mode");
-    require(store.bestTime("Alex", 25, GameMode::ZeroGravity) == 12.0f,
+    require(store.bestTime("Alex", 25, GameMode::ZeroGravity).seconds == 12.0f,
         "Zero Gravity duplicates must merge independently");
-    require(store.recordBestTime("Alex", 25, 8.0f, GameMode::ZeroGravity),
+    require(store.recordBestTime("Alex", 25, 8.0f, GameMode::ZeroGravity) == RecordResult::Updated,
         "Zero Gravity records should update");
-    require(!store.recordBestTime("Alex", 25, 9.0f, GameMode::ZeroGravity),
+    require(store.recordBestTime("Alex", 25, 9.0f, GameMode::ZeroGravity) == RecordResult::Unchanged,
         "slower Zero Gravity records should be rejected");
-    require(store.bestTime("Alex", 25) == 30.0f,
+    require(store.bestTime("Alex", 25).seconds == 30.0f,
         "Zero Gravity records must not replace normal records");
-    require(store.recordBestTime("Alex", 25, 20.0f), "normal records should update independently");
+    require(store.recordBestTime("Alex", 25, 20.0f) == RecordResult::Updated, "normal records should update independently");
 
     Players profiles;
-    require(profiles.bestTime(25) == 20.0f && profiles.bestTime(25, GameMode::ZeroGravity) == 8.0f,
+    require(profiles.bestTime(25).seconds == 20.0f && profiles.bestTime(25, GameMode::ZeroGravity).seconds == 8.0f,
         "both modes must retain their records after reloading");
-    require(profiles.recordWin(25, 5.0f, GameMode::ZeroGravity),
+    require(profiles.recordWin(25, 5.0f, GameMode::ZeroGravity) == RecordResult::Updated,
         "player management must record the chosen mode");
     PlayerStore reloaded;
-    require(reloaded.bestTime("Alex", 25) == 20.0f &&
-        reloaded.bestTime("Alex", 25, GameMode::ZeroGravity) == 5.0f,
+    require(reloaded.bestTime("Alex", 25).seconds == 20.0f &&
+        reloaded.bestTime("Alex", 25, GameMode::ZeroGravity).seconds == 5.0f,
         "recording a Zero Gravity win must preserve normal records on disk");
     require(profiles.remove(0) && profiles.add("Alex") == Players::ADDED,
         "players should be removable and reusable");
     PlayerStore removed;
-    require(removed.bestTime("Alex", 25) < 0 &&
-        removed.bestTime("Alex", 25, GameMode::ZeroGravity) < 0,
+    require(!removed.bestTime("Alex", 25).seconds &&
+        !removed.bestTime("Alex", 25, GameMode::ZeroGravity).seconds,
         "removing a player must clear records from both modes");
 }
 
@@ -334,7 +334,6 @@ static void testMouseSensitivitySettings() {
 // first assertion message.
 int main() {
     try {
-        std::srand(1234);
         testMaze(10);
         testMaze(11);
         testMaze(50);

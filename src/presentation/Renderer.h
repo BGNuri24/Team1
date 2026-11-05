@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "../logic/Game.h"
 #include "Textures.h"
+#include "HudRenderer.h"
 
 class Renderer {
 public:
@@ -15,14 +16,13 @@ public:
     void prepareMazeTheme(MazeTheme theme);
 private:
     void drawMaze(const Game& game);
-    void drawMinimap(const Game& game);
-    void drawHud(const Game& game);
     void drawLights(const Game& game);
     void drawDetails(const Game& game);
     void updateCeilingLights(const Game& game);
 
     Camera3D cam;
     Textures tex;
+    HudRenderer hud;
     MazeTheme activeTheme = MazeTheme::Slate;
     MazePalette palette = mazePalette(MazeTheme::Slate);
     bool texturesReady = false;

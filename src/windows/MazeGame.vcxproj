@@ -30,7 +30,9 @@
   <ItemGroup>
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
-    <ClCompile Include="..\data\BestTimeDatabase.cpp" />
+    <ClCompile Include="..\data\GameDatabase.cpp" />
+    <ClCompile Include="..\data\DatabaseQueries.cpp" />
+    <ClCompile Include="..\data\DatabaseMigrations.cpp" />
     <ClCompile Include="..\data\SettingsStore.cpp" />
     <ClCompile Include="..\data\MazeData.cpp" />
     <ClCompile Include="..\logic\Players.cpp" />
@@ -49,6 +51,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp" />
     <ClCompile Include="..\presentation\MenuBackground.cpp" />
     <ClCompile Include="..\presentation\Renderer.cpp" />
+    <ClCompile Include="..\presentation\HudRenderer.cpp" />
     <ClCompile Include="..\presentation\PlayerSelect.cpp" />
     <ClCompile Include="..\presentation\Textures.cpp" />
     <ClCompile Include="..\presentation\MazePalette.cpp" />
@@ -82,7 +85,14 @@
     <ClInclude Include="..\logic\GameSettings.h" />
     <ClInclude Include="..\logic\Difficulty.h" />
     <ClInclude Include="..\data\PlayerStore.h" />
-    <ClInclude Include="..\data\BestTimeDatabase.h" />
+    <ClInclude Include="..\data\GameDatabase.h" />
+    <ClInclude Include="..\data\StorageResult.h" />
+    <ClInclude Include="..\data\DatabaseQueries.h" />
+    <ClInclude Include="..\data\DatabaseMigrations.h" />
+    <ClInclude Include="..\data\Sqlite.h" />
+    <ClInclude Include="..\data\RandomSeed.h" />
+    <ClInclude Include="..\presentation\HudRenderer.h" />
+    <ClInclude Include="..\presentation\MazeShaders.h" />
     <ClInclude Include="..\data\MazeData.h" />
   </ItemGroup>
   <ItemGroup>
