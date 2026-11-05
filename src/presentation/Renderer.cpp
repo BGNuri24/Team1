@@ -7,7 +7,6 @@
 
 namespace {
 constexpr float VIEW_DISTANCE = 15.0f;
-constexpr Color FOG = {7, 16, 21, 255};
 constexpr Color AMBER = {244, 190, 102, 255};
 constexpr Color MINT = {113, 216, 182, 255};
 constexpr int MAX_CEILING_LIGHTS = 6;
@@ -23,6 +22,7 @@ uniform mat4 mvp;
 uniform mat4 matModel;
 uniform vec3 ceilingLights[6];
 uniform int ceilingLightCount;
+uniform vec3 fixtureColor;
 out vec2 fragTexCoord;
 out vec4 fragColor;
 out vec3 worldPosition;
@@ -40,7 +40,7 @@ void main() {
     ceilingIllumination = vec3(0.0);
     for (int i = 0; i < ceilingLightCount; ++i) {
         vec3 delta = ceilingLights[i] - worldPosition;
-        ceilingIllumination += vec3(0.95, 0.69, 0.37) * 0.48 / (1.0 + dot(delta, delta)*1.4);
+        ceilingIllumination += fixtureColor * 0.48 / (1.0 + dot(delta, delta)*1.4);
     }
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }
@@ -56,6 +56,7 @@ uniform vec4 colDiffuse;
 uniform vec3 eyePosition;
 uniform vec3 viewDirection;
 uniform float emission;
+uniform vec3 fogColor;
 out vec4 finalColor;
 // Shade the sampled surface using ambient, view-directed and ceiling light, then blend distance fog
 // while retaining material alpha.
@@ -65,12 +66,12 @@ void main() {
     float distance = length(offset);
     float cone = smoothstep(0.48, 0.98, dot(offset / max(distance, 0.001), viewDirection));
     float nearby = exp(-distance * 0.18);
-    vec3 light = vec3(0.34, 0.43, 0.48) + nearby * vec3(0.30, 0.33, 0.30)
-        + cone * exp(-distance * 0.10) * vec3(0.47, 0.40, 0.29);
+    vec3 light = vec3(0.52, 0.52, 0.50) + nearby * vec3(0.24, 0.24, 0.24)
+        + cone * exp(-distance * 0.10) * vec3(0.27, 0.26, 0.24);
     light += ceilingIllumination;
     vec3 lit = surface.rgb * mix(light, vec3(1.0), emission);
     float fog = smoothstep(5.0, 25.0, distance);
-    finalColor = vec4(mix(lit, vec3(0.0275, 0.0627, 0.0824), fog), surface.a);
+    finalColor = vec4(mix(lit, fogColor, fog), surface.a);
 }
 )glsl";
 
@@ -188,7 +189,6 @@ Renderer::Renderer() {
     cam.up = {0, 1, 0};
     cam.fovy = 70;
     cam.projection = CAMERA_PERSPECTIVE;
-    tex = createTextures();
     atmosphere = LoadShaderFromMemory(VERTEX_SHADER, FRAGMENT_SHADER);
     if (atmosphere.id != 0 && atmosphere.id != rlGetShaderIdDefault()) {
         eyeLocation = GetShaderLocation(atmosphere, "eyePosition");
@@ -196,6 +196,8 @@ Renderer::Renderer() {
         emissionLocation = GetShaderLocation(atmosphere, "emission");
         ceilingLightsLocation = GetShaderLocation(atmosphere, "ceilingLights");
         ceilingLightCountLocation = GetShaderLocation(atmosphere, "ceilingLightCount");
+        fixtureColorLocation = GetShaderLocation(atmosphere, "fixtureColor");
+        fogColorLocation = GetShaderLocation(atmosphere, "fogColor");
     } else {
         atmosphere = {};
     }
@@ -207,18 +209,40 @@ Renderer::~Renderer() {
     if (atmosphere.id) UnloadShader(atmosphere);
 }
 
+// Build replacement textures before releasing the previous run's resources, and avoid uploads during normal frames.
+void Renderer::prepareMazeTheme(MazeTheme theme) {
+    if (texturesReady && activeTheme == theme) return;
+    rlDrawRenderBatchActive();
+    const MazePalette& chosen = mazePalette(theme);
+    Textures replacement = createTextures(chosen);
+    if (!replacement.wall.id || !replacement.floor.id || !replacement.ceiling.id || !replacement.decals.id) {
+        destroyTextures(replacement);
+        return;
+    }
+    destroyTextures(tex);
+    tex = replacement;
+    palette = chosen;
+    activeTheme = theme;
+    texturesReady = true;
+}
+
 // Copy the game's displayed camera pose, render lit geometry and emissive details, then draw the HUD
 // and explored-area minimap.
 void Renderer::draw(const Game& game) {
+    prepareMazeTheme(game.theme());
     cam.position = game.position();
     const Vector3 direction = game.cameraDirection();
     cam.target = {cam.position.x + direction.x, cam.position.y + direction.y, cam.position.z + direction.z};
     cam.up = game.cameraUp();
 
-    ClearBackground(FOG);
+    ClearBackground(palette.fog);
     BeginMode3D(cam);
     if (atmosphere.id) {
         float emission = 0;
+        const float fixture[] = {palette.lamp.r/255.0f,palette.lamp.g/255.0f,palette.lamp.b/255.0f};
+        const float fog[] = {palette.fog.r/255.0f,palette.fog.g/255.0f,palette.fog.b/255.0f};
+        SetShaderValue(atmosphere,fixtureColorLocation,fixture,SHADER_UNIFORM_VEC3);
+        SetShaderValue(atmosphere,fogColorLocation,fog,SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, eyeLocation, &cam.position, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, directionLocation, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, emissionLocation, &emission, SHADER_UNIFORM_FLOAT);
@@ -252,7 +276,7 @@ void Renderer::drawMaze(const Game& game) {
     rlSetTexture(tex.wall.id);
     rlBegin(RL_QUADS);
     exposedWalls(game, [](const Wall& wall) {
-        unsigned char brightness = wall.side < 2 ? 255 : 222;
+        unsigned char brightness = wall.side < 2 ? 255 : 235;
         wallStrip(wall, 0, 1, 0, 1, {brightness, brightness, brightness, 255}, 0);
     });
     rlEnd();
@@ -260,25 +284,26 @@ void Renderer::drawMaze(const Game& game) {
     rlSetTexture(tex.floor.id);
     rlBegin(RL_QUADS);
     nearbyCells(game, [](int row, int col) {
-        floorPatch((float)col, (float)row, 0, .5f, .5f, {235, 238, 235, 255});
+        floorPatch((float)col, (float)row, 0, .5f, .5f, WHITE);
     });
     rlEnd();
 
     rlSetTexture(tex.ceiling.id);
     rlBegin(RL_QUADS);
     nearbyCells(game, [](int row, int col) {
-        floorPatch((float)col, (float)row, 1, .5f, .5f, {190, 207, 216, 255});
+        floorPatch((float)col, (float)row, 1, .5f, .5f, WHITE);
     });
     rlEnd();
 
     rlSetTexture(rlGetTextureIdDefault());
     rlBegin(RL_QUADS);
-    exposedWalls(game, [](const Wall& wall) {
-        // Draw shallow vertical ribs and base trim directly against each exposed wall's collision plane.
-        wallStrip(wall, .015f, .043f, .03f, .97f, {48, 78, 82, 255});
-        wallStrip(wall, .957f, .985f, .03f, .97f, {32, 54, 61, 255});
-        wallStrip(wall, 0, 1, .025f, .065f, {21, 39, 45, 255});
-        wallStrip(wall, 0, 1, .935f, .975f, {50, 75, 78, 255});
+    exposedWalls(game, [&](const Wall& wall) {
+        // Keep shallow dado and crown rails aligned with the wallpaper's lower paneling and ceiling edge.
+        wallStrip(wall, 0, 1, .018f, .030f, palette.trim);
+        wallStrip(wall, 0, 1, .296f, .321f, palette.trim);
+        wallStrip(wall, 0, 1, .316f, .321f, ColorLerp(palette.accent,palette.paper,.18f), .006f);
+        wallStrip(wall, 0, 1, .955f, .974f, palette.trim);
+        wallStrip(wall, .992f, .999f, .03f, .955f, ColorLerp(palette.trim,palette.wall,.2f));
     });
     rlEnd();
     rlSetTexture(rlGetTextureIdDefault());
@@ -323,7 +348,7 @@ void Renderer::drawDetails(const Game& game) {
         if (game.maze().cell(wall.row,wall.col) == 'E') return;
         int hash = wall.row*53 + wall.col*17 + wall.side*13;
         bool welcome = wall.row == 0 && wall.col == 0 && wall.side == 0;
-        if (!welcome && hash%19 > 2) return;
+        if (!welcome && hash%23 != 0) return;
         int slot = welcome ? 0 : (hash/19)%4;
         const float dx = wall.rx-wall.lx, dz = wall.rz-wall.lz;
         float x0 = wall.lx+dx*.17f-dz*.008f, z0 = wall.lz+dz*.17f+dx*.008f;
@@ -335,18 +360,18 @@ void Renderer::drawDetails(const Game& game) {
     rlEnd();
     rlSetTexture(rlGetTextureIdDefault());
     rlBegin(RL_QUADS);
-    exposedWalls(game,[](const Wall& wall) {
+    exposedWalls(game,[&](const Wall& wall) {
         int hash = wall.row*53+wall.col*17+wall.side*13;
-        // Place the horizontal copper conduit and its mounting clips above the decorative wall plaques.
-        wallStrip(wall,.03f,.97f,.718f,.727f,{129,113,81,255},.007f);
-        wallStrip(wall,.10f,.12f,.704f,.742f,{51,70,68,255},.010f);
-        wallStrip(wall,.88f,.90f,.704f,.742f,{51,70,68,255},.010f);
+        // Match the slim service rail and its mounting clips to the current wallpaper palette.
+        wallStrip(wall,.03f,.97f,.718f,.727f,ColorLerp(palette.trim,palette.accent,.35f),.007f);
+        wallStrip(wall,.10f,.12f,.704f,.742f,palette.trim,.010f);
+        wallStrip(wall,.88f,.90f,.704f,.742f,palette.trim,.010f);
         if (hash%7 != 0 || hash%19 <= 2) return;
-        wallStrip(wall,.63f,.92f,.225f,.37f,{15,32,40,255},.006f);
-        wallStrip(wall,.62f,.93f,.22f,.229f,{110,116,102,255},.009f);
-        wallStrip(wall,.62f,.93f,.367f,.376f,{66,89,89,255},.009f);
+        wallStrip(wall,.63f,.92f,.225f,.37f,palette.trim,.006f);
+        wallStrip(wall,.62f,.93f,.22f,.229f,palette.accent,.009f);
+        wallStrip(wall,.62f,.93f,.367f,.376f,palette.trim,.009f);
         for (int i=0;i<5;++i)
-            wallStrip(wall,.645f,.905f,.241f+i*.025f,.248f+i*.025f,{69,89,91,255},.011f);
+            wallStrip(wall,.645f,.905f,.241f+i*.025f,.248f+i*.025f,ColorLerp(palette.trim,palette.accent,.2f),.011f);
     });
     nearbyCells(game,[&](int row,int col) {
         int neighbours = (game.maze().cell(row-1,col) != '#')+(game.maze().cell(row+1,col) != '#')
@@ -357,16 +382,16 @@ void Renderer::drawDetails(const Game& game) {
                 if (i%4 == 0) continue;
                 float a = i*2*PI/16, b = (i+.76f)*2*PI/16;
                 floorLine(x+std::cos(a)*.20f,z+std::sin(a)*.20f,
-                          x+std::cos(b)*.20f,z+std::sin(b)*.20f,.004f,{147,133,98,200});
+                          x+std::cos(b)*.20f,z+std::sin(b)*.20f,.004f,Fade(palette.accent,.5f));
             }
-            floorLine(x-.07f,z,x+.07f,z,.004f,{147,133,98,180});
-            floorLine(x,z-.07f,x,z+.07f,.004f,{147,133,98,180});
+            floorLine(x-.07f,z,x+.07f,z,.004f,Fade(palette.accent,.5f));
+            floorLine(x,z-.07f,x,z+.07f,.004f,Fade(palette.accent,.5f));
         }
         if (neighbours == 1) {
             // Add service-hatch floor markings to cells with a single open neighbor; they do not point
             // toward the exit.
             for (int i=0;i<5;++i)
-                floorLine(x-.17f+i*.06f,z+.31f,x-.14f+i*.06f,z+.25f,.006f,{158,126,72,200});
+                floorLine(x-.17f+i*.06f,z+.31f,x-.14f+i*.06f,z+.25f,.006f,Fade(palette.accent,.5f));
         }
     });
     rlEnd();
@@ -378,7 +403,7 @@ void Renderer::drawDetails(const Game& game) {
 // Render visited-cell breadcrumbs, ceiling fixtures and the animated mint exit gateway during the
 // emissive pass.
 void Renderer::drawLights(const Game& game) {
-    const Color accent = game.mode() == GameMode::ZeroGravity ? MINT : AMBER;
+    const Color accent = ColorLerp(palette.accent,palette.paper,.3f);
     const float time = (float)GetTime();
     rlDisableBackfaceCulling();
     rlSetTexture(rlGetTextureIdDefault());
@@ -387,12 +412,12 @@ void Renderer::drawLights(const Game& game) {
         wallStrip(wall, .09f, .91f, .097f, .103f, Fade(accent, .65f), .006f);
         const int pattern = (wall.row*13 + wall.col*7 + wall.side*3) % 5;
         if (pattern > 1) return;
-        const Color lamp = pattern == 0 ? accent : Color{155, 215, 218, 255};
-        wallStrip(wall, .31f, .69f, .785f, .865f, {20, 38, 44, 255}, .006f);
+        const Color lamp = palette.lamp;
+        wallStrip(wall, .31f, .69f, .785f, .865f, palette.trim, .006f);
         wallStrip(wall, .33f, .67f, .795f, .855f, Fade(lamp, .10f), .008f);
         wallStrip(wall, .35f, .65f, .817f, .833f, lamp, .010f);
-        wallStrip(wall, .34f, .36f, .795f, .855f, {93, 114, 109, 255}, .012f);
-        wallStrip(wall, .64f, .66f, .795f, .855f, {93, 114, 109, 255}, .012f);
+        wallStrip(wall, .34f, .36f, .795f, .855f, palette.trim, .012f);
+        wallStrip(wall, .64f, .66f, .795f, .855f, palette.trim, .012f);
     });
     nearbyCells(game, [&](int row, int col) {
         float x = (float)col, z = (float)row;
@@ -414,12 +439,12 @@ void Renderer::drawLights(const Game& game) {
         const float x = (float)col, z = (float)row;
         const bool alongZ = game.maze().cell(row-1,col) != '#' || game.maze().cell(row+1,col) != '#';
         const float w = alongZ ? .22f : .56f, d = alongZ ? .56f : .22f;
-        detailCube({x,.955f,z},w,.024f,d,{36,51,51,255});
-        detailCube({x,.940f,z},w-.04f,.007f,d-.04f,{255,220,158,255});
-        detailCube({x,.936f,z},w-.07f,.003f,d-.07f,{255,240,195,255});
+        detailCube({x,.955f,z},w,.024f,d,palette.trim);
+        detailCube({x,.940f,z},w-.04f,.007f,d-.04f,palette.lamp);
+        detailCube({x,.936f,z},w-.07f,.003f,d-.07f,ColorLerp(palette.lamp,palette.paper,.35f));
         const float sx = alongZ ? .055f : .19f, sz = alongZ ? .19f : .055f;
         for (float side : {-1.0f,1.0f})
-            detailCube({x+sx*side,.984f,z+sz*side},.005f,.028f,.005f,{136,119,86,255});
+            detailCube({x+sx*side,.984f,z+sz*side},.005f,.028f,.005f,palette.accent);
     });
 
     // Draw the mint gateway at the exit cell when it is within the renderer's distance limit.
@@ -468,7 +493,7 @@ void Renderer::drawHud(const Game& game) {
     text("TIME TO FIND A WAY", margin+uiSize(18), margin+uiSize(14), 12, Muted);
     text(TextFormat("%02d:%02d", remaining/60, remaining%60), margin+uiSize(16), margin+uiSize(35), 42, clockColor);
     const bool zero = game.mode() == GameMode::ZeroGravity;
-    text(zero ? "ZERO GRAVITY" : "THE LABYRINTH", margin+uiSize(18), margin+uiSize(88), 13, zero ? Mint : Amber);
+    text(zero ? "ZERO GRAVITY" : palette.name, margin+uiSize(18), margin+uiSize(88), 13, zero ? Mint : Amber);
     float duration = game.timeLeft()+game.timeTaken();
     float ratio = duration > 0 ? std::clamp(game.timeLeft()/duration, 0.0f, 1.0f) : 0;
     DrawRectangle(margin+uiSize(18), margin+uiSize(108), uiSize(184), std::max(1, uiSize(2)), Border);
@@ -529,8 +554,8 @@ void Renderer::drawMinimap(const Game& game) {
         int seen = game.seenState(row,col);
         if (!seen) continue;
         char tile = game.maze().cell(row,col);
-        Color color = tile == '#' ? Color{63, 97, 102, 255} : tile == 'E' ? Mint
-            : seen == 2 ? Color{140, 117, 77, 255} : Color{25, 48, 56, 255};
+        Color color = tile == '#' ? ColorLerp(palette.wall,palette.accent,.3f) : tile == 'E' ? Mint
+            : seen == 2 ? palette.accent : palette.floor;
         DrawRectangle(x+col*cell, y+row*cell, cell, cell, color);
     }
     float px = x+(game.x()/MazeGeometry::CellSize+.5f)*cell;

@@ -30,6 +30,7 @@ Screen Application::updatePlayerSelect() { return updateMenu(playerSelect); }
 // allowing gameplay.
 Screen Application::startGame() {
     game = std::make_unique<Game>(currentSize, currentSeconds, currentMode);
+    renderer.prepareMazeTheme(game->theme());
     generationScreen.begin(*game);
     return Screen::GENERATING;
 }
