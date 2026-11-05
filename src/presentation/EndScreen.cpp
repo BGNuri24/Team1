@@ -53,9 +53,13 @@ void EndScreen::draw(const Game& game, const std::string& playerName,
         DrawLineEx({(float)uiX(277), (float)uiY(229)}, {(float)uiX(287), (float)uiY(239)}, 3*uiScale(), accent);
         DrawLineEx({(float)uiX(277), (float)uiY(249)}, {(float)uiX(287), (float)uiY(239)}, 3*uiScale(), accent);
     }
-    drawMenuText(game.won() ? "You found a way." : "The maze can wait.", 312, 206, 36);
+    drawMenuText(game.won() ? "You found a way." : "You have failed.", 312, 206, 36);
     drawMenuTextFit(playerName.c_str(), 312, 255, 460, 22, Amber);
-    drawMenuText(game.won() ? "Another labyrinth, another story." : "Time ran out. A fresh route is waiting.", 212, 295, 18, Muted);
+    const char* outcome = game.won() ? "Another labyrinth, another story."
+        : game.failureReason() == FailureReason::ObstacleHit
+            ? "You hit a hazard barrier. Flip gravity to pass safely."
+            : "Time ran out. A fresh route is waiting.";
+    drawMenuTextFit(outcome, 212, 295, 576, 18, Muted);
     const int positions[] = {212, 410, 608};
     const char* labels[] = {game.won() ? "ESCAPE TIME" : "TIME IN MAZE", "TIME LEFT", "POINTS"};
     for (int i = 0; i < 3; ++i) {

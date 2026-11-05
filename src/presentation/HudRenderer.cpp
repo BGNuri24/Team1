@@ -78,13 +78,14 @@ void HudRenderer::drawHud(const Game& game, const MazePalette& palette) const {
     const int footer = GetScreenHeight() - uiSize(40);
     text("ESC  pause", margin, footer, 15, Muted);
     if (zero)
-        text(game.surfaceAttached() ? "G  return to floor" : "G  attach to a wall or ceiling",
+        text(game.surfaceAttached() ? "G  return to floor" : "G  switch to ceiling",
              margin, footer - uiSize(28), 15, Mint);
+    if (zero)
+        text("RED BARRIERS ARE LETHAL", margin, footer - uiSize(52), 13, Danger);
     text("FIND THE GREEN GATE",
          GetScreenWidth() - margin - MeasureText("FIND THE GREEN GATE", uiSize(14)), footer, 14,
          Muted);
-    // Draw a central reticle to show the look direction used when aiming Zero Gravity surface
-    // attachment.
+    // Keep a central reticle as a stable reference while the camera rolls between surfaces.
     int cx = GetScreenWidth() / 2, cy = GetScreenHeight() / 2;
     Color aim = Fade(Paper, .45f);
     DrawLine(cx - uiSize(5), cy, cx - uiSize(2), cy, aim);

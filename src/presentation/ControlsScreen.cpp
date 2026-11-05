@@ -21,7 +21,7 @@ Screen ControlsScreen::update() {
 }
 
 // Render the themed control cards for walking, jumping, mouse look, menu actions and Zero Gravity
-// attachment.
+// floor/ceiling switching.
 void ControlsScreen::draw() const {
     using namespace MenuTheme;
     drawMenuBackdrop(3);
@@ -52,7 +52,7 @@ void ControlsScreen::draw() const {
     drawMenuPanel(uiRect(516, 440, 420, 154), Fade(Mint, 0.5f));
     drawMenuText("04 / ZERO GRAVITY ONLY", 540, 463, 14, Mint);
     keycap("G", 540, 499);
-    drawMenuText("Attach to walls and ceilings", 602, 508, 18);
-    drawMenuText("Jump from the floor. G switches surfaces.", 540, 558, 16, Muted);
+    drawMenuText("Switch floor / ceiling", 602, 508, 18);
+    drawMenuText("Avoid red barriers. Touching one ends the run.", 540, 558, 16, Muted);
     drawMenuFooter("REACH THE GREEN EXIT BEFORE TIME RUNS OUT.     ENTER / ESC  back");
 }

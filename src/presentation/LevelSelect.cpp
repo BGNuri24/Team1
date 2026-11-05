@@ -119,7 +119,7 @@ void LevelSelect::draw() const {
     DrawCircle(uiX(882), uiY(391), (float)uiSize(5), Mint);
     const char* names[] = { "Find your footing.", "Trust your bearings.", "Earn your escape.", "Make it your own.", "Think beyond the floor." };
     drawMenuText(names[selected], 538, 462, 26);
-    drawMenuText(zero ? "Press G to attach to walls and ceilings." : "Stay on the floor. Find the green exit.",
+    drawMenuText(zero ? "G flips floor / ceiling. Avoid red barriers." : "Stay on the floor. Find the green exit.",
         538, 507, 16, Muted);
     drawMenuText(selected == CUSTOM_OPTION ? "Time limit: 5 seconds per maze cell in width."
         : "The clock starts once you enter the maze.", 538, 538, 14, Muted);
