@@ -1,5 +1,9 @@
 #pragma once
 
+#include "../logic/Game.h"
+#include "../logic/GameSettings.h"
+#include "../logic/MazeThemeSelection.h"
+#include "../logic/Players.h"
 #include "ControlsScreen.h"
 #include "EndScreen.h"
 #include "LevelSelect.h"
@@ -9,9 +13,6 @@
 #include "PlayerSelect.h"
 #include "Renderer.h"
 #include "Screen.h"
-#include "../logic/Game.h"
-#include "../logic/Players.h"
-#include "../logic/GameSettings.h"
 #include <memory>
 
 class Application {
@@ -33,6 +34,7 @@ private:
 
     Players players;
     GameSettings settings;
+    MazeThemeSelector themeSelector;
     Renderer renderer;
     MainMenu mainMenu;
     ControlsScreen controls;

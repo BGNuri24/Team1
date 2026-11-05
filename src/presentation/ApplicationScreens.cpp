@@ -2,34 +2,40 @@
 #include "Input.h"
 #include "raylib.h"
 
-// Wrap a screen's drawing callback in the BeginDrawing/EndDrawing pair required for one raylib frame.
-template <typename Draw>
-static void drawFrame(Draw draw) {
+// Wrap a screen's drawing callback in the BeginDrawing/EndDrawing pair required for one raylib
+// frame.
+template <typename Draw> static void drawFrame(Draw draw) {
     BeginDrawing();
     draw();
     EndDrawing();
 }
 
 // Process one menu input frame, draw that menu, and return the requested destination screen.
-template <typename Menu>
-static Screen updateMenu(Menu& menu) {
+template <typename Menu> static Screen updateMenu(Menu& menu) {
     Screen next = menu.update();
     drawFrame([&] { menu.draw(); });
     return next;
 }
 
 // Update and render the main menu through the shared menu-frame helper.
-Screen Application::updateMainMenu() { return updateMenu(mainMenu); }
+Screen Application::updateMainMenu() {
+    return updateMenu(mainMenu);
+}
 // Update and render the controls guide through the shared menu-frame helper.
-Screen Application::updateControls() { return updateMenu(controls); }
+Screen Application::updateControls() {
+    return updateMenu(controls);
+}
 // Update and render profile selection while retaining its access to the application's shared player
 // store.
-Screen Application::updatePlayerSelect() { return updateMenu(playerSelect); }
+Screen Application::updatePlayerSelect() {
+    return updateMenu(playerSelect);
+}
 
 // Create a fresh run from the selected parameters and initialize its generation preview before
 // allowing gameplay.
 Screen Application::startGame() {
-    game = std::make_unique<Game>(currentSize, currentSeconds, currentMode);
+    game = std::make_unique<Game>(currentSize, currentSeconds, currentMode, std::nullopt,
+                                  themeSelector.next());
     renderer.prepareMazeTheme(game->theme());
     generationScreen.begin(*game);
     return Screen::GENERATING;
@@ -50,8 +56,8 @@ Screen Application::updateLevelSelect() {
     return next;
 }
 
-// Advance and draw the generation preview, capture the cursor when it completes, and transition into
-// gameplay.
+// Advance and draw the generation preview, capture the cursor when it completes, and transition
+// into gameplay.
 Screen Application::updateGenerating() {
     bool complete = generationScreen.update(*game);
     drawFrame([&] { generationScreen.draw(*game); });
@@ -74,7 +80,10 @@ Screen Application::updatePlaying() {
     if (gameplayPauseRequested()) {
         EnableCursor();
         pauseMenu.reset();
-        drawFrame([&] { renderer.draw(*game); pauseMenu.draw(); });
+        drawFrame([&] {
+            renderer.draw(*game);
+            pauseMenu.draw();
+        });
         return Screen::PAUSED;
     }
     game->update(readInput(settings.sensitivityMultiplier()));
@@ -83,9 +92,15 @@ Screen Application::updatePlaying() {
     if (game->finished()) {
         EnableCursor();
         endScreen.reset();
-        newBestTime = game->won() && players.recordWin(currentSize, game->timeTaken(), currentMode);
-        bestTimeSaveFailed = game->won() && players.bestTimeStorageFailed();
-        bestTime = players.bestTime(currentSize, currentMode);
+        const RecordResult result =
+            game->won() ? players.recordWin(currentSize, game->timeTaken(), currentMode)
+                        : RecordResult::Unchanged;
+        newBestTime = result == RecordResult::Updated;
+        bestTimeSaveFailed = result == RecordResult::StorageError;
+        // The view uses a missing-value sentinel only after storage status has been handled
+        // explicitly.
+        const BestTimeResult previous = players.bestTime(currentSize, currentMode);
+        bestTime = previous.seconds.value_or(-1.0f);
         return Screen::END;
     }
     return Screen::PLAYING;
@@ -99,7 +114,7 @@ Screen Application::updatePaused() {
     drawFrame([&] {
         renderer.draw(*game);
         pauseMenu.draw();
-        });
+    });
 
     switch (action) {
     case PauseAction::RESUME:
@@ -119,13 +134,14 @@ Screen Application::updatePaused() {
     return Screen::PAUSED;
 }
 
-// Draw the completed run and result report, releasing the run when navigation leaves the end screen.
+// Draw the completed run and result report, releasing the run when navigation leaves the end
+// screen.
 Screen Application::updateEnd() {
     Screen next = endScreen.update(GetFrameTime());
     drawFrame([&] {
         renderer.draw(*game);
         endScreen.draw(*game, players.activeName(), bestTime, newBestTime, bestTimeSaveFailed);
-        });
+    });
 
     if (next != Screen::END) {
         game.reset();
