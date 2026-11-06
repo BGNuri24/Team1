@@ -6,7 +6,7 @@
 class MenuBackground {
 public:
     MenuBackground();
-    void draw(float time) const;
+    void draw(float time, float horizontalOffset = 0.24f) const;
 
 private:
     MazeData maze;

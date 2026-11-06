@@ -52,7 +52,7 @@ void runUiTests() {
                    "Keyboard and mouse navigation");
     drawMenuButton(uiRect(64, 335, 414, 66), "A deliberately long menu label with several words",
                    false);
-    drawMenuTextFit("VeryLongPlayerNameForCheckingBounds", 550, 270, 350, 30, MenuTheme::Amber);
+    drawMenuTextFit("VeryLongPlayerNameForCheckingBounds", 550, 270, 350, 30, MenuTheme::Accent);
     EndTextureMode();
     Image image = LoadImageFromTexture(preview.texture);
     ImageFlipVertical(&image);

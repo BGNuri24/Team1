@@ -143,6 +143,9 @@ Screen Application::updateEnd() {
         endScreen.draw(*game, players.activeName(), bestTime, newBestTime, bestTimeSaveFailed);
     });
 
+    if (next == Screen::PLAYING) {
+        return startGame();
+    }
     if (next != Screen::END) {
         game.reset();
     }

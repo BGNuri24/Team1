@@ -5,7 +5,7 @@
 // the graphics context.
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(1000, 700, "Maze");
+    InitWindow(1280, 720, "T1");
 
     Image appIcon = LoadImage("T1_.png");
     if (appIcon.data == nullptr) {

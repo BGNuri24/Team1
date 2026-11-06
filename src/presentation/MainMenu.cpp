@@ -1,44 +1,150 @@
 #include "MainMenu.h"
-#include "Ui.h"
 #include "Input.h"
+#include "Ui.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <string>
 
 namespace {
 constexpr int COUNT = 3;
-const char* const LABELS[COUNT] = {"Play", "Controls", "Quit"};
-constexpr Screen DESTINATIONS[COUNT] = {
-    Screen::PLAYER_SELECT, Screen::CONTROLS, Screen::QUIT
-};
-constexpr Color AMBER = {244, 190, 102, 255};
-constexpr Color PAPER = {238, 233, 215, 255};
-constexpr Color MUTED = {134, 158, 166, 255};
+const char* const LABELS[COUNT] = {"PLAY", "CONTROLS", "QUIT"};
+constexpr Screen DESTINATIONS[COUNT] = {Screen::PLAYER_SELECT, Screen::CONTROLS, Screen::QUIT};
+constexpr Color ACCENT = MenuTheme::Accent;
+constexpr Color TEXT = MenuTheme::Paper;
+constexpr Color MUTED = MenuTheme::Muted;
 
-// Return the scaled hit rectangle for one main-menu option using the shared reference-layout
-// coordinates.
+// Keep the home screen's wide composition centered and usable down to the minimum window size.
+float scale() {
+    return std::min(GetScreenWidth() / 1280.0f, GetScreenHeight() / 720.0f);
+}
+
+Vector2 point(float x, float y) {
+    const float s = scale();
+    return {(GetScreenWidth() - 1280 * s) * 0.5f + x * s,
+            (GetScreenHeight() - 720 * s) * 0.5f + y * s};
+}
+
+float fontSize(float size) {
+    return std::max(12.0f, std::round(size * scale()));
+}
+
+Rectangle bounds(float x, float y, float width, float height) {
+    const Vector2 p = point(x, y);
+    return {p.x, p.y, width * scale(), height * scale()};
+}
+
 Rectangle optionBounds(int index) {
-    return {(float)uiX(64), (float)uiY(332 + index * 72),
-             (float)uiSize(330), (float)uiSize(60)};
+    return bounds(85, 250 + index * 65.0f, 258, 58);
 }
 
-// Construct the main menu's small labyrinth emblem from scaled line segments.
-void drawMazeMark() {
-    const float x = (float)uiX(65), y = (float)uiY(70);
-    const float unit = uiScale() * 6.0f;
-    const float thickness = std::max(1.0f, uiScale() * 2.0f);
-    DrawLineEx({x, y + unit * 3}, {x, y}, thickness, AMBER);
-    DrawLineEx({x, y}, {x + unit * 3, y}, thickness, AMBER);
-    DrawLineEx({x + unit * 3, y}, {x + unit * 3, y + unit * 3}, thickness, AMBER);
-    DrawLineEx({x + unit * 3, y + unit * 3}, {x + unit, y + unit * 3}, thickness, AMBER);
-    DrawLineEx({x + unit, y + unit * 3}, {x + unit, y + unit}, thickness, AMBER);
+Rectangle profileBounds() {
+    return bounds(1140, 31, 88, 86);
+}
+
+// Borrow the default font when system typography is unavailable; no downloaded assets are needed.
+Font loadMenuFont(const char* filename, int size) {
+#if defined(_WIN32)
+    char* directory = nullptr;
+    size_t length = 0;
+    _dupenv_s(&directory, &length, "WINDIR");
+    const std::string path =
+        std::string(directory ? directory : "C:/Windows") + "/Fonts/" + filename;
+    std::free(directory);
+    if (FileExists(path.c_str())) {
+        Font font = LoadFontEx(path.c_str(), size, nullptr, 0);
+        if (font.texture.id != 0 && font.texture.id != GetFontDefault().texture.id) {
+            SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+            return font;
+        }
+    }
+#endif
+    return GetFontDefault();
+}
+
+void releaseFont(Font& font) {
+    if (font.texture.id != 0 && font.texture.id != GetFontDefault().texture.id)
+        UnloadFont(font);
+    font = {};
+}
+
+// Snap native-size glyphs to whole pixels instead of resampling a larger font atlas.
+void text(Font font, const char* label, float x, float y, float size, float spacing, Color color) {
+    Vector2 position = point(x, y);
+    position = {std::round(position.x), std::round(position.y)};
+    DrawTextEx(font, label, position, fontSize(size), std::round(spacing * scale()), color);
+}
+
+void centeredText(Font font, const char* label, float x, float y, float size, float spacing,
+                  Color color) {
+    const float pixels = fontSize(size);
+    const float tracking = std::round(spacing * scale());
+    const float width = MeasureTextEx(font, label, pixels, tracking).x;
+    Vector2 position = point(x, y);
+    position = {std::round(position.x - width * 0.5f), std::round(position.y)};
+    DrawTextEx(font, label, position, pixels, tracking, color);
+}
+
+void line(float x1, float y1, float x2, float y2, Color color, float width = 1) {
+    DrawLineEx(point(x1, y1), point(x2, y2), std::max(1.0f, width * scale()), color);
+}
+
+void diamond(float x, float y, float radius, Color color) {
+    DrawTriangle(point(x, y - radius), point(x - radius, y), point(x, y + radius), color);
+    DrawTriangle(point(x, y - radius), point(x, y + radius), point(x + radius, y), color);
+}
+
+// Draw the open labyrinth motif above the wordmark.
+void mazeMark(float x, float y, float size, Color color) {
+    const float u = size / 6;
+    line(x - 3 * u, y + 3 * u, x - 3 * u, y - 3 * u, color, 1.5f);
+    line(x - 3 * u, y - 3 * u, x + 3 * u, y - 3 * u, color, 1.5f);
+    line(x + 3 * u, y - 3 * u, x + 3 * u, y + 3 * u, color, 1.5f);
+    line(x + 3 * u, y + 3 * u, x - u, y + 3 * u, color, 1.5f);
+    line(x - u, y + 3 * u, x - u, y - u, color, 1.5f);
+    line(x - u, y - u, x + u, y - u, color, 1.5f);
+    line(x + u, y - u, x + u, y + u, color, 1.5f);
+}
+
+// Keep one profile shortcut in the upper-right corner.
+void drawProfileShortcut(Font font, bool active) {
+    const float x = 1184;
+    const Color color = active ? TEXT : ACCENT;
+    DrawPoly(point(x, 61), 6, 23 * scale(), 30, MenuTheme::Panel);
+    DrawPolyLinesEx(point(x, 61), 6, 23 * scale(), 30, std::max(1.0f, scale()),
+                    active ? ACCENT : MenuTheme::Border);
+    DrawCircleV(point(x, 56), 4 * scale(), color);
+    DrawCircleSector(point(x, 69), 8 * scale(), 180, 360, 16, color);
+    centeredText(font, "PROFILES", x, 94, 14, 1, active ? TEXT : MUTED);
 }
 }
 
-// Select the first menu option while the background member builds its independent animated maze.
-MainMenu::MainMenu() : selected(0) {}
+// Own optional system fonts inside the graphics context, alongside the animated background.
+MainMenu::MainMenu() : selected(0) {
+    refreshFonts();
+}
 
-// Combine keyboard selection and intentional pointer input, returning the selected destination only
-// when confirmed.
+MainMenu::~MainMenu() {
+    releaseFont(titleFont);
+    releaseFont(menuFont);
+    releaseFont(detailFont);
+}
+
+// Rasterize each font at its actual display size, including after resizing the window.
+void MainMenu::refreshFonts() const {
+    const std::array<int, 3> pixels = {(int)fontSize(96), (int)fontSize(26), (int)fontSize(14)};
+    if (fontPixels == pixels)
+        return;
+    releaseFont(titleFont);
+    releaseFont(menuFont);
+    releaseFont(detailFont);
+    titleFont = loadMenuFont("timesbd.ttf", pixels[0]);
+    menuFont = loadMenuFont("segoeuib.ttf", pixels[1]);
+    detailFont = loadMenuFont("segoeui.ttf", pixels[2]);
+    fontPixels = pixels;
+}
+
+// Preserve keyboard selection under a stationary mouse and use the drawn bounds for all clicks.
 Screen MainMenu::update() {
     updateMenuSelection(selected, COUNT);
     const Vector2 mouse = GetMousePosition();
@@ -46,12 +152,21 @@ Screen MainMenu::update() {
     const bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     bool hovered = false;
     for (int index = 0; index < COUNT; ++index) {
-        if (!CheckCollisionPointRec(mouse, optionBounds(index))) continue;
+        if (!CheckCollisionPointRec(mouse, optionBounds(index)))
+            continue;
         hovered = true;
-        if (delta.x != 0 || delta.y != 0 || clicked) selected = index;
+        if (delta.x != 0 || delta.y != 0 || clicked)
+            selected = index;
         if (clicked) {
             SetMouseCursor(MOUSE_CURSOR_DEFAULT);
             return DESTINATIONS[index];
+        }
+    }
+    if (CheckCollisionPointRec(mouse, profileBounds())) {
+        hovered = true;
+        if (clicked) {
+            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+            return Screen::PLAYER_SELECT;
         }
     }
     SetMouseCursor(hovered ? MOUSE_CURSOR_POINTING_HAND : MOUSE_CURSOR_DEFAULT);
@@ -62,45 +177,45 @@ Screen MainMenu::update() {
     return Screen::MAIN_MENU;
 }
 
-// Render the animated maze background, title and navigation buttons with a moving accent on the
-// selected option.
+// Float the navigation over the living maze, leaving most of the world visible.
 void MainMenu::draw() const {
+    refreshFonts();
     const float time = (float)GetTime();
     background.draw(time);
+    const float s = scale();
 
-    drawMazeMark();
-    DrawText("ENTER THE LABYRINTH", uiX(99), uiY(74), uiSize(14), MUTED);
-    DrawText("MAZE", uiX(65), uiY(129), uiSize(104), Fade(BLACK, 0.45f));
-    DrawText("MAZE", uiX(62), uiY(125), uiSize(104), PAPER);
-    DrawRectangle(uiX(65), uiY(245), uiSize(48), std::max(1, uiSize(2)), AMBER);
-    DrawRectangle(uiX(120), uiY(244), uiSize(4), uiSize(4), Fade(AMBER, 0.5f));
-    DrawText("THE WAY OUT IS NEVER STRAIGHT.", uiX(65), uiY(267), uiSize(16), MUTED);
+    // A fine inset frame and quiet corner details hold the composition together at any aspect
+    // ratio.
+    DrawRectangleLinesEx({12 * s, 12 * s, GetScreenWidth() - 24 * s, GetScreenHeight() - 24 * s},
+                         std::max(1.0f, s), MenuTheme::Border);
+    line(38, 39, 84, 39, MenuTheme::Border);
+    line(38, 39, 38, 68, MenuTheme::Border);
+    line(1242, 652, 1242, 681, MenuTheme::Border);
+    line(1196, 681, 1242, 681, MenuTheme::Border);
+
+    mazeMark(217, 70, 23, ACCENT);
+    line(155, 70, 191, 70, MenuTheme::Border);
+    line(243, 70, 279, 70, MenuTheme::Border);
+    centeredText(titleFont, "T1", 216, 96, 96, 9, TEXT);
+    line(92, 211, 201, 211, MenuTheme::Border);
+    diamond(216, 211, 3, ACCENT);
+    line(231, 211, 340, 211, MenuTheme::Border);
 
     for (int index = 0; index < COUNT; ++index) {
-        const Rectangle bounds = optionBounds(index);
         const bool active = index == selected;
-        DrawRectangleRounded(bounds, 0.12f, 8,
-                              active ? Color{40, 43, 39, 225} : Color{12, 24, 31, 155});
-        DrawRectangleRoundedLinesEx(bounds, 0.12f, 8, std::max(1.0f, uiScale()),
-                                     active ? Fade(AMBER, 0.65f) : Color{46, 68, 73, 120});
+        const float y = 250 + index * 65.0f;
         if (active) {
-            DrawRectangle(uiX(64), (int)bounds.y + uiSize(17),
-                           std::max(2, uiSize(3)), uiSize(26), AMBER);
+            const Rectangle area = optionBounds(index);
+            DrawRectangleRec(area, MenuTheme::Selected);
+            line(85, y + 10, 85, y + 48, ACCENT, 2);
+            diamond(96, y + 27, 4, ACCENT);
+        } else {
+            diamond(96, y + 27, 2, MenuTheme::Border);
         }
-        DrawText(TextFormat("0%d", index + 1), uiX(83), (int)bounds.y + uiSize(23),
-                 uiSize(14), active ? AMBER : MUTED);
-        DrawText(LABELS[index], uiX(127), (int)bounds.y + uiSize(16),
-                 uiSize(28), active ? PAPER : Color{162, 178, 181, 255});
-        if (active) {
-            const float arrowX = (float)uiX(367) + std::sin(time * 3.0f) * uiSize(2);
-            const float arrowY = bounds.y + bounds.height * 0.5f;
-            DrawLineEx({arrowX - uiSize(6), arrowY - uiSize(5)}, {arrowX, arrowY},
-                        std::max(1.0f, uiScale() * 1.5f), AMBER);
-            DrawLineEx({arrowX, arrowY}, {arrowX - uiSize(6), arrowY + uiSize(5)},
-                        std::max(1.0f, uiScale() * 1.5f), AMBER);
-        }
+        text(menuFont, LABELS[index], 122, y + 10, 26, 2, active ? TEXT : MUTED);
     }
 
-    DrawText("A way out is waiting.", uiX(65), uiY(585), uiSize(18), Color{173, 185, 181, 255});
-    DrawText("UP / DOWN  navigate     ENTER  select", uiX(65), uiY(630), uiSize(14), MUTED);
+    drawProfileShortcut(detailFont, CheckCollisionPointRec(GetMousePosition(), profileBounds()));
+    line(84, 635, 336, 635, MenuTheme::Border);
+    text(detailFont, "UP / DOWN   navigate     ENTER   select", 84, 650, 14, 0, MUTED);
 }
