@@ -4,7 +4,7 @@
 
 Schema creation and text-file imports live in `DatabaseMigrations.cpp`. Reusable SQL queries live in `DatabaseQueries.cpp`, and the scoped SQLite connection, statement and transaction owners live in `Sqlite.h`. The runtime database API accepts an alternative path for isolated tests. The database filename, schema and legacy migration markers remain compatible with existing saves.
 
-`Renderer` draws world geometry and lighting. `HudRenderer` draws the HUD and minimap after the 3D pass. Embedded GLSL lives in `MazeShaders.h`; no external shader files are required at runtime. `Textures` is a move-only GPU resource owner. Borrowed handles are exposed through accessors for drawing, while destruction and move assignment release owned resources automatically. Keep resource owners inside the graphics context's lifetime.
+`Renderer` draws world geometry and lighting. `RendererExit.cpp` draws the exit door in the normal material and emissive lighting passes. `HudRenderer` draws the HUD and minimap after the 3D pass. Embedded GLSL lives in `MazeShaders.h`; no external shader files are required at runtime. `Textures` is a move-only GPU resource owner. Borrowed handles are exposed through accessors for drawing, while destruction and move assignment release owned resources automatically. Keep resource owners inside the graphics context's lifetime.
 
 Maze generation uses an explicitly seeded `std::mt19937`, independent of theme selection and decorative texture generation. To reproduce a loaded run, supply its seed and selected theme along with the same level parameters:
 

@@ -89,6 +89,6 @@ void ControlsScreen::draw() const {
     type.draw("Press G to preview", 530, 566, 12, Muted);
 
     DrawLine(uiX(64), uiY(624), uiX(936), uiY(624), Border);
-    type.draw("Reach the green exit before time runs out.", 64, 643, 14, Muted, false, 620);
+    type.draw("Reach the exit door before time runs out.", 64, 643, 14, Muted, false, 620);
     type.centered("ENTER / ESC  back", 848, 643, 14, Muted, false, 176);
 }

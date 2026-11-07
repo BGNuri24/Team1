@@ -81,9 +81,8 @@ void HudRenderer::drawHud(const Game& game, const MazePalette& palette) const {
              footer - uiSize(28), 15, Secondary);
     if (zero)
         text("RED BARRIERS ARE LETHAL", margin, footer - uiSize(52), 13, Danger);
-    text("FIND THE GREEN GATE",
-         GetScreenWidth() - margin - MeasureText("FIND THE GREEN GATE", uiSize(14)), footer, 14,
-         Muted);
+    text("FIND THE EXIT", GetScreenWidth() - margin - MeasureText("FIND THE EXIT", uiSize(14)),
+         footer, 14, Muted);
     // Keep a central reticle as a stable reference while the camera rolls between surfaces.
     int cx = GetScreenWidth() / 2, cy = GetScreenHeight() / 2;
     Color aim = Fade(Paper, .8f);
@@ -117,7 +116,7 @@ void HudRenderer::drawMinimap(const Game& game, const MazePalette& palette) cons
                 continue;
             char tile = game.maze().cell(row, col);
             Color color = tile == '#'   ? MazeTop
-                          : tile == 'E' ? Secondary
+                          : tile == 'E' ? Accent
                           : seen == 2   ? MapVisited
                                         : MazeFloor;
             DrawRectangle(x + col * cell, y + row * cell, cell, cell, color);

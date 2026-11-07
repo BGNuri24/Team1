@@ -72,7 +72,7 @@ void MazeGenerationScreen::draw(const Game& game) const {
                 if (row == 0 && col == 0)
                     color = Accent;
                 if (game.maze().cell(row, col) == 'E' && progress >= 1)
-                    color = Secondary;
+                    color = Accent;
                 if (shownSteps > 0 && progress < 1) {
                     const MazeStep& current = game.maze().generationSteps()[shownSteps - 1];
                     if (current.row == row && current.col == col)
