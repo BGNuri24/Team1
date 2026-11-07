@@ -36,9 +36,12 @@
   </Target>
   <Target Name="CopyGameArtwork" AfterTargets="Build" Condition="'$(ProjectName)'=='MazeGame' or '$(ProjectName)'=='MazeGameTests'">
     <ItemGroup>
-      <GameArtwork Include="$(ProjectRoot)assets\*.png" />
+      <GameArtwork Include="$(ProjectRoot)src\assets\*.png" />
+      <LegacyData Include="$(ProjectRoot)src\assets\legacy\*.txt" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)assets" />
     <Copy SourceFiles="@(GameArtwork)" DestinationFolder="$(OutDir)assets" SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutDir)assets\legacy" />
+    <Copy SourceFiles="@(LegacyData)" DestinationFolder="$(OutDir)assets\legacy" SkipUnchangedFiles="true" />
   </Target>
 </Project>

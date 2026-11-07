@@ -94,7 +94,7 @@ void floralMotif(Image& image, float x, float y, float size, Color thread, Color
 Image materialArtwork(const char* filename) {
     std::string path = std::string(GetApplicationDirectory()) + "assets/" + filename;
     if (!FileExists(path.c_str()))
-        path = std::string("assets/") + filename;
+        path = std::string("src/assets/") + filename;
     return FileExists(path.c_str()) ? LoadImage(path.c_str()) : Image{};
 }
 

@@ -9,97 +9,106 @@
 #include <utility>
 using namespace storage;
 namespace {
-    // Treat the metadata key as a migration marker only after its surrounding transaction commits.
-    bool hasMarker(Connection& connection, const char* key, bool& exists) {
-        Statement marker;
-        if (!marker.prepare(connection, "SELECT 1 FROM storage_metadata WHERE key=?1") ||
-            !marker.text(1, key))
+// Treat the metadata key as a migration marker only after its surrounding transaction commits.
+bool hasMarker(Connection& connection, const char* key, bool& exists) {
+    Statement marker;
+    if (!marker.prepare(connection, "SELECT 1 FROM storage_metadata WHERE key=?1") ||
+        !marker.text(1, key))
+        return false;
+    const int status = sqlite3_step(marker.handle);
+    if (status != SQLITE_ROW && status != SQLITE_DONE)
+        return false;
+    exists = status == SQLITE_ROW;
+    return true;
+}
+// Local legacy files and their backups take priority. The default application store may also
+// import the relocated repository files; explicit test/custom databases stay independent.
+bool legacySource(const std::filesystem::path& directory, const char* filename, bool bundledLegacy,
+                  std::filesystem::path& source, bool& exists) {
+    std::vector<std::filesystem::path> candidates{directory / filename,
+                                                  directory / (std::string(filename) + ".bak")};
+    if (bundledLegacy) {
+        candidates.push_back(std::filesystem::path("src/assets/legacy") / filename);
+        candidates.push_back(std::filesystem::path("assets/legacy") / filename);
+    }
+    std::error_code error;
+    for (const auto& candidate : candidates) {
+        source = candidate;
+        exists = std::filesystem::exists(source, error);
+        if (error)
             return false;
-        const int status = sqlite3_step(marker.handle);
-        if (status != SQLITE_ROW && status != SQLITE_DONE)
-            return false;
-        exists = status == SQLITE_ROW;
+        if (exists)
+            return true;
+    }
+    exists = false;
+    return true;
+}
+// Import profile order without rewriting either legacy file, and fail on an unreadable source.
+bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::string>& players,
+                       bool bundledLegacy) {
+    std::filesystem::path source;
+    bool exists = false;
+    if (!legacySource(directory, "players.txt", bundledLegacy, source, exists))
+        return false;
+    players.clear();
+    if (!exists)
         return true;
+    std::ifstream input(source);
+    if (!input)
+        return false;
+    std::string name;
+    while (std::getline(input, name)) {
+        if (!name.empty() && name.back() == '\r')
+            name.pop_back();
+        if (players.size() < MAX_PLAYERS && isValidPlayerName(name) &&
+            std::find(players.begin(), players.end(), name) == players.end())
+            players.push_back(name);
     }
-    // Import profile order without rewriting either legacy file, and fail on an unreadable source.
-    bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::string>& players) {
-        std::filesystem::path source = directory / "players.txt";
-        std::error_code error;
-        bool exists = std::filesystem::exists(source, error);
-        if (error)
-            return false;
-        if (!exists) {
-            source += ".bak";
-            exists = std::filesystem::exists(source, error);
-            if (error)
-                return false;
-        }
-        players.clear();
-        if (!exists)
-            return true;
-        std::ifstream input(source);
-        if (!input)
-            return false;
-        std::string name;
-        while (std::getline(input, name)) {
-            if (!name.empty() && name.back() == '\r')
-                name.pop_back();
-            if (players.size() < MAX_PLAYERS && isValidPlayerName(name) &&
-                std::find(players.begin(), players.end(), name) == players.end())
-                players.push_back(name);
-        }
-        return !input.bad();
-    }
-    // Import only valid records for existing profiles; leave the source and any .bak file untouched.
-    bool importLegacy(Connection& connection, const std::filesystem::path& directory,
-        const std::vector<std::string>& players) {
-        std::filesystem::path source = directory / "best_times.txt";
-        std::error_code error;
-        bool exists = std::filesystem::exists(source, error);
-        if (error)
-            return false;
-        if (!exists) {
-            source += ".bak";
-            exists = std::filesystem::exists(source, error);
-            if (error)
-                return false;
-        }
-        if (!exists)
-            return true;
-        std::ifstream input(source);
-        if (!input)
-            return false;
-        std::string line;
-        while (std::getline(input, line)) {
-            std::istringstream fields(line);
-            fields.imbue(std::locale::classic());
-            std::string player, modeName, extra;
-            int size = 0;
-            float seconds = 0;
-            GameMode mode = GameMode::Normal;
-            if (!(fields >> player >> size >> seconds))
+    return !input.bad();
+}
+// Import only valid records for existing profiles; leave the source and any .bak file untouched.
+bool importLegacy(Connection& connection, const std::filesystem::path& directory,
+                  const std::vector<std::string>& players, bool bundledLegacy) {
+    std::filesystem::path source;
+    bool exists = false;
+    if (!legacySource(directory, "best_times.txt", bundledLegacy, source, exists))
+        return false;
+    if (!exists)
+        return true;
+    std::ifstream input(source);
+    if (!input)
+        return false;
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream fields(line);
+        fields.imbue(std::locale::classic());
+        std::string player, modeName, extra;
+        int size = 0;
+        float seconds = 0;
+        GameMode mode = GameMode::Normal;
+        if (!(fields >> player >> size >> seconds))
+            continue;
+        if (fields >> modeName) {
+            if (modeName == "zero_gravity")
+                mode = GameMode::ZeroGravity;
+            else if (modeName != "normal")
                 continue;
-            if (fields >> modeName) {
-                if (modeName == "zero_gravity")
-                    mode = GameMode::ZeroGravity;
-                else if (modeName != "normal")
-                    continue;
-                if (fields >> extra)
-                    continue;
-            }
-            if (!isValidPlayerName(player) || !isValidSize(size) || !std::isfinite(seconds) ||
-                seconds < 0 || std::find(players.begin(), players.end(), player) == players.end())
+            if (fields >> extra)
                 continue;
-            bool changed = false;
-            if (!writeBest(connection, player, size, seconds, mode, changed))
-                return false;
         }
-        return !input.bad();
+        if (!isValidPlayerName(player) || !isValidSize(size) || !std::isfinite(seconds) ||
+            seconds < 0 || std::find(players.begin(), players.end(), player) == players.end())
+            continue;
+        bool changed = false;
+        if (!writeBest(connection, player, size, seconds, mode, changed))
+            return false;
     }
+    return !input.bad();
+}
 }
 // Commit schema changes and legacy import markers together; keep this work outside runtime queries.
 bool migrateDatabase(Connection& connection, const std::filesystem::path& directory,
-    std::vector<std::string>& players) {
+                     std::vector<std::string>& players, bool bundledLegacy) {
     Transaction transaction(connection);
     if (!transaction.active ||
         !connection.execute(
@@ -120,7 +129,7 @@ bool migrateDatabase(Connection& connection, const std::filesystem::path& direct
         return false;
     if (!profilesImported) {
         std::vector<std::string> legacyPlayers;
-        if (!readLegacyPlayers(directory, legacyPlayers))
+        if (!readLegacyPlayers(directory, legacyPlayers, bundledLegacy))
             return false;
         for (int index = 0; index < (int)legacyPlayers.size(); ++index) {
             Statement insert;
@@ -131,7 +140,7 @@ bool migrateDatabase(Connection& connection, const std::filesystem::path& direct
                 return false;
         }
         if (!connection.execute(
-            "INSERT INTO storage_metadata(key,value) VALUES('legacy_players_imported','1')"))
+                "INSERT INTO storage_metadata(key,value) VALUES('legacy_players_imported','1')"))
             return false;
     }
     std::vector<std::string> storedPlayers;
@@ -141,9 +150,9 @@ bool migrateDatabase(Connection& connection, const std::filesystem::path& direct
     if (!hasMarker(connection, "legacy_best_times_imported", imported))
         return false;
     if (!imported &&
-        (!importLegacy(connection, directory, storedPlayers) ||
-            !connection.execute(
-                "INSERT INTO storage_metadata(key,value) VALUES('legacy_best_times_imported','1')")))
+        (!importLegacy(connection, directory, storedPlayers, bundledLegacy) ||
+         !connection.execute(
+             "INSERT INTO storage_metadata(key,value) VALUES('legacy_best_times_imported','1')")))
         return false;
     if (!transaction.commit())
         return false;

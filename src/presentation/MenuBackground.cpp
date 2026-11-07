@@ -43,7 +43,7 @@ std::string artworkPath(const char* filename) {
     const std::string packaged = std::string(GetApplicationDirectory()) + "assets/" + filename;
     if (FileExists(packaged.c_str()))
         return packaged;
-    return std::string("assets/") + filename;
+    return std::string("src/assets/") + filename;
 }
 
 int viewIndex(MenuPlace place) {

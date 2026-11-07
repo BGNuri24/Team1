@@ -28,7 +28,9 @@ void clear() {
     for (const char* path :
          {"save_data/players.txt", "save_data/players.txt.bak", "save_data/players.txt.tmp",
           "save_data/best_times.txt", "save_data/best_times.txt.bak", "save_data/maze_game.db",
-          "save_data/maze_game.db-journal"})
+          "save_data/maze_game.db-journal", "src/assets/legacy/players.txt",
+          "src/assets/legacy/best_times.txt", "assets/legacy/players.txt",
+          "assets/legacy/best_times.txt"})
         std::filesystem::remove(path);
 }
 
@@ -219,6 +221,64 @@ void failuresAndRecovery() {
           "migration should read a legacy backup without renaming it");
 }
 
+// Relocated legacy files remain readable without copying them back into the repository root.
+// Existing local files take priority, and custom databases must not inherit bundled profiles.
+void relocatedLegacy() {
+    clear();
+    std::filesystem::create_directories("src/assets/legacy");
+    std::ofstream("src/assets/legacy/players.txt") << "Saved\n";
+    std::ofstream("src/assets/legacy/best_times.txt") << "Saved 15 21 normal\n";
+    const auto sourcePlayers = contents("src/assets/legacy/players.txt");
+    const auto sourceScores = contents("src/assets/legacy/best_times.txt");
+    GameDatabase database;
+    const auto imported = database.initialize();
+    check(imported.status == StorageStatus::Success && imported.players.size() == 1 &&
+              imported.players.front() == "Saved" &&
+              database.bestTime("Saved", 15, GameMode::Normal).seconds == 21,
+          "the default database must import the relocated source files");
+    check(!std::filesystem::exists("save_data/players.txt") &&
+              !std::filesystem::exists("save_data/best_times.txt") &&
+              contents("src/assets/legacy/players.txt") == sourcePlayers &&
+              contents("src/assets/legacy/best_times.txt") == sourceScores,
+          "import must preserve the source files without recreating tracked root paths");
+    std::filesystem::remove("save_data/custom.db");
+    GameDatabase custom("save_data/custom.db");
+    const auto separate = custom.initialize();
+    check(separate.status == StorageStatus::Success && separate.players.empty(),
+          "an explicit custom database must not import bundled legacy data");
+    std::filesystem::remove("save_data/custom.db");
+    check(database.removePlayer("Saved").status == StorageStatus::Success,
+          "imported profiles must support normal deletion");
+    GameDatabase reopened;
+    check(reopened.initialize().players.empty(),
+          "relocated legacy profiles must not return after a committed deletion");
+
+    clear();
+    std::filesystem::create_directories("src/assets/legacy");
+    std::ofstream("src/assets/legacy/players.txt") << "Bundled\n";
+    std::ofstream("src/assets/legacy/best_times.txt") << "Bundled 15 20\n";
+    std::ofstream("save_data/players.txt") << "Local\n";
+    std::ofstream("save_data/best_times.txt") << "Local 15 9\n";
+    GameDatabase local;
+    const auto preferred = local.initialize();
+    check(preferred.status == StorageStatus::Success && preferred.players.size() == 1 &&
+              preferred.players.front() == "Local" &&
+              local.bestTime("Local", 15, GameMode::Normal).seconds == 9,
+          "existing local legacy files must take priority over bundled files");
+
+    clear();
+    std::filesystem::create_directories("assets/legacy");
+    std::ofstream("assets/legacy/players.txt") << "Packaged\n";
+    std::ofstream("assets/legacy/best_times.txt") << "Packaged 15 31\n";
+    GameDatabase packaged;
+    const auto installed = packaged.initialize();
+    check(installed.status == StorageStatus::Success && installed.players.size() == 1 &&
+              installed.players.front() == "Packaged" &&
+              packaged.bestTime("Packaged", 15, GameMode::Normal).seconds == 31,
+          "the packaged legacy files must work beside the built executable");
+    clear();
+}
+
 // Keep absent scores, invalid runs and unavailable storage distinguishable after later calls
 // execute.
 void typedResults() {
@@ -261,4 +321,5 @@ void runDatabaseTests() {
     atomicProfileDeletion();
     scoreDatabaseUpgrade();
     typedResults();
+    relocatedLegacy();
 }

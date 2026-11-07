@@ -9,7 +9,8 @@
 using namespace storage;
 
 // Permit isolated test databases without changing the application's working directory.
-GameDatabase::GameDatabase(std::filesystem::path value) : path(std::move(value)) {}
+GameDatabase::GameDatabase(std::filesystem::path value) : path(std::move(value)) {
+}
 
 // Publish initialized state only after the schema and legacy imports have committed successfully.
 ProfileResult GameDatabase::initialize() {
@@ -21,7 +22,9 @@ ProfileResult GameDatabase::initialize() {
         return {};
     Connection connection;
     ProfileResult result;
-    if (!connection.open(path) || !migrateDatabase(connection, path.parent_path(), result.players))
+    const bool bundledLegacy = path.lexically_normal() == std::filesystem::path(DefaultPath);
+    if (!connection.open(path) ||
+        !migrateDatabase(connection, path.parent_path(), result.players, bundledLegacy))
         return {};
     ready = true;
     result.status = StorageStatus::Success;
@@ -32,7 +35,7 @@ ProfileResult GameDatabase::initialize() {
 // transaction.
 ProfileResult GameDatabase::addPlayer(const std::string& player) {
     if (!isValidPlayerName(player))
-        return { StorageStatus::Invalid, {} };
+        return {StorageStatus::Invalid, {}};
     if (!ready)
         return {};
     Connection connection;
@@ -43,14 +46,14 @@ ProfileResult GameDatabase::addPlayer(const std::string& player) {
     if (!transaction.active || !readPlayers(connection, result.players))
         return {};
     if (result.players.size() >= MAX_PLAYERS)
-        return { StorageStatus::Full, {} };
+        return {StorageStatus::Full, {}};
     if (std::find(result.players.begin(), result.players.end(), player) != result.players.end())
-        return { StorageStatus::Duplicate, {} };
+        return {StorageStatus::Duplicate, {}};
     Statement cleanup, insert;
     if (!cleanup.prepare(connection, "DELETE FROM best_times WHERE player=?1") ||
         !cleanup.text(1, player) || sqlite3_step(cleanup.handle) != SQLITE_DONE ||
         !insert.prepare(connection, "INSERT INTO players(name,sort_order) SELECT "
-            "?1,COALESCE(MAX(sort_order),-1)+1 FROM players") ||
+                                    "?1,COALESCE(MAX(sort_order),-1)+1 FROM players") ||
         !insert.text(1, player) || sqlite3_step(insert.handle) != SQLITE_DONE ||
         !readPlayers(connection, result.players) || !transaction.commit())
         return {};
@@ -62,7 +65,7 @@ ProfileResult GameDatabase::addPlayer(const std::string& player) {
 // storage.
 ProfileResult GameDatabase::removePlayer(const std::string& player) {
     if (!isValidPlayerName(player))
-        return { StorageStatus::Invalid, {} };
+        return {StorageStatus::Invalid, {}};
     if (!ready)
         return {};
     Connection connection;
@@ -75,7 +78,7 @@ ProfileResult GameDatabase::removePlayer(const std::string& player) {
         !profile.text(1, player) || sqlite3_step(profile.handle) != SQLITE_DONE)
         return {};
     if (!sqlite3_changes(connection.handle))
-        return { StorageStatus::NotFound, {} };
+        return {StorageStatus::NotFound, {}};
     if (!scores.prepare(connection, "DELETE FROM best_times WHERE player=?1") ||
         !scores.text(1, player) || sqlite3_step(scores.handle) != SQLITE_DONE ||
         !readPlayers(connection, result.players) || !transaction.commit())
@@ -88,7 +91,7 @@ ProfileResult GameDatabase::removePlayer(const std::string& player) {
 // status.
 BestTimeResult GameDatabase::bestTime(const std::string& player, int size, GameMode mode) const {
     if (!isValidPlayerName(player) || !isValidSize(size) || !modeKey(mode))
-        return { StorageStatus::Invalid, {} };
+        return {StorageStatus::Invalid, {}};
     if (!ready)
         return {};
     Connection connection;
@@ -101,16 +104,16 @@ BestTimeResult GameDatabase::bestTime(const std::string& player, int size, GameM
         return {};
     const int result = sqlite3_step(query.handle);
     if (result == SQLITE_DONE)
-        return { StorageStatus::Success, {} };
+        return {StorageStatus::Success, {}};
     if (result != SQLITE_ROW)
         return {};
-    return { StorageStatus::Success, (float)sqlite3_column_double(query.handle, 0) };
+    return {StorageStatus::Success, (float)sqlite3_column_double(query.handle, 0)};
 }
 
 // Return the outcome of this save directly, retaining atomic comparisons across simultaneous
 // connections.
 RecordResult GameDatabase::record(const std::string& player, int size, float seconds,
-    GameMode mode) {
+                                  GameMode mode) {
     if (!isValidPlayerName(player) || !isValidSize(size) || !std::isfinite(seconds) ||
         seconds < 0 || !modeKey(mode))
         return RecordResult::Invalid;
