@@ -6,6 +6,8 @@ Schema creation and text-file imports live in `DatabaseMigrations.cpp`. Reusable
 
 `Renderer` draws world geometry and lighting. `RendererExit.cpp` draws the exit door in the normal material and emissive lighting passes. `HudRenderer` draws the HUD and minimap after the 3D pass. Embedded GLSL lives in `MazeShaders.h`; no external shader files are required at runtime. `Textures` is a move-only GPU resource owner. Borrowed handles are exposed through accessors for drawing, while destruction and move assignment release owned resources automatically. Keep resource owners inside the graphics context's lifetime.
 
+The atmosphere shader evaluates up to sixteen nearby wall and ceiling fixtures per fragment, using rectangular light sources and smooth distance falloff. Packed maze-wall masks block light between corridors and are refreshed when the maze size or seed changes. The light list follows the camera; material lighting and emissive fixtures remain separate passes. Ambient illumination stays low enough to show the fixtures' light pools while retaining readable unlit passages.
+
 Maze generation uses an explicitly seeded `std::mt19937`, independent of theme selection and decorative texture generation. To reproduce a loaded run, supply its seed and selected theme along with the same level parameters:
 
 ```cpp
