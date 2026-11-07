@@ -11,7 +11,6 @@ in vec3 vertexPosition;
 in vec2 vertexTexCoord;
 in vec4 vertexColor;
 uniform mat4 mvp;
-uniform mat4 matModel;
 out vec2 fragTexCoord;
 out vec4 fragColor;
 out vec3 worldPosition;
@@ -19,7 +18,9 @@ out vec3 worldPosition;
 void main() {
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;
-    worldPosition = vec3(matModel * vec4(vertexPosition, 1.0));
+    // rlgl's immediate-mode batch already applies each primitive's local transform on the CPU.
+    // Applying matModel again would move an entire full batch by the final primitive's transform.
+    worldPosition = vertexPosition;
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }
 )glsl";

@@ -1,12 +1,11 @@
 #include "Textures.h"
+#include "CorridorStyle.h"
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
 #include <utility>
 
 namespace {
-constexpr int SIZE = 256;
-
 // Derive surface grain from pixel coordinates so texture generation does not consume the maze
 // generator's random sequence.
 void grain(Image& image, int strength) {
@@ -45,84 +44,252 @@ Texture2D upload(Image& image) {
     return texture;
 }
 
-// Paint one retro tile with a soft-edged disc, crescent, ring or arch in colors from the selected
-// palette.
-void retroTile(Image& image, int left, int top, Color base, Color motif, int pattern) {
-    ImageDrawRectangle(&image, left, top, 128, 120, base);
-    for (int y = 5; y < 115; ++y)
-        for (int x = 7; x < 121; ++x) {
-            const float dx = x - 64.0f, dy = y - 60.0f;
-            const float radius = std::sqrt(dx * dx + dy * dy);
-            float coverage = std::clamp(49.5f - radius, 0.0f, 1.0f);
-            if (pattern == 1) {
-                const float cut = std::sqrt((dx - 26) * (dx - 26) + dy * dy);
-                coverage *= std::clamp(cut - 40.0f, 0.0f, 1.0f);
-            } else if (pattern == 2) {
-                coverage *= std::clamp(radius - 30.0f, 0.0f, 1.0f);
-            } else if (pattern == 3 && dy > 0) {
-                coverage = std::clamp(49.5f - std::fabs(dx), 0.0f, 1.0f);
-            }
-            if (coverage > 0)
-                ImageDrawPixel(&image, left + x, top + y, ColorLerp(base, motif, coverage));
-        }
-}
-
-// Combine wallpaper-sized geometric modules with painted lower paneling and a slim picture rail.
-Texture2D wallMaterial(const MazePalette& palette) {
-    Image image = GenImageColor(512, 384, palette.wall);
-    for (int row = 0; row < 2; ++row)
-        for (int col = 0; col < 4; ++col) {
-            const bool alternate = (row + col) % 2 != 0;
-            const Color base = alternate ? ColorLerp(palette.pattern, palette.wall, .22f)
-                                         : ColorLerp(palette.wall, palette.paper, .05f);
-            const Color motif =
-                alternate ? palette.accent : ColorLerp(palette.pattern, palette.accent, .17f);
-            retroTile(image, col * 128, 20 + row * 120, base, motif, (col + row * 3) % 4);
-        }
-    const Color lower = ColorLerp(palette.trim, palette.wall, .24f);
-    ImageDrawRectangle(&image, 0, 272, 512, 112, lower);
-    for (int x = 0; x < 512; x += 64) {
-        frame(image, x + 6, 288, 52, 72, ColorLerp(lower, palette.paper, .09f),
-              ColorLerp(lower, BLACK, .28f));
-        ImageDrawRectangle(&image, x + 10, 292, 44, 64, ColorLerp(lower, palette.wall, .08f));
+// Draw a small cubic scroll in image space. The ceiling ornaments use these curves without
+// loading artwork or consuming random state.
+void scroll(Image& image, Vector2 a, Vector2 b, Vector2 c, Vector2 d, int width, Color color) {
+    Vector2 previous = a;
+    for (int step = 1; step <= 18; ++step) {
+        const float t = step / 18.0f, u = 1 - t;
+        Vector2 next{u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
+                     u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y};
+        ImageDrawLineEx(&image, previous, next, width, color);
+        previous = next;
     }
-    ImageDrawRectangle(&image, 0, 0, 512, 15, palette.trim);
-    ImageDrawRectangle(&image, 0, 16, 512, 3, ColorLerp(palette.trim, palette.paper, .20f));
-    ImageDrawRectangle(&image, 0, 260, 512, 12, palette.trim);
-    ImageDrawRectangle(&image, 0, 261, 512, 2, ColorLerp(palette.accent, palette.paper, .18f));
-    ImageDrawRectangle(&image, 0, 374, 512, 10, palette.trim);
-    grain(image, 2);
+}
+
+void floralMotif(Image& image, float x, float y, float size, Color thread, Color shadow) {
+    for (int layer = 0; layer < 2; ++layer) {
+        const Color color = layer ? thread : shadow;
+        const int width = std::max(1, (int)((layer ? 2.1f : 4.8f) * size));
+        for (int quarter = 0; quarter < 4; ++quarter) {
+            auto point = [&](float px, float py) {
+                for (int turn = 0; turn < quarter; ++turn) {
+                    const float old = px;
+                    px = -py;
+                    py = old;
+                }
+                return Vector2{x + px * size, y + py * size};
+            };
+            auto curve = [&](Vector2 a, Vector2 b, Vector2 c, Vector2 d) {
+                scroll(image, point(a.x, a.y), point(b.x, b.y), point(c.x, c.y), point(d.x, d.y),
+                       width, color);
+            };
+            curve({0, -4}, {-17, -18}, {-11, -34}, {0, -43});
+            curve({0, -43}, {11, -34}, {17, -18}, {0, -4});
+            curve({0, -8}, {0, -22}, {1, -29}, {0, -37});
+            curve({0, -23}, {30, -57}, {49, -22}, {25, -10});
+            curve({25, -10}, {8, -3}, {6, -31}, {22, -27});
+            curve({22, -27}, {33, -23}, {29, -15}, {24, -20});
+            ImageDrawLineEx(&image, point(0, -57), point(57, 0), std::max(1, width - 1), color);
+            ImageDrawLineEx(&image, point(16, -42), point(24, -43), width, color);
+            ImageDrawLineEx(&image, point(40, -18), point(43, -25), width, color);
+        }
+    }
+    ImageDrawCircle(&image, (int)x, (int)y, std::max(1, (int)(5 * size)), shadow);
+    ImageDrawCircle(&image, (int)x, (int)y, std::max(1, (int)(2 * size)), thread);
+}
+
+// Broad, quiet fabric above a molded dado and inset lower panels follows the wall reference.
+// All pigments still come from the active palette; only the surface design changes here.
+Texture2D wallMaterial(const MazePalette& palette) {
+    const CorridorStyle style = corridorStyle(palette);
+    Image image = GenImageColor(1024, 1024, style.panel);
+    // Subtle vertical fibers give the upper material depth without repeating floral wallpaper.
+    for (int x = 0; x < 1024; ++x) {
+        const float fiber = .012f + .012f * std::sin(x * .39f) + .010f * std::sin(x * .071f);
+        ImageDrawRectangle(&image, x, 0, 1, 700,
+                           ColorLerp(style.panel, style.trim, std::max(0.0f, fiber)));
+    }
+    ImageDrawRectangle(&image, 0, 700, 1024, 324, style.plaster);
+    for (int left : {44, 532}) {
+        ImageDrawRectangle(&image, left, 756, 448, 190,
+                           ColorLerp(style.plaster, style.trimShade, .10f));
+        frame(image, left, 756, 448, 190, style.trimShade, style.trimLight);
+        frame(image, left + 7, 763, 434, 176, style.trimLight, style.trimShade);
+        ImageDrawRectangle(&image, left + 13, 769, 422, 164, style.plaster);
+    }
+    frame(image, 23, 78, 978, 590, style.trimLight, style.trimShade);
+    frame(image, 29, 84, 966, 578, style.trim, style.trimLight);
+    for (int y : {12, 28, 45, 675, 683, 699, 961, 984, 1009}) {
+        ImageDrawRectangle(&image, 0, y, 1024, 4, style.trimLight);
+        ImageDrawRectangle(&image, 0, y + 4, 1024, 3, style.trimShade);
+    }
+    grain(image, 1);
     return upload(image);
 }
 
-// Use quiet terrazzo flecks and broad inset floor tiles to balance the busier patterned walls.
+void diamond(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
+    const Vector2 top{(float)x, (float)(y - radiusY)}, bottom{(float)x, (float)(y + radiusY)};
+    const Vector2 left{(float)(x - radiusX), (float)y}, right{(float)(x + radiusX), (float)y};
+    ImageDrawTriangle(&image, top, left, right, color);
+    ImageDrawTriangle(&image, left, bottom, right, color);
+}
+
+void star(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
+    // Eight broad points stay recognizable in mipmaps; tiny stitches are secondary to the shape.
+    Vector2 vertices[18]{};
+    vertices[0] = {(float)x, (float)y};
+    for (int point = 0; point <= 16; ++point) {
+        const float angle = point * PI / 8.0f;
+        const float radius = point % 2 ? .47f : 1.0f;
+        vertices[point + 1] = {x + std::cos(angle) * radiusX * radius,
+                               y + std::sin(angle) * radiusY * radius};
+    }
+    ImageDrawTriangleFan(&image, vertices, 18, color);
+}
+
+// Angular ram-horn ornaments fill the spaces between medallions in the reference weave.
+void wovenHook(Image& image, int x, int y, int radius, Color color, Color center) {
+    const int width = std::max(3, radius / 6);
+    for (int quarter = 0; quarter < 4; ++quarter) {
+        auto point = [&](int px, int py) {
+            for (int turn = 0; turn < quarter; ++turn) {
+                const int old = px;
+                px = -py;
+                py = old;
+            }
+            return Vector2{(float)(x + px), (float)(y + py)};
+        };
+        ImageDrawLineEx(&image, point(0, 0), point(0, -radius), width, color);
+        ImageDrawLineEx(&image, point(0, -radius), point(radius, -radius), width, color);
+        ImageDrawLineEx(&image, point(radius, -radius), point(radius, -radius / 3), width, color);
+        ImageDrawLineEx(&image, point(radius, -radius / 3), point(radius / 2, -radius / 3), width,
+                        color);
+    }
+    diamond(image, x, y, radius / 3, radius / 3, center);
+}
+
+// Layered Kazak-style medallions use filled shapes and wide stitches instead of hairline art.
+void medallion(Image& image, int x, int y, int radius, Color field, Color dye, Color yarn,
+               Color dark) {
+    diamond(image, x, y, radius, radius, dark);
+    diamond(image, x, y, radius - 9, radius - 9, yarn);
+    diamond(image, x, y, radius - 20, radius - 20, dye);
+    diamond(image, x, y, radius - 39, radius - 39, dark);
+    diamond(image, x, y, radius - 48, radius - 48, yarn);
+    diamond(image, x, y, radius - 61, radius - 61, dye);
+    diamond(image, x, y, (int)(radius * .60f), (int)(radius * .60f), yarn);
+    diamond(image, x, y, (int)(radius * .55f), (int)(radius * .55f), field);
+    diamond(image, x, y, (int)(radius * .43f), (int)(radius * .43f), dye);
+    star(image, x, y, (int)(radius * .29f), (int)(radius * .29f), yarn);
+    star(image, x, y, (int)(radius * .21f), (int)(radius * .21f), dark);
+    diamond(image, x, y, (int)(radius * .09f), (int)(radius * .09f), yarn);
+    for (int horizontal : {-1, 1})
+        for (int vertical : {-1, 1}) {
+            wovenHook(image, x + horizontal * radius / 3, y + vertical * radius / 3, 14, yarn,
+                      dark);
+            diamond(image, x + horizontal * radius / 6, y + vertical * radius / 6, 12, 12, field);
+        }
+    for (int quarter = 0; quarter < 4; ++quarter) {
+        auto point = [&](int px, int py) {
+            for (int turn = 0; turn < quarter; ++turn) {
+                const int old = px;
+                px = -py;
+                py = old;
+            }
+            return Vector2{(float)(x + px), (float)(y + py)};
+        };
+        // Stepped hooks and opposing stitches echo the woven border around the reference diamonds.
+        for (int step = 0; step < 7; ++step) {
+            const int a = 38 + step * (radius - 90) / 7, b = radius - 26 - a;
+            const Vector2 stitch = point(a, -b);
+            diamond(image, (int)stitch.x, (int)stitch.y, 7, 7, yarn);
+            const Vector2 tip = point(a - 8, -b - 22);
+            ImageDrawLineEx(&image, point(a - 8, -b - 4), tip, 5, yarn);
+            ImageDrawLineEx(&image, tip, point(a + 5, -b - 22), 5, yarn);
+        }
+        for (int step = 0; step < 5; ++step) {
+            const int a = 25 + step * (radius / 2 - 40) / 5;
+            const Vector2 stitch = point(a, -(int)(radius * .58f) + a);
+            diamond(image, (int)stitch.x, (int)stitch.y, 5, 5, dark);
+        }
+    }
+}
+
+// The center field and continuous border are separate atlas regions. One large medallion per
+// corridor cell stays legible at a grazing angle; the border is mapped along physical walls.
 Texture2D floorMaterial(const MazePalette& palette) {
-    Image image = GenImageColor(SIZE, SIZE, palette.floor);
-    const Color tile = ColorLerp(palette.floor, palette.wall, .13f);
-    ImageDrawRectangle(&image, 4, 4, 248, 248, tile);
-    frame(image, 4, 4, 248, 248, ColorLerp(tile, palette.paper, .07f), palette.floor);
-    for (int y = 9; y < 248; y += 13)
-        for (int x = 9; x < 248; x += 17) {
-            const unsigned int hash = (unsigned int)(x * 53 + y * 97);
-            const Color fleck = ColorLerp(tile, hash % 3 ? palette.ceiling : palette.accent, .16f);
-            ImageDrawRectangle(&image, x + (int)(hash % 7), y + (int)(hash % 5),
-                               2 + (int)(hash % 2), 2, fleck);
+    using namespace CarpetLayout;
+    const CorridorStyle style = corridorStyle(palette);
+    const Color field = ColorLerp(palette.floor, palette.pattern, .20f);
+    const Color dye = ColorLerp(style.carpet, style.panel, .50f);
+    const Color yarn = ColorLerp(style.thread, palette.paper, .14f);
+    const Color dark = ColorLerp(field, palette.floor, .55f);
+    Image image = GenImageColor(AtlasWidth, FieldSize, field);
+    medallion(image, 512, 512, 332, field, dye, yarn, dark);
+    for (int x : {238, 786})
+        for (int y : {176, 848}) {
+            diamond(image, x, y, 65, 65, dye);
+            diamond(image, x, y, 54, 54, yarn);
+            diamond(image, x, y, 44, 44, dark);
+            star(image, x, y, 34, 34, yarn);
+            diamond(image, x, y, 13, 13, dye);
+        }
+    for (int y : {0, 1024}) {
+        star(image, 512, y, 73, 73, yarn);
+        star(image, 512, y, 52, 52, dye);
+    }
+    for (int x : {190, 834})
+        for (int y = 320; y <= 704; y += 96) {
+            star(image, x, y, 31, 31, dye);
+            star(image, x, y, 20, 20, yarn);
+        }
+    for (int x : {350, 674})
+        for (int y : {88, 936}) {
+            wovenHook(image, x, y, 32, yarn, dye);
+            diamond(image, x, y, 10, 10, dye);
+        }
+    for (int y : {256, 768})
+        for (int x : {190, 834})
+            wovenHook(image, x, y, 23, ColorLerp(yarn, dye, .28f), dye);
+    for (int y : {115, 909}) {
+        diamond(image, 512, y, 37, 37, dye);
+        diamond(image, 512, y, 27, 27, yarn);
+        star(image, 512, y, 18, 18, field);
+    }
+    // A broad repeating star band sits between narrow guard stripes and a stepped meander.
+    // The dark guard gap prevents border colors bleeding into the field's mipmapped repeat edge.
+    const int border = BorderOffset;
+    ImageDrawRectangle(&image, border, 0, BorderSize, FieldSize, dye);
+    for (int offset : {0, 19, 40, 178, 192, 232, 247})
+        ImageDrawRectangle(&image, border + offset, 0, offset == 192 ? 40 : 6, FieldSize,
+                           offset == 192 ? yarn : dark);
+    for (int y = 64; y < FieldSize; y += 128) {
+        star(image, border + 109, y, 65, 50, yarn);
+        star(image, border + 109, y, 46, 35, dark);
+        diamond(image, border + 109, y, 24, 19, dye);
+        for (int end : {-1, 1})
+            diamond(image, border + 109 + end * 52, y + 56, 16, 12, yarn);
+    }
+    for (int y = -32; y < FieldSize; y += 64) {
+        ImageDrawRectangle(&image, border + 202, y, 20, 8, dye);
+        ImageDrawRectangle(&image, border + 202, y, 7, 36, dye);
+        ImageDrawRectangle(&image, border + 202, y + 29, 20, 7, dye);
+        ImageDrawRectangle(&image, border + 215, y + 29, 7, 35, dye);
+    }
+    // Low-contrast weave preserves large filled motifs and lets mipmaps remove subpixel threads.
+    for (int y = 0; y < image.height; ++y)
+        for (int x = 0; x < BorderOffset + BorderSize; ++x) {
+            const Color color = GetImageColor(image, x, y);
+            ImageDrawPixel(&image, x, y, ColorLerp(color, (x + y) % 2 ? dark : field, .035f));
         }
     grain(image, 2);
     return upload(image);
 }
 
-// Build softly colored acoustic ceiling panels with shallow seams instead of large industrial
-// vents.
+// Recessed plaster coffers and delicate corner flourishes replace the acoustic ceiling tiles.
 Texture2D ceilingMaterial(const MazePalette& palette) {
-    Image image = GenImageColor(SIZE, SIZE, palette.ceiling);
-    const Color joint = ColorLerp(palette.ceiling, palette.trim, .32f);
-    frame(image, 4, 4, 248, 248, ColorLerp(palette.ceiling, palette.paper, .12f), joint);
-    for (int y = 18; y < 245; y += 28)
-        ImageDrawRectangle(&image, 14, y, 228, 1, ColorLerp(palette.ceiling, joint, .23f));
-    for (int y = 20; y < 245; y += 16)
-        for (int x = 20; x < 245; x += 16)
-            ImageDrawPixel(&image, x, y, ColorLerp(palette.ceiling, joint, .30f));
+    const CorridorStyle style = corridorStyle(palette);
+    Image image = GenImageColor(512, 512, style.ceiling);
+    ImageDrawRectangle(&image, 43, 43, 426, 426, style.ceilingInset);
+    for (int inset : {10, 22, 37, 47})
+        frame(image, inset, inset, 512 - inset * 2, 512 - inset * 2,
+              ColorLerp(style.ceiling, palette.paper, .20f),
+              ColorLerp(style.ceiling, style.trimShade, .24f));
+    for (int x : {88, 424})
+        for (int y : {88, 424})
+            floralMotif(image, (float)x, (float)y, .43f,
+                        ColorLerp(style.ceilingInset, style.trim, .22f), style.ceilingInset);
     grain(image, 1);
     return upload(image);
 }

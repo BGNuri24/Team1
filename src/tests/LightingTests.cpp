@@ -83,6 +83,49 @@ void checkWallShadows() {
     UnloadShader(shader);
 }
 
+// Enough transformed primitives to force automatic batch submission must not move the shader's
+// world positions. This guards against black trim when a detailed corridor fills rlgl's buffer.
+void checkBatchTransforms() {
+    Shader shader = LoadShaderFromMemory(MazeShaders::Vertex, MazeShaders::Fragment);
+    require(shader.id && shader.id != rlGetShaderIdDefault(), "batch shader did not compile");
+    const Vector3 black{}, eye{40, .5f, 4};
+    const float emission = 0, roomHeight = MazeGeometry::CeilingHeight;
+    const int lightCount = 0;
+    SetShaderValue(shader, GetShaderLocation(shader, "eyePosition"), &eye, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, GetShaderLocation(shader, "fogColor"), &black, SHADER_UNIFORM_VEC3);
+    SetShaderValue(shader, GetShaderLocation(shader, "emission"), &emission, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shader, GetShaderLocation(shader, "roomHeight"), &roomHeight,
+                   SHADER_UNIFORM_FLOAT);
+    SetShaderValue(shader, GetShaderLocation(shader, "lightCount"), &lightCount,
+                   SHADER_UNIFORM_INT);
+    const Camera3D camera{eye, {40, .5f, 0}, {0, 1, 0}, 45, CAMERA_PERSPECTIVE};
+    RenderTexture2D canvas = LoadRenderTexture(96, 96);
+    auto sample = [&](int fillers) {
+        BeginDrawing();
+        BeginTextureMode(canvas);
+        ClearBackground(BLACK);
+        BeginMode3D(camera);
+        BeginShaderMode(shader);
+        DrawCube({40, .5f, 0}, 1, 1, 1, {220, 190, 160, 255});
+        for (int index = 0; index < fillers; ++index)
+            DrawCube({80, .5f, 0}, .1f, .1f, .1f, WHITE);
+        EndShaderMode();
+        EndMode3D();
+        EndTextureMode();
+        EndDrawing();
+        Image image = LoadImageFromTexture(canvas.texture);
+        const Color color = GetImageColor(image, 48, 48);
+        UnloadImage(image);
+        return color;
+    };
+    const Color single = sample(0), fullBatch = sample(1500);
+    UnloadRenderTexture(canvas);
+    UnloadShader(shader);
+    require(single.r > 30 && std::abs(single.r - fullBatch.r) <= 1 &&
+                std::abs(single.g - fullBatch.g) <= 1 && std::abs(single.b - fullBatch.b) <= 1,
+            "full draw batches must retain correct world-space lighting on raised trim");
+}
+
 // Reuse one effect across frames and sizes. Only world highlights may glow: dark areas and UI
 // drawn after composition must retain their exact colors, with the caller's framebuffer restored.
 void checkBloom() {
@@ -134,5 +177,6 @@ void checkBloom() {
 // Called inside the UI suite's hidden graphics context; gameplay and saved data are untouched.
 void runLightingTests() {
     checkWallShadows();
+    checkBatchTransforms();
     checkBloom();
 }

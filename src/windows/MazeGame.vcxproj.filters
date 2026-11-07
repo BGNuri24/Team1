@@ -52,6 +52,7 @@
   <ItemGroup>
     <ClInclude Include="..\presentation\Ui.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\Textures.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\presentation\CorridorStyle.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\MazePalette.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\data\MazeTheme.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\logic\MazeThemeSelection.h"><Filter>src\logic</Filter></ClInclude>

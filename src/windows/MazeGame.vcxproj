@@ -68,6 +68,7 @@
 	<ClInclude Include="..\data\GameMode.h" />
     <ClInclude Include="..\presentation\Ui.h" />
     <ClInclude Include="..\presentation\Textures.h" />
+    <ClInclude Include="..\presentation\CorridorStyle.h" />
     <ClInclude Include="..\presentation\MazePalette.h" />
     <ClInclude Include="..\data\MazeTheme.h" />
     <ClInclude Include="..\logic\MazeThemeSelection.h" />
