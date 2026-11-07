@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <stdexcept>
 void runResourceTests();
+void runLightingTests();
 
 namespace {
 // Use a hidden graphics context so measurements match the default font used by real menu drawing.
@@ -98,6 +99,7 @@ void runUiTests() {
     if (!IsWindowReady())
         throw std::runtime_error("hidden UI test context unavailable");
     runResourceTests();
+    runLightingTests();
     checkRunPalettes();
     for (float width : {12.0f, 50.0f, 120.0f, 300.0f}) {
         checkFit("A deliberately long menu label with several words", 25, width);

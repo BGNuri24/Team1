@@ -52,6 +52,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp" />
     <ClCompile Include="..\presentation\MenuBackground.cpp" />
     <ClCompile Include="..\presentation\Renderer.cpp" />
+    <ClCompile Include="..\presentation\Bloom.cpp" />
     <ClCompile Include="..\presentation\RendererExit.cpp" />
     <ClCompile Include="..\presentation\RendererObstacles.cpp" />
     <ClCompile Include="..\presentation\HudRenderer.cpp" />
@@ -72,6 +73,7 @@
     <ClInclude Include="..\logic\MazeThemeSelection.h" />
     <ClInclude Include="..\presentation\Screen.h" />
     <ClInclude Include="..\presentation\Renderer.h" />
+    <ClInclude Include="..\presentation\Bloom.h" />
     <ClInclude Include="..\presentation\PlayerSelect.h" />
     <ClInclude Include="..\presentation\PauseMenu.h" />
     <ClInclude Include="..\presentation\MazeGenerationScreen.h" />

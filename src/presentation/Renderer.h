@@ -1,5 +1,6 @@
 #pragma once
 #include "../logic/Game.h"
+#include "Bloom.h"
 #include "HudRenderer.h"
 #include "Textures.h"
 #include "raylib.h"
@@ -27,6 +28,7 @@ private:
     Camera3D cam;
     Textures tex;
     HudRenderer hud;
+    Bloom bloom;
     MazeTheme activeTheme = MazeTheme::Slate;
     MazePalette palette = mazePalette(MazeTheme::Slate);
     bool texturesReady = false;
@@ -45,4 +47,6 @@ private:
     std::uint32_t lightMazeSeed = 0;
     int fixtureColorLocation = -1;
     int fogColorLocation = -1;
+    int bounceColorLocation = -1;
+    int roomHeightLocation = -1;
 };

@@ -8,6 +8,8 @@ Schema creation and text-file imports live in `DatabaseMigrations.cpp`. Reusable
 
 The atmosphere shader evaluates up to sixteen nearby wall and ceiling fixtures per fragment, using rectangular light sources and smooth distance falloff. Packed maze-wall masks block light between corridors and are refreshed when the maze size or seed changes. The light list follows the camera; material lighting and emissive fixtures remain separate passes. Ambient illumination stays low enough to show the fixtures' light pools while retaining readable unlit passages.
 
+Finite diffuser samples soften the shadow edges, while small palette-tinted bounce and satin highlights give the lower wall panels depth. Wallpaper and carpet remain mostly matte. A faint analytical haze follows the emitting direction of each lamp; its visible air samples use the same wall masks so beams cannot shine into neighboring rooms. `Bloom` draws the world into a reusable full-resolution target, then extracts and blurs highlights in two half-resolution passes. Composition happens before the HUD and menus so text stays crisp. Targets are replaced on resize and released inside the graphics context; unavailable shaders or targets fall back to the normal world pass.
+
 Maze generation uses an explicitly seeded `std::mt19937`, independent of theme selection and decorative texture generation. To reproduce a loaded run, supply its seed and selected theme along with the same level parameters:
 
 ```cpp

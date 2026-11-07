@@ -36,6 +36,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\MenuBackground.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Renderer.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\presentation\Bloom.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\RendererExit.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\RendererObstacles.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\PlayerSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
@@ -56,6 +57,7 @@
     <ClInclude Include="..\logic\MazeThemeSelection.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\presentation\Screen.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\Renderer.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\presentation\Bloom.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\PlayerSelect.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\PauseMenu.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\MazeGenerationScreen.h"><Filter>src\presentation</Filter></ClInclude>

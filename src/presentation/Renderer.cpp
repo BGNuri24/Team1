@@ -143,6 +143,8 @@ Renderer::Renderer() {
         cellSizeLocation = GetShaderLocation(atmosphere, "cellSize");
         fixtureColorLocation = GetShaderLocation(atmosphere, "fixtureColor");
         fogColorLocation = GetShaderLocation(atmosphere, "fogColor");
+        bounceColorLocation = GetShaderLocation(atmosphere, "bounceColor");
+        roomHeightLocation = GetShaderLocation(atmosphere, "roomHeight");
     } else {
         atmosphere = {};
     }
@@ -181,6 +183,7 @@ void Renderer::draw(const Game& game) {
                   cam.position.z + direction.z};
     cam.up = game.cameraUp();
 
+    const bool glow = atmosphere.id && bloom.begin();
     ClearBackground(palette.fog);
     BeginMode3D(cam);
     if (atmosphere.id) {
@@ -189,8 +192,14 @@ void Renderer::draw(const Game& game) {
                                  palette.lamp.b / 255.0f};
         const float fog[] = {palette.fog.r / 255.0f, palette.fog.g / 255.0f,
                              palette.fog.b / 255.0f};
+        const Color bounceColor = ColorLerp(palette.wall, palette.paper, .35f);
+        const float bounce[] = {bounceColor.r / 255.0f, bounceColor.g / 255.0f,
+                                bounceColor.b / 255.0f};
+        const float roomHeight = MazeGeometry::CeilingHeight;
         SetShaderValue(atmosphere, fixtureColorLocation, fixture, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, fogColorLocation, fog, SHADER_UNIFORM_VEC3);
+        SetShaderValue(atmosphere, bounceColorLocation, bounce, SHADER_UNIFORM_VEC3);
+        SetShaderValue(atmosphere, roomHeightLocation, &roomHeight, SHADER_UNIFORM_FLOAT);
         SetShaderValue(atmosphere, eyeLocation, &cam.position, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, directionLocation, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, emissionLocation, &emission, SHADER_UNIFORM_FLOAT);
@@ -214,6 +223,8 @@ void Renderer::draw(const Game& game) {
     if (atmosphere.id)
         EndShaderMode();
     EndMode3D();
+    if (glow)
+        bloom.end();
 
     const int width = GetScreenWidth(), height = GetScreenHeight();
     DrawRectangleGradientV(0, 0, width, uiSize(160), {3, 10, 15, 115}, {3, 10, 15, 0});
