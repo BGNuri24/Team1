@@ -33,6 +33,8 @@
     <ClCompile Include="..\tests\UiTests.cpp" />
     <ClCompile Include="..\tests\ResourceTests.cpp" />
     <ClCompile Include="..\tests\LightingTests.cpp" />
+    <ClCompile Include="..\tests\MainMenuTests.cpp" />
+    <ClCompile Include="..\presentation\MenuBackground.cpp" />
     <ClCompile Include="..\presentation\Bloom.cpp" />
     <ClCompile Include="..\presentation\Textures.cpp" />
     <ClCompile Include="..\presentation\MazePalette.cpp" />

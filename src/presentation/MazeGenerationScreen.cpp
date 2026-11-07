@@ -35,7 +35,7 @@ void MazeGenerationScreen::draw(const Game& game) const {
     using namespace MenuTheme;
     const int size = game.maze().size();
     const float progress = elapsed / BUILD_DURATION;
-    background.draw((float)GetTime(), -0.16f);
+    background.draw((float)GetTime());
     DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
     drawMenuHeading(type, "03 / MAZE", "Generating maze");
 

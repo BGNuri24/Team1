@@ -8,8 +8,8 @@
 class LevelSelect {
 public:
     LevelSelect();
-    // Return PLAYING after a valid choice, MAIN_MENU when navigating back, or LEVEL_SELECT while
-    // choosing.
+    // Return PLAYING after a valid choice, PLAYER_SELECT when navigating back, or LEVEL_SELECT
+    // while choosing.
     Screen update();
     void draw() const;
     // Return the selected square maze's side length in cells.

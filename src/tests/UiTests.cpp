@@ -5,6 +5,7 @@
 #include <stdexcept>
 void runResourceTests();
 void runLightingTests();
+void runMainMenuTests();
 
 namespace {
 // Use a hidden graphics context so measurements match the default font used by real menu drawing.
@@ -87,8 +88,8 @@ void checkRunPalettes() {
     }
     UnloadRenderTexture(canvas);
     MenuTheme::apply(static_cast<MazeTheme>(-1));
-    if (MenuTheme::current() != MazeTheme::Slate)
-        throw std::runtime_error("unsupported UI themes must fall back to Slate");
+    if (MenuTheme::current() != ActiveMazeTheme)
+        throw std::runtime_error("unsupported UI themes must fall back to the active palette");
     MenuTheme::apply(saved);
 }
 }
@@ -100,6 +101,7 @@ void runUiTests() {
         throw std::runtime_error("hidden UI test context unavailable");
     runResourceTests();
     runLightingTests();
+    runMainMenuTests();
     checkRunPalettes();
     for (float width : {12.0f, 50.0f, 120.0f, 300.0f}) {
         checkFit("A deliberately long menu label with several words", 25, width);

@@ -1,6 +1,5 @@
 #include "Game.h"
 #include "GravityObstacles.h"
-#include "MazeThemeSelection.h"
 #include <algorithm>
 #include <cmath>
 
@@ -49,7 +48,7 @@ static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float ang
 Game::Game(int mazeSize, float seconds, GameMode mode, std::optional<std::uint32_t> seed,
            std::optional<MazeTheme> theme)
     : gameMode(mode), runSeed(seed ? *seed : randomSeed()),
-      mazeTheme(theme ? *theme : themeForSeed(runSeed)), mazeData(mazeSize, runSeed), px(0),
+      mazeTheme(theme.value_or(ActiveMazeTheme)), mazeData(mazeSize, runSeed), px(0),
       py(StandingEyeHeight), pz(0), lookDirection{1, 0, 0}, gravityUp{0, 1, 0}, rollFrom{0, 1, 0},
       rollAxis{1, 0, 0}, rollAngle(0), rollTime(0.25f),
       transitionFromPosition{0, StandingEyeHeight, 0}, transitionFromDirection{1, 0, 0},
@@ -92,7 +91,8 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
     rollAxis = normalized(cross(rollFrom, newUp));
     if (dot(rollAxis, rollAxis) < 0.5f) {
         // Roll around the corridor heading during a half-turn, preserving forward travel.
-        rollAxis = normalized(added(lookDirection, scaled(rollFrom, -dot(lookDirection, rollFrom))));
+        rollAxis =
+            normalized(added(lookDirection, scaled(rollFrom, -dot(lookDirection, rollFrom))));
         if (dot(rollAxis, rollAxis) < 0.5f)
             rollAxis = {1, 0, 0};
     }
@@ -108,8 +108,10 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
 // Sweep the whole transfer first so flipping through a nearby barrier is still lethal.
 void Game::toggleGravity() {
     const bool ceiling = !attachedToSurface;
-    const Vector3 target = {px, ceiling ? CeilingHeight - StandingEyeHeight : StandingEyeHeight, pz};
-    if (checkObstacleCollision({px, py, pz}, target, attachedToSurface, ceiling)) return;
+    const Vector3 target = {px, ceiling ? CeilingHeight - StandingEyeHeight : StandingEyeHeight,
+                            pz};
+    if (checkObstacleCollision({px, py, pz}, target, attachedToSurface, ceiling))
+        return;
     beginSurfaceTransition(ceiling ? Vector3{0, -1, 0} : Vector3{0, 1, 0}, target, ceiling);
 }
 
@@ -151,7 +153,8 @@ void Game::update(const InputState& in) {
     rollTime = std::min(rollTime + in.dt, 0.25f);
     if (gameMode == GameMode::ZeroGravity && in.gravityToggle && rollTime >= 0.25f)
         toggleGravity();
-    if (hasLost) return;
+    if (hasLost)
+        return;
     if (rollTime < 0.25f) {
         reveal();
         return;
@@ -205,8 +208,9 @@ bool Game::moveHorizontal(float movement, float step, bool alongX) {
     const float nextX = alongX ? px + movement * step : px;
     const float nextZ = alongX ? pz : pz + movement * step;
     if (canMove(nextX, nextZ)) {
-        if (checkObstacleCollision({px, py, pz}, {nextX, py, nextZ},
-                                   attachedToSurface, attachedToSurface)) return true;
+        if (checkObstacleCollision({px, py, pz}, {nextX, py, nextZ}, attachedToSurface,
+                                   attachedToSurface))
+            return true;
         px = nextX;
         pz = nextZ;
     }
@@ -215,7 +219,8 @@ bool Game::moveHorizontal(float movement, float step, bool alongX) {
 
 // Freeze an obstacle loss through the same finished-run state used by the existing end-screen flow.
 bool Game::checkObstacleCollision(Vector3 from, Vector3 to, bool fromCeiling, bool toCeiling) {
-    if (!hitsGravityObstacle(gravityObstacles, from, fromCeiling, to, toCeiling)) return false;
+    if (!hitsGravityObstacle(gravityObstacles, from, fromCeiling, to, toCeiling))
+        return false;
     hasLost = true;
     failure = FailureReason::ObstacleHit;
     return true;

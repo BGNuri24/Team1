@@ -282,6 +282,12 @@ static void testVerticalObstacleCollision() {
 // deterministic maze randomness. Cover every non-repeating random-draw mapping and ensure visual
 // randomness leaves maze carving unchanged.
 static void testRunThemes() {
+    for (std::uint32_t seed = 0; seed < 20; ++seed) {
+        Game normal(10, 100, GameMode::Normal, seed);
+        Game zero(10, 100, GameMode::ZeroGravity, seed);
+        require(normal.theme() == ActiveMazeTheme && zero.theme() == ActiveMazeTheme,
+                "new runs must use the curated palette regardless of maze seed or game mode");
+    }
     for (int previous = -1; previous < MazeThemeCount; ++previous) {
         std::array<bool, MazeThemeCount> found{};
         const int choices = previous < 0 ? MazeThemeCount : MazeThemeCount - 1;

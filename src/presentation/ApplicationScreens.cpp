@@ -31,10 +31,48 @@ Screen Application::updatePlayerSelect() {
     return updateMenu(playerSelect);
 }
 
+// Keep input and generation timing frozen until the current trip finishes. The first frame drops
+// the previous screen's delta, which may include texture preparation when a level was selected.
+Screen Application::updateMenuTravel() {
+    if (travelFirstFrame)
+        travelFirstFrame = false;
+    else
+        menuBackdrop.update(GetFrameTime());
+    const Screen displayed = menuBackdrop.destinationVisible() ? pendingMenu : screen;
+    drawFrame([&] {
+        menuBackdrop.draw((float)GetTime());
+        menuBackdrop.drawOverlay([&] { drawMenuScreen(displayed); });
+    });
+    return menuBackdrop.moving() ? screen : pendingMenu;
+}
+
+void Application::drawMenuScreen(Screen requested) {
+    switch (requested) {
+    case Screen::MAIN_MENU:
+        mainMenu.draw();
+        break;
+    case Screen::CONTROLS:
+        controls.draw();
+        break;
+    case Screen::PLAYER_SELECT:
+        playerSelect.draw();
+        break;
+    case Screen::LEVEL_SELECT:
+        levelSelect.draw();
+        break;
+    case Screen::GENERATING:
+        if (game)
+            generationScreen.draw(*game);
+        break;
+    default:
+        break;
+    }
+}
+
 // Create a fresh run from the selected parameters and initialize its generation preview before
 // allowing gameplay.
 Screen Application::startGame() {
-    const MazeTheme selected = themeSelector.startRun();
+    const MazeTheme selected = ActiveMazeTheme;
     MenuTheme::apply(selected);
     game = std::make_unique<Game>(currentSize, currentSeconds, currentMode, std::nullopt, selected);
     renderer.prepareMazeTheme(game->theme());

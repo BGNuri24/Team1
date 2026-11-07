@@ -24,15 +24,17 @@ Screen ControlsScreen::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER) || menuClicked(menuBackBounds()))
         return Screen::MAIN_MENU;
-    if (IsKeyPressed(KEY_G))
+    if (IsKeyPressed(KEY_G)) {
         ceilingPreview = !ceilingPreview;
+        background.detail(ceilingPreview);
+    }
     return Screen::CONTROLS;
 }
 
 // Use live keycaps and an interactive floor/ceiling diagram to explain the actual controls.
 void ControlsScreen::draw() const {
     using namespace MenuTheme;
-    background.draw((float)GetTime(), 0.06f);
+    background.draw((float)GetTime());
     DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
     drawMenuHeading(type, "HELP / INPUT", "Controls");
     drawMenuBack(type);

@@ -54,6 +54,7 @@ Screen PlayerSelect::update() {
         if (IsKeyPressed(KEY_ESCAPE) || menuClicked(entryCancelBounds())) {
             typing = false;
             error = 0;
+            background.detail(false);
         }
         return Screen::PLAYER_SELECT;
     }
@@ -83,6 +84,7 @@ Screen PlayerSelect::update() {
         }
         // Open an empty name-entry dialog when the new-player option is selected.
         typing = true;
+        background.detail(true);
         text.clear();
         error = 0;
         // Drain queued character events so the key used to open the dialog is not included in the
@@ -93,13 +95,13 @@ Screen PlayerSelect::update() {
     return Screen::PLAYER_SELECT;
 }
 
-// Render a selected-profile preview over the living maze and a compact, readable profile list.
+// Render a selected-profile preview at this stop along the corridor journey.
 void PlayerSelect::draw() const {
     using namespace MenuTheme;
     const bool existing = selected < players.count();
     const std::string name = existing ? players.name(selected) : "New player";
     const std::string mark = existing ? initials(name) : "+";
-    background.draw((float)GetTime(), -0.16f);
+    background.draw((float)GetTime());
     DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
     drawMenuHeading(type, "01 / PROFILES", "Select player",
                     "Choose a saved player or create a new one.");

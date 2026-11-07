@@ -8,7 +8,8 @@ inline constexpr MazeTheme themeFromDraw(int draw, int previous) {
     return static_cast<MazeTheme>(previous >= 0 && draw >= previous ? draw + 1 : draw);
 }
 
-// Reproduce a default theme from a run seed without consuming its maze-carving random stream.
+// Retain an optional seeded palette choice for future collections, separate from maze carving.
+// Normal runs currently use ActiveMazeTheme instead of palette rotation.
 inline MazeTheme themeForSeed(std::uint32_t seed) {
     std::mt19937 generator(seed ^ 0x9e3779b9u);
     return static_cast<MazeTheme>(

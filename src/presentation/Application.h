@@ -2,7 +2,6 @@
 
 #include "../logic/Game.h"
 #include "../logic/GameSettings.h"
-#include "../logic/MazeThemeSelection.h"
 #include "../logic/Players.h"
 #include "ControlsScreen.h"
 #include "EndScreen.h"
@@ -22,6 +21,8 @@ public:
 
 private:
     Screen updateCurrentScreen();
+    Screen updateMenuTravel();
+    void drawMenuScreen(Screen requested);
     Screen updateMainMenu();
     Screen updateControls();
     Screen updatePlayerSelect();
@@ -35,7 +36,7 @@ private:
 
     Players players;
     GameSettings settings;
-    RunThemeSelector themeSelector;
+    MenuBackground menuBackdrop;
     Renderer renderer;
     MainMenu mainMenu;
     ControlsScreen controls;
@@ -52,4 +53,6 @@ private:
     bool newBestTime;
     bool bestTimeSaveFailed = false;
     Screen screen;
+    Screen pendingMenu = Screen::MAIN_MENU;
+    bool travelFirstFrame = false;
 };

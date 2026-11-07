@@ -8,15 +8,15 @@
 namespace MenuTheme {
 Colors colorsFor(const MazePalette& palette) {
     Colors colors{};
-    colors.panel = ColorLerp(palette.floor, palette.wall, .47f);
-    colors.ink = ColorLerp(palette.trim, palette.wall, .35f);
-    colors.border = ColorLerp(palette.wall, palette.paper, .40f);
-    colors.selected = ColorLerp(colors.panel, palette.wall, .08f);
-    colors.accent = ColorLerp(palette.pattern, palette.paper, .86f);
+    colors.panel = ColorLerp(palette.trim, palette.wall, .14f);
+    colors.ink = ColorLerp(palette.floor, palette.fog, .46f);
+    colors.border = ColorLerp(palette.trim, palette.accent, .48f);
+    colors.selected = ColorLerp(colors.panel, palette.accent, .16f);
+    colors.accent = ColorLerp(palette.accent, palette.paper, .55f);
     colors.paper = palette.paper;
     colors.muted = ColorLerp(palette.paper, palette.wall, .14f);
     colors.secondary = ColorLerp(palette.wall, palette.paper, .90f);
-    colors.danger = {255, 221, 210, 255};
+    colors.danger = ColorLerp(palette.lamp, palette.paper, .35f);
     colors.badge = ColorLerp(colors.panel, palette.trim, .15f);
     colors.keycap = colors.selected;
     colors.onWorld = palette.paper;
@@ -38,7 +38,7 @@ Colors colorsFor(const MazePalette& palette) {
 }
 
 namespace {
-MazeTheme activeTheme = MazeTheme::Slate;
+MazeTheme activeTheme = ActiveMazeTheme;
 Colors activeColors = colorsFor(mazePalette(activeTheme));
 }
 
@@ -68,7 +68,7 @@ constinit const Color& MapVisited = activeColors.mapVisited;
 // Apply between frames. References remain bound to these fields as their values change.
 void apply(MazeTheme theme) {
     const int index = static_cast<int>(theme);
-    activeTheme = index >= 0 && index < MazeThemeCount ? theme : MazeTheme::Slate;
+    activeTheme = index >= 0 && index < MazeThemeCount ? theme : ActiveMazeTheme;
     activeColors = colorsFor(mazePalette(activeTheme));
 }
 

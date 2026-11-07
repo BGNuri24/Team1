@@ -47,6 +47,7 @@ Screen LevelSelect::update() {
         if (IsKeyPressed(KEY_ESCAPE) || menuClicked(entryCancelBounds())) {
             typing = false;
             showError = false;
+            background.detail(false);
         }
         return Screen::LEVEL_SELECT;
     }
@@ -56,7 +57,7 @@ Screen LevelSelect::update() {
     for (int i = 0; i < OPTION_COUNT; ++i)
         clicked |= menuPointer(levelBounds(i), i, selected);
     if (IsKeyPressed(KEY_ESCAPE) || menuClicked(menuBackBounds()))
-        return Screen::MAIN_MENU;
+        return Screen::PLAYER_SELECT;
 
     if (menuConfirmed() || clicked) {
         if (selected < DIFFICULTY_COUNT) {
@@ -75,6 +76,7 @@ Screen LevelSelect::update() {
         // Open a fresh custom-size entry after the preset and Zero Gravity options have been
         // handled.
         typing = true;
+        background.detail(true);
         text.clear();
         showError = false;
         // Drain queued character events so the key used to open the dialog does not populate its
@@ -85,7 +87,7 @@ Screen LevelSelect::update() {
     return Screen::LEVEL_SELECT;
 }
 
-// Match profile selection with a living maze, a focused level emblem and readable option cards.
+// Present the next corridor stop with a focused level emblem and readable option cards.
 void LevelSelect::draw() const {
     using namespace MenuTheme;
     const bool zero = selected == ZERO_GRAVITY_OPTION;
@@ -94,7 +96,7 @@ void LevelSelect::draw() const {
                                                             : nullptr;
     const Color accent = zero ? Secondary : Accent;
     const std::string mark = preview ? std::to_string(preview->size) : "?";
-    background.draw((float)GetTime(), -0.16f);
+    background.draw((float)GetTime());
     DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
     drawMenuHeading(type, "02 / LEVELS", "Select level",
                     "Choose a difficulty or set a custom maze size.");
