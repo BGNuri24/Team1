@@ -22,9 +22,8 @@ ProfileResult GameDatabase::initialize() {
         return {};
     Connection connection;
     ProfileResult result;
-    const bool bundledLegacy = path.lexically_normal() == std::filesystem::path(DefaultPath);
     if (!connection.open(path) ||
-        !migrateDatabase(connection, path.parent_path(), result.players, bundledLegacy))
+        !migrateDatabase(connection, path.parent_path(), result.players))
         return {};
     ready = true;
     result.status = StorageStatus::Success;

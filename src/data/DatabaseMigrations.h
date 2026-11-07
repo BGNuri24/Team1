@@ -7,7 +7,7 @@ namespace storage {
 struct Connection;
 }
 
-// Commit schema creation and both legacy imports together, leaving existing scores and text backups
-// intact.
+// Import legacy files only from this database's directory. Commit schema creation and both imports
+// together, leaving existing scores and text backups intact.
 bool migrateDatabase(storage::Connection& connection, const std::filesystem::path& directory,
-                     std::vector<std::string>& players, bool bundledLegacy = false);
+                     std::vector<std::string>& players);

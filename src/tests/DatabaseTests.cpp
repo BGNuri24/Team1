@@ -221,61 +221,64 @@ void failuresAndRecovery() {
           "migration should read a legacy backup without renaming it");
 }
 
-// Relocated legacy files remain readable without copying them back into the repository root.
-// Existing local files take priority, and custom databases must not inherit bundled profiles.
-void relocatedLegacy() {
-    clear();
-    std::filesystem::create_directories("src/assets/legacy");
-    std::ofstream("src/assets/legacy/players.txt") << "Saved\n";
-    std::ofstream("src/assets/legacy/best_times.txt") << "Saved 15 21 normal\n";
-    const auto sourcePlayers = contents("src/assets/legacy/players.txt");
-    const auto sourceScores = contents("src/assets/legacy/best_times.txt");
-    GameDatabase database;
-    const auto imported = database.initialize();
-    check(imported.status == StorageStatus::Success && imported.players.size() == 1 &&
-              imported.players.front() == "Saved" &&
-              database.bestTime("Saved", 15, GameMode::Normal).seconds == 21,
-          "the default database must import the relocated source files");
-    check(!std::filesystem::exists("save_data/players.txt") &&
-              !std::filesystem::exists("save_data/best_times.txt") &&
-              contents("src/assets/legacy/players.txt") == sourcePlayers &&
-              contents("src/assets/legacy/best_times.txt") == sourceScores,
-          "import must preserve the source files without recreating tracked root paths");
-    std::filesystem::remove("save_data/custom.db");
-    GameDatabase custom("save_data/custom.db");
-    const auto separate = custom.initialize();
-    check(separate.status == StorageStatus::Success && separate.players.empty(),
-          "an explicit custom database must not import bundled legacy data");
-    std::filesystem::remove("save_data/custom.db");
-    check(database.removePlayer("Saved").status == StorageStatus::Success,
-          "imported profiles must support normal deletion");
-    GameDatabase reopened;
-    check(reopened.initialize().players.empty(),
-          "relocated legacy profiles must not return after a committed deletion");
+// Ignore old repository/package saves even when a previous build left them on disk. Real local
+// profiles, scores and legacy backups must remain usable.
+void bundledLegacyIgnored() {
+    for (const char* directory : {"src/assets/legacy", "assets/legacy"}) {
+        clear();
+        const std::filesystem::path bundled(directory);
+        std::filesystem::create_directories(bundled);
+        const auto profiles = (bundled / "players.txt").string();
+        const auto scores = (bundled / "best_times.txt").string();
+        std::ofstream(profiles) << "Bundled\n";
+        std::ofstream(scores) << "Bundled 15 21 normal\nLocal 15 2 normal\n";
+        const auto originalProfiles = contents(profiles.c_str());
+        const auto originalScores = contents(scores.c_str());
+
+        GameDatabase fresh;
+        const auto initialized = fresh.initialize();
+        check(initialized.status == StorageStatus::Success && initialized.players.empty(),
+              "fresh databases must ignore repository and packaged legacy profiles");
+        const auto absent = fresh.bestTime("Bundled", 15, GameMode::Normal);
+        check(absent.status == StorageStatus::Success && !absent.seconds,
+              "fresh databases must ignore bundled scores");
+        check(fresh.addPlayer("Local").status == StorageStatus::Success &&
+                  fresh.record("Local", 15, 9, GameMode::Normal) == RecordResult::Updated,
+              "fresh databases must still accept a player's own profile and result");
+        GameDatabase reopened;
+        const auto existing = reopened.initialize();
+        check(existing.status == StorageStatus::Success && existing.players.size() == 1 &&
+                  existing.players.front() == "Local" &&
+                  reopened.bestTime("Local", 15, GameMode::Normal).seconds == 9,
+              "existing profiles and scores must remain unchanged when bundled saves are present");
+
+        std::filesystem::remove("save_data/maze_game.db");
+        std::ofstream("save_data/players.txt") << "Local\n";
+        GameDatabase local;
+        const auto migrated = local.initialize();
+        const auto missing = local.bestTime("Local", 15, GameMode::Normal);
+        check(migrated.status == StorageStatus::Success && migrated.players.size() == 1 &&
+                  migrated.players.front() == "Local" &&
+                  missing.status == StorageStatus::Success && !missing.seconds,
+              "a local legacy profile must not inherit a bundled score with the same name");
+        check(contents(profiles.c_str()) == originalProfiles &&
+                  contents(scores.c_str()) == originalScores,
+              "ignored bundled saves must remain untouched");
+    }
 
     clear();
-    std::filesystem::create_directories("src/assets/legacy");
-    std::ofstream("src/assets/legacy/players.txt") << "Bundled\n";
-    std::ofstream("src/assets/legacy/best_times.txt") << "Bundled 15 20\n";
-    std::ofstream("save_data/players.txt") << "Local\n";
-    std::ofstream("save_data/best_times.txt") << "Local 15 9\n";
-    GameDatabase local;
-    const auto preferred = local.initialize();
-    check(preferred.status == StorageStatus::Success && preferred.players.size() == 1 &&
-              preferred.players.front() == "Local" &&
-              local.bestTime("Local", 15, GameMode::Normal).seconds == 9,
-          "existing local legacy files must take priority over bundled files");
-
-    clear();
-    std::filesystem::create_directories("assets/legacy");
-    std::ofstream("assets/legacy/players.txt") << "Packaged\n";
-    std::ofstream("assets/legacy/best_times.txt") << "Packaged 15 31\n";
-    GameDatabase packaged;
-    const auto installed = packaged.initialize();
-    check(installed.status == StorageStatus::Success && installed.players.size() == 1 &&
-              installed.players.front() == "Packaged" &&
-              packaged.bestTime("Packaged", 15, GameMode::Normal).seconds == 31,
-          "the packaged legacy files must work beside the built executable");
+    std::ofstream("save_data/players.txt.bak") << "Local\n";
+    std::ofstream("save_data/best_times.txt.bak") << "Local 15 9\n";
+    const auto backupProfiles = contents("save_data/players.txt.bak");
+    const auto backupScores = contents("save_data/best_times.txt.bak");
+    GameDatabase backup;
+    const auto restored = backup.initialize();
+    check(restored.status == StorageStatus::Success && restored.players.size() == 1 &&
+              restored.players.front() == "Local" &&
+              backup.bestTime("Local", 15, GameMode::Normal).seconds == 9 &&
+              contents("save_data/players.txt.bak") == backupProfiles &&
+              contents("save_data/best_times.txt.bak") == backupScores,
+          "the player's own legacy backup profiles and scores must still migrate unchanged");
     clear();
 }
 
@@ -321,5 +324,5 @@ void runDatabaseTests() {
     atomicProfileDeletion();
     scoreDatabaseUpgrade();
     typedResults();
-    relocatedLegacy();
+    bundledLegacyIgnored();
 }

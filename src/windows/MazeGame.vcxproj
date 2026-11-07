@@ -123,8 +123,6 @@
     <None Include="..\assets\carpet-persian-border.png" />
     <None Include="..\assets\hotel-wall-panels.png" />
     <None Include="..\assets\hotel-marble.png" />
-    <None Include="..\assets\legacy\players.txt" />
-    <None Include="..\assets\legacy\best_times.txt" />
     <None Include="T1_.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

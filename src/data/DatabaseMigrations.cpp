@@ -21,16 +21,11 @@ bool hasMarker(Connection& connection, const char* key, bool& exists) {
     exists = status == SQLITE_ROW;
     return true;
 }
-// Local legacy files and their backups take priority. The default application store may also
-// import the relocated repository files; explicit test/custom databases stay independent.
-bool legacySource(const std::filesystem::path& directory, const char* filename, bool bundledLegacy,
+// Import only the player's own legacy files beside this database, with backups as a fallback.
+bool legacySource(const std::filesystem::path& directory, const char* filename,
                   std::filesystem::path& source, bool& exists) {
-    std::vector<std::filesystem::path> candidates{directory / filename,
-                                                  directory / (std::string(filename) + ".bak")};
-    if (bundledLegacy) {
-        candidates.push_back(std::filesystem::path("src/assets/legacy") / filename);
-        candidates.push_back(std::filesystem::path("assets/legacy") / filename);
-    }
+    const std::filesystem::path candidates[] = {directory / filename,
+                                              directory / (std::string(filename) + ".bak")};
     std::error_code error;
     for (const auto& candidate : candidates) {
         source = candidate;
@@ -44,11 +39,10 @@ bool legacySource(const std::filesystem::path& directory, const char* filename, 
     return true;
 }
 // Import profile order without rewriting either legacy file, and fail on an unreadable source.
-bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::string>& players,
-                       bool bundledLegacy) {
+bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::string>& players) {
     std::filesystem::path source;
     bool exists = false;
-    if (!legacySource(directory, "players.txt", bundledLegacy, source, exists))
+    if (!legacySource(directory, "players.txt", source, exists))
         return false;
     players.clear();
     if (!exists)
@@ -68,10 +62,10 @@ bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::
 }
 // Import only valid records for existing profiles; leave the source and any .bak file untouched.
 bool importLegacy(Connection& connection, const std::filesystem::path& directory,
-                  const std::vector<std::string>& players, bool bundledLegacy) {
+                  const std::vector<std::string>& players) {
     std::filesystem::path source;
     bool exists = false;
-    if (!legacySource(directory, "best_times.txt", bundledLegacy, source, exists))
+    if (!legacySource(directory, "best_times.txt", source, exists))
         return false;
     if (!exists)
         return true;
@@ -108,7 +102,7 @@ bool importLegacy(Connection& connection, const std::filesystem::path& directory
 }
 // Commit schema changes and legacy import markers together; keep this work outside runtime queries.
 bool migrateDatabase(Connection& connection, const std::filesystem::path& directory,
-                     std::vector<std::string>& players, bool bundledLegacy) {
+                     std::vector<std::string>& players) {
     Transaction transaction(connection);
     if (!transaction.active ||
         !connection.execute(
@@ -129,7 +123,7 @@ bool migrateDatabase(Connection& connection, const std::filesystem::path& direct
         return false;
     if (!profilesImported) {
         std::vector<std::string> legacyPlayers;
-        if (!readLegacyPlayers(directory, legacyPlayers, bundledLegacy))
+        if (!readLegacyPlayers(directory, legacyPlayers))
             return false;
         for (int index = 0; index < (int)legacyPlayers.size(); ++index) {
             Statement insert;
@@ -150,7 +144,7 @@ bool migrateDatabase(Connection& connection, const std::filesystem::path& direct
     if (!hasMarker(connection, "legacy_best_times_imported", imported))
         return false;
     if (!imported &&
-        (!importLegacy(connection, directory, storedPlayers, bundledLegacy) ||
+        (!importLegacy(connection, directory, storedPlayers) ||
          !connection.execute(
              "INSERT INTO storage_metadata(key,value) VALUES('legacy_best_times_imported','1')")))
         return false;
