@@ -52,6 +52,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp" />
     <ClCompile Include="..\presentation\MenuBackground.cpp" />
     <ClCompile Include="..\presentation\Renderer.cpp" />
+    <ClCompile Include="..\presentation\RendererExit.cpp" />
     <ClCompile Include="..\presentation\RendererObstacles.cpp" />
     <ClCompile Include="..\presentation\HudRenderer.cpp" />
     <ClCompile Include="..\presentation\PlayerSelect.cpp" />

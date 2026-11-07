@@ -10,7 +10,6 @@
 namespace {
 constexpr float VIEW_DISTANCE = 15.0f;
 constexpr Color AMBER = {244, 190, 102, 255};
-constexpr Color MINT = {113, 216, 182, 255};
 constexpr int MAX_CEILING_LIGHTS = 6;
 
 struct Corner {
@@ -200,6 +199,7 @@ void Renderer::draw(const Game& game) {
     }
     drawMaze(game);
     drawDetails(game);
+    drawExit(game, false);
     drawObstacles(game, false);
     // Submit queued surface geometry before enabling emission so it retains the lighting uniforms
     // used when it was queued.
@@ -209,6 +209,7 @@ void Renderer::draw(const Game& game) {
         SetShaderValue(atmosphere, emissionLocation, &emission, SHADER_UNIFORM_FLOAT);
     }
     drawLights(game);
+    drawExit(game, true);
     drawObstacles(game, true);
     if (atmosphere.id)
         EndShaderMode();
@@ -363,11 +364,9 @@ void Renderer::drawDetails(const Game& game) {
     rlEnableBackfaceCulling();
 }
 
-// Render visited-cell breadcrumbs, ceiling fixtures and the animated mint exit gateway during the
-// emissive pass.
+// Render visited-cell breadcrumbs and ceiling fixtures during the emissive pass.
 void Renderer::drawLights(const Game& game) {
     const Color accent = ColorLerp(palette.accent, palette.paper, .3f);
-    const float time = (float)GetTime();
     rlDisableBackfaceCulling();
     rlSetTexture(rlGetTextureIdDefault());
     rlBegin(RL_QUADS);
@@ -413,37 +412,4 @@ void Renderer::drawLights(const Game& game) {
         for (float side : {-1.0f, 1.0f})
             detailCube({x + sx * side, .984f, z + sz * side}, .005f, .028f, .005f, palette.accent);
     });
-
-    // Draw the mint gateway at the exit cell when it is within the renderer's distance limit.
-    const int last = game.maze().size() - 1;
-    float dx = last - game.x() / MazeGeometry::CellSize,
-          dz = last - game.z() / MazeGeometry::CellSize;
-    if (dx * dx + dz * dz > VIEW_DISTANCE * VIEW_DISTANCE)
-        return;
-    bool northEntrance = game.maze().cell(last - 1, last) != '#';
-    auto point = [last, northEntrance](float across, float y) -> Vector3 {
-        return northEntrance ? Vector3{last + across, y, last + .31f}
-                             : Vector3{last + .31f, y, last + across};
-    };
-    float pulse = .85f + .15f * std::sin(time * 1.7f);
-    for (float side : {-.34f, .34f}) {
-        detailCube(point(side, .47f), .075f, .88f, .075f, {35, 76, 73, 255});
-        Vector3 light = point(side, .47f);
-        if (northEntrance)
-            light.z -= .041f;
-        else
-            light.x -= .041f;
-        detailCube(light, northEntrance ? .024f : .006f, .80f, northEntrance ? .006f : .024f, MINT);
-    }
-    detailCube(point(0, .9f), northEntrance ? .75f : .08f, .07f, northEntrance ? .08f : .75f, MINT);
-    detailCube(point(0, .06f), northEntrance ? .75f : .08f, .045f, northEntrance ? .08f : .75f,
-               MINT);
-    detailCube({(float)last, .012f, (float)last}, .72f, .018f, .72f, {31, 83, 71, 255});
-    DrawCubeWires(world({(float)last, .025f, (float)last}), .73f * MazeGeometry::CellSize,
-                  .02f * MazeGeometry::CeilingHeight, .73f * MazeGeometry::CellSize, MINT);
-    for (int i = 0; i < 4; ++i) {
-        float y = .22f + std::fmod(time * .12f + i * .18f, .55f);
-        detailCube(point(0, y), northEntrance ? .54f : .008f, .007f, northEntrance ? .008f : .54f,
-                   Fade(MINT, .12f * pulse));
-    }
 }

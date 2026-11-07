@@ -36,6 +36,7 @@
     <ClCompile Include="..\presentation\MainMenu.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\MenuBackground.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Renderer.cpp"><Filter>src\presentation</Filter></ClCompile>
+    <ClCompile Include="..\presentation\RendererExit.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\RendererObstacles.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\PlayerSelect.cpp"><Filter>src\presentation</Filter></ClCompile>
     <ClCompile Include="..\presentation\Textures.cpp"><Filter>src\presentation</Filter></ClCompile>
