@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 
 namespace {
 // System fonts are optional; the built-in font remains available on other platforms.
@@ -81,6 +82,46 @@ void MenuTypography::draw(const char* text, int x, int y, int size, Color color,
 void MenuTypography::centered(const char* text, int x, int y, int size, Color color, bool bold,
                               int width) const {
     drawText(text, x, y, size, color, bold, width, true);
+}
+
+// Use the ink bounds rather than the font's ascent/line box so short initials sit at true center.
+void MenuTypography::centeredIn(const char* value, Rectangle bounds, int size, Color color,
+                                bool bold) const {
+    if (!value || !*value || bounds.width <= 0 || bounds.height <= 0)
+        return;
+    const std::string label(value);
+    int pixels = std::max(10, (int)std::round(size * uiScale()));
+    Font font = fontFor(pixels, bold);
+    const float available = std::max(1.0f, bounds.width - uiSize(12));
+    float width = MeasureTextEx(font, label.c_str(), (float)pixels, 0).x;
+    while (width > available && pixels > 1) {
+        pixels = std::max(1, std::min(pixels - 1, (int)(pixels * available / width)));
+        font = fontFor(pixels, bold);
+        width = MeasureTextEx(font, label.c_str(), (float)pixels, 0).x;
+    }
+    const float ratio = (float)pixels / font.baseSize;
+    float left = std::numeric_limits<float>::max(), top = left;
+    float right = -left, bottom = right, advance = 0;
+    for (size_t index = 0; index < label.size();) {
+        int bytes = 0;
+        const int codepoint = GetCodepointNext(label.c_str() + index, &bytes);
+        const int glyph = GetGlyphIndex(font, codepoint);
+        const GlyphInfo info = font.glyphs[glyph];
+        const Rectangle rect = font.recs[glyph];
+        if (codepoint != ' ') {
+            left = std::min(left, advance + info.offsetX * ratio);
+            top = std::min(top, info.offsetY * ratio);
+            right = std::max(right, advance + (info.offsetX + rect.width) * ratio);
+            bottom = std::max(bottom, (info.offsetY + rect.height) * ratio);
+        }
+        advance += (info.advanceX ? info.advanceX : rect.width + info.offsetX) * ratio;
+        index += std::max(1, bytes);
+    }
+    if (right < left)
+        return;
+    const Vector2 position = {std::round(bounds.x + bounds.width / 2 - (left + right) / 2),
+                              std::round(bounds.y + bounds.height / 2 - (top + bottom) / 2)};
+    DrawTextEx(font, label.c_str(), position, (float)pixels, 0, color);
 }
 
 // Choose the uniform scale that fits the 1000-by-700 reference layout inside the current window.

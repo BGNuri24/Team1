@@ -110,18 +110,11 @@ void PlayerSelect::draw() const {
     DrawPolyLinesEx(portrait, 6, 94 * uiScale(), 30, std::max(1.0f, uiScale()), Border);
     DrawPoly(portrait, 6, 80 * uiScale(), 30, Selected);
     DrawPolyLinesEx(portrait, 6, 80 * uiScale(), 30, std::max(1.5f, 2 * uiScale()), Accent);
-    type.centered(mark.c_str(), 222, 282, 68, Paper, true, 128);
+    type.centeredIn(mark.c_str(),
+                    {portrait.x - 80 * uiScale(), portrait.y - 80 * uiScale(), 160 * uiScale(),
+                     160 * uiScale()},
+                    68, Paper);
     type.centered(existing ? "PLAYER PROFILE" : "CREATE PROFILE", 222, 433, 13, Accent, true);
-
-    drawMenuPanel(uiRect(64, 478, 344, 112));
-    DrawRectangle(uiX(64), uiY(496), std::max(2, uiSize(3)), uiSize(50), Accent);
-    type.draw(existing ? "SELECTED PLAYER" : "NEW PLAYER", 86, 493, 12, Muted, true);
-    type.draw(name.c_str(), 85, 515, 28, Paper, true, 298);
-    for (int slot = 0; slot < MAX_PLAYERS; ++slot)
-        DrawRectangle(uiX(86 + slot * 20), uiY(564), uiSize(12), uiSize(5),
-                      slot < players.count() ? Accent : Border);
-    type.draw(TextFormat("%02d / %02d profiles", players.count(), MAX_PLAYERS), 211, 552, 14, Muted,
-              false, 173);
 
     for (int index = 0; index < optionCount(); ++index) {
         const bool saved = index < players.count();
@@ -135,7 +128,7 @@ void PlayerSelect::draw() const {
             DrawRectangle(uiX(430), uiY(y + 16), std::max(2, uiSize(3)), uiSize(32), Accent);
         DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, MazeSide);
         const std::string letter = saved ? initials(players.name(index)).substr(0, 1) : "+";
-        type.centered(letter.c_str(), 466, y + 16, 24, active ? Accent : Paper, true);
+        type.centeredIn(letter.c_str(), uiRect(446, y + 12, 40, 40), 24, active ? Accent : Paper);
         type.draw(saved ? players.name(index).c_str() : "New player", 504, y + 9, 23,
                   active ? Paper : Muted, true, 334);
         type.draw(saved ? TextFormat("PROFILE %02d", index + 1) : "Create a profile", 505, y + 39,

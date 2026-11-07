@@ -48,6 +48,9 @@ public:
               bool bold = false, int width = 0) const;
     void centered(const char* text, int centerX, int y, int size, Color color = MenuTheme::Paper,
                   bool bold = false, int width = 0) const;
+    // Center visible glyphs horizontally and vertically inside a badge or keycap.
+    void centeredIn(const char* text, Rectangle bounds, int size, Color color = MenuTheme::Paper,
+                    bool bold = true) const;
 
 private:
     struct Face {
