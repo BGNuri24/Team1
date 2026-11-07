@@ -1,7 +1,9 @@
 #pragma once
-#include <string>
-#include "Screen.h"
 #include "../data/GameMode.h"
+#include "MenuBackground.h"
+#include "Screen.h"
+#include "Ui.h"
+#include <string>
 
 class LevelSelect {
 public:
@@ -15,6 +17,7 @@ public:
     // Return the selected level's countdown duration in seconds.
     float seconds() const;
     GameMode mode() const;
+
 private:
     int selected;
     // Keep custom-size entry active until the player confirms a valid value or cancels.
@@ -25,4 +28,6 @@ private:
     int chosenSize;
     float chosenSeconds;
     GameMode chosenMode;
+    MenuBackground background;
+    MenuTypography type;
 };

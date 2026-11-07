@@ -4,84 +4,85 @@
 #include <algorithm>
 #include <cmath>
 
-static const float BUILD_DURATION = 4.5f;
+static constexpr float BUILD_DURATION = 4.5f;
 
 // Reset preview timing and allocate a hidden-cell mask matching the newly generated maze.
 void MazeGenerationScreen::begin(const Game& game) {
-    elapsed = 0.0f;
+    elapsed = 0;
     shownSteps = 0;
-    int cellCount = game.maze().size();
-    revealed.assign(cellCount * cellCount, 0);
+    const int size = game.maze().size();
+    revealed.assign(size * size, 0);
 }
 
-// Reveal recorded carving steps over the preview duration and report completion or a keyboard/mouse
-// skip request.
+// Advance only with elapsed frame time. Keyboard and pointer input cannot bypass generation.
 bool MazeGenerationScreen::update(const Game& game) {
-    elapsed += GetFrameTime();
+    const float delta = GetFrameTime();
+    if (std::isfinite(delta) && delta > 0)
+        elapsed = std::min(elapsed + delta, BUILD_DURATION);
     const std::vector<MazeStep>& steps = game.maze().generationSteps();
-    float progress = std::min(elapsed / BUILD_DURATION, 1.0f);
-    int targetSteps = (int)(progress * steps.size());
+    const float progress = elapsed / BUILD_DURATION;
+    const int targetSteps = (int)(progress * steps.size());
     while (shownSteps < targetSteps) {
         const MazeStep& step = steps[shownSteps++];
         revealed[step.row * game.maze().size() + step.col] = 1;
     }
-
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-    return elapsed >= BUILD_DURATION || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) ||
-           menuClicked(uiRect(774, 631, 162, 38));
+    return elapsed >= BUILD_DURATION && shownSteps == (int)steps.size();
 }
 
-// Draw the progressive maze blueprint, generation percentage and selected mode without advancing
-// the run's gameplay timer.
+// Show the actual maze being carved in the same visual language as profile and level selection.
 void MazeGenerationScreen::draw(const Game& game) const {
     using namespace MenuTheme;
-    int mazeSize = game.maze().size();
-    float progress = std::min(elapsed / BUILD_DURATION, 1.0f);
-    int cellSize = (int)std::floor(uiSize(366) / (float)mazeSize);
-    if (cellSize < 2)
-        cellSize = 2;
-    int boardSize = cellSize * mazeSize;
-    int originX = uiX(720) - boardSize / 2;
-    int originY = uiY(404) - boardSize / 2;
+    const int size = game.maze().size();
+    const float progress = elapsed / BUILD_DURATION;
+    background.draw((float)GetTime(), -0.16f);
+    DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
+    drawMenuHeading(type, "03 / MAZE", "Generating maze");
 
-    drawMenuBackdrop(4);
-    drawMenuHeading("03 / MAZE", "Generating maze", "");
-    drawMenuPanel(uiRect(64, 210, 414, 380));
-    drawMenuText("GENERATING YOUR MAZE", 90, 240, 14, Accent);
-    drawMenuText(TextFormat("%02d", (int)(progress * 100)), 86, 285, 100);
-    drawMenuText("%", 290, 339, 40, Accent);
-    drawMenuText(TextFormat("%d x %d cells", mazeSize, mazeSize), 90, 414, 30);
-    drawMenuText(game.mode() == GameMode::ZeroGravity ? "ZERO GRAVITY" : "NORMAL GRAVITY", 90, 458,
-                 14, Secondary);
-    drawMenuText("Green marker: exit.", 90, 514, 16, Muted);
-    drawMenuPanel(uiRect(504, 192, 432, 416));
-    DrawRectangle(originX - 5, originY - 5, boardSize + 10, boardSize + 10, Ink);
-    for (int row = 0; row < mazeSize; row++) {
-        for (int col = 0; col < mazeSize; col++) {
-            int x = originX + col * cellSize;
-            int y = originY + row * cellSize;
+    const Vector2 emblem = {(float)uiX(222), (float)uiY(332)};
+    DrawPoly(emblem, 6, 94 * uiScale(), 30, Panel);
+    DrawPolyLinesEx(emblem, 6, 94 * uiScale(), 30, std::max(1.0f, uiScale()), Border);
+    DrawPoly(emblem, 6, 80 * uiScale(), 30, Selected);
+    DrawPolyLinesEx(emblem, 6, 80 * uiScale(), 30, std::max(1.5f, 2 * uiScale()), Accent);
+    type.centeredIn(
+        TextFormat("%02d", (int)(progress * 100)),
+        {emblem.x - 80 * uiScale(), emblem.y - 80 * uiScale(), 160 * uiScale(), 160 * uiScale()},
+        68, Paper);
+    type.centered("%", 222, 378, 15, Accent, true);
+    type.centered(TextFormat("%d x %d cells", size, size), 222, 433, 25, Paper, true, 316);
+    type.centered(game.mode() == GameMode::ZeroGravity ? "ZERO GRAVITY" : "NORMAL GRAVITY", 222,
+                  474, 13, game.mode() == GameMode::ZeroGravity ? Secondary : Muted, true, 316);
+    DrawRectangle(uiX(92), uiY(528), uiSize(260), std::max(3, uiSize(5)), Border);
+    DrawRectangle(uiX(92), uiY(528), (int)(uiSize(260) * progress), std::max(3, uiSize(5)), Accent);
+    type.centered("Starting automatically when ready", 222, 554, 14, Muted, false, 316);
+
+    drawMenuPanel(uiRect(430, 210, 506, 380));
+    type.draw("MAZE PREVIEW", 454, 230, 13, Muted, true);
+    type.centered(TextFormat("%d x %d", size, size), 881, 230, 13, Accent, true, 76);
+    DrawLine(uiX(454), uiY(262), uiX(912), uiY(262), Border);
+    const int cell = std::max(1, uiSize(292) / size);
+    const int board = cell * size;
+    const int originX = uiX(683) - board / 2, originY = uiY(425) - board / 2;
+    DrawRectangle(originX - 6, originY - 6, board + 12, board + 12, Ink);
+    for (int row = 0; row < size; ++row) {
+        for (int col = 0; col < size; ++col) {
             Color color = Ink;
-
-            if (revealed[row * mazeSize + col]) {
+            if (revealed[row * size + col]) {
                 color = MazeTop;
                 if (row == 0 && col == 0)
                     color = Accent;
-                if (game.maze().cell(row, col) == 'E' && progress >= 1.0f)
+                if (game.maze().cell(row, col) == 'E' && progress >= 1)
                     color = Secondary;
-                if (shownSteps > 0 && progress < 1.0f) {
+                if (shownSteps > 0 && progress < 1) {
                     const MazeStep& current = game.maze().generationSteps()[shownSteps - 1];
                     if (current.row == row && current.col == col)
                         color = Accent;
                 }
             }
-
-            DrawRectangle(x, y, cellSize - 1, cellSize - 1, color);
+            DrawRectangle(originX + col * cell, originY + row * cell, std::max(1, cell - 1),
+                          std::max(1, cell - 1), color);
         }
     }
-    DrawRectangleLines(originX - 5, originY - 5, boardSize + 10, boardSize + 10, Border);
-
-    DrawRectangle(uiX(90), uiY(389), uiSize(358), uiSize(5), Border);
-    DrawRectangle(uiX(90), uiY(389), (int)(uiSize(358) * progress), uiSize(5), Accent);
-    drawMenuFooter("ENTER / SPACE  skip");
-    drawMenuButton(uiRect(774, 631, 162, 38), "Skip", false);
+    DrawRectangleLines(originX - 6, originY - 6, board + 12, board + 12, Border);
+    drawMenuFooter(type, "The timer starts when the maze is ready.");
 }
