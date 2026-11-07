@@ -1,6 +1,7 @@
 #pragma once
 #include "../data/MazeTheme.h"
 #include "../data/RandomSeed.h"
+#include <optional>
 
 // Map a uniform draw over the remaining themes around the previous index without introducing bias.
 inline constexpr MazeTheme themeFromDraw(int draw, int previous) {
@@ -29,4 +30,25 @@ public:
 private:
     std::mt19937 generator;
     int previous = -1;
+};
+
+// Hold the menu preview until a run consumes it. Reopening menus cannot skip a theme, while a
+// restart can start a fresh run without visiting the menus first.
+class RunThemeSelector {
+public:
+    explicit RunThemeSelector(std::uint32_t seed = randomSeed()) : selector(seed) {}
+    MazeTheme preview() {
+        if (!prepared)
+            prepared = selector.next();
+        return *prepared;
+    }
+    MazeTheme startRun() {
+        const MazeTheme selected = preview();
+        prepared.reset();
+        return selected;
+    }
+
+private:
+    MazeThemeSelector selector;
+    std::optional<MazeTheme> prepared;
 };

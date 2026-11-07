@@ -7,9 +7,9 @@
 #include <queue>
 
 namespace {
-constexpr Color INK = MenuTheme::Ink;
-constexpr Color ACCENT = MenuTheme::Accent;
-constexpr Color EXIT = MenuTheme::Secondary;
+const Color& INK = MenuTheme::Ink;
+const Color& ACCENT = MenuTheme::Accent;
+const Color& EXIT = MenuTheme::Secondary;
 constexpr float WALL_HEIGHT = 0.65f;
 
 // Use breadth-first search to reconstruct a start-to-exit route used only by the decorative
@@ -75,7 +75,13 @@ void drawWalls(const MazeData& maze, float half) {
             const float x0 = col - half - 0.5f, x1 = x0 + 1.0f;
             const float z0 = row - half - 0.5f, z1 = z0 + 1.0f;
             const float h = WALL_HEIGHT;
-            face(MenuTheme::MazeTop, {x0, h, z0}, {x0, h, z1}, {x1, h, z1}, {x1, h, z0});
+            // Broad material sections use the active palette without changing the maze geometry.
+            const int section = (row / 5 + (col / 5) * 2) % 5;
+            const Color top = section == 1   ? MenuTheme::MazeSage
+                              : section == 2 ? MenuTheme::MazeOlive
+                              : section == 4 ? MenuTheme::MazeStone
+                                             : MenuTheme::MazeTop;
+            face(top, {x0, h, z0}, {x0, h, z1}, {x1, h, z1}, {x1, h, z0});
             if (row == maze.size() - 1 || maze.cell(row + 1, col) != '#')
                 face(MenuTheme::MazeShade, {x0, 0, z1}, {x1, 0, z1}, {x1, h, z1}, {x0, h, z1});
             if (row == 0 || maze.cell(row - 1, col) != '#')

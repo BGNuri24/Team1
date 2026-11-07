@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MazePalette.h"
 #include "raylib.h"
 #include <string>
 #include <vector>
@@ -17,24 +18,41 @@ void drawOptions(const char* const* labels, int count, int selected, int startY)
 void drawTextEntry(const std::string& text, int y, int size);
 
 namespace MenuTheme {
-// Solid dark surfaces and bright type keep menus and HUD readable over the animated world.
-inline constexpr Color Ink = {11, 16, 23, 255};
-inline constexpr Color Panel = {19, 27, 37, 255};
-inline constexpr Color Border = {61, 79, 95, 255};
-inline constexpr Color Selected = {33, 44, 57, 255};
-inline constexpr Color Accent = {240, 172, 112, 255};
-inline constexpr Color Paper = {244, 246, 249, 255};
-inline constexpr Color Muted = {178, 192, 205, 255};
-inline constexpr Color Secondary = {110, 222, 181, 255};
-inline constexpr Color Danger = {255, 126, 126, 255};
+// Derive every interface surface from one maze palette. No graphics context or random state is
+// used.
+struct Colors {
+    Color ink, panel, border, selected, accent, paper, muted, secondary, danger, badge, keycap;
+    Color onWorld, mazeTop, mazeSage, mazeOlive, mazeStone, mazeSide, mazeShade, mazeEdge,
+        mazeFloor;
+    Color mapWall, mapVisited, mapUnknown, mapVisible, marker, track;
+};
+Colors colorsFor(const MazePalette& palette);
+void apply(MazeTheme theme);
+MazeTheme current();
 
-// The decorative maze has crisp steel surfaces; playable maze materials remain independent.
-inline constexpr Color MazeTop = {65, 94, 115, 255};
-inline constexpr Color MazeSide = {33, 51, 68, 255};
-inline constexpr Color MazeShade = {21, 33, 45, 255};
-inline constexpr Color MazeEdge = {103, 148, 173, 255};
-inline constexpr Color MazeFloor = {15, 23, 32, 255};
-inline constexpr Color MapVisited = {49, 68, 83, 255};
+// Live read-only references keep existing drawing helpers and their default arguments in sync.
+extern const Color& Ink;
+extern const Color& Panel;
+extern const Color& Border;
+extern const Color& Selected;
+extern const Color& Accent;
+extern const Color& Paper;
+extern const Color& Muted;
+extern const Color& Secondary;
+extern const Color& Danger;
+extern const Color& Badge;
+extern const Color& Keycap;
+extern const Color& OnWorld;
+extern const Color& MazeTop;
+extern const Color& MazeSage;
+extern const Color& MazeOlive;
+extern const Color& MazeStone;
+extern const Color& MazeSide;
+extern const Color& MazeShade;
+extern const Color& MazeEdge;
+extern const Color& MazeFloor;
+extern const Color& MapWall;
+extern const Color& MapVisited;
 }
 
 // Own native-size menu fonts and rebuild their cache when the window scale changes.

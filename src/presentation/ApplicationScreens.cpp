@@ -34,8 +34,9 @@ Screen Application::updatePlayerSelect() {
 // Create a fresh run from the selected parameters and initialize its generation preview before
 // allowing gameplay.
 Screen Application::startGame() {
-    game = std::make_unique<Game>(currentSize, currentSeconds, currentMode, std::nullopt,
-                                  themeSelector.next());
+    const MazeTheme selected = themeSelector.startRun();
+    MenuTheme::apply(selected);
+    game = std::make_unique<Game>(currentSize, currentSeconds, currentMode, std::nullopt, selected);
     renderer.prepareMazeTheme(game->theme());
     generationScreen.begin(*game);
     return Screen::GENERATING;

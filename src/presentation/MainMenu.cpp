@@ -10,9 +10,9 @@ namespace {
 constexpr int COUNT = 3;
 const char* const LABELS[COUNT] = {"PLAY", "CONTROLS", "QUIT"};
 constexpr Screen DESTINATIONS[COUNT] = {Screen::PLAYER_SELECT, Screen::CONTROLS, Screen::QUIT};
-constexpr Color ACCENT = MenuTheme::Accent;
-constexpr Color TEXT = MenuTheme::Paper;
-constexpr Color MUTED = MenuTheme::Muted;
+const Color& ACCENT = MenuTheme::Accent;
+const Color& TEXT = MenuTheme::Paper;
+const Color& MUTED = MenuTheme::Muted;
 
 // Keep the home screen's wide composition centered and usable down to the minimum window size.
 float scale() {
@@ -36,10 +36,6 @@ Rectangle bounds(float x, float y, float width, float height) {
 
 Rectangle optionBounds(int index) {
     return bounds(85, 250 + index * 65.0f, 258, 58);
-}
-
-Rectangle profileBounds() {
-    return bounds(1140, 31, 88, 86);
 }
 
 // Borrow the default font when system typography is unavailable; no downloaded assets are needed.
@@ -106,17 +102,6 @@ void mazeMark(float x, float y, float size, Color color) {
     line(x + u, y - u, x + u, y + u, color, 1.5f);
 }
 
-// Keep one profile shortcut in the upper-right corner.
-void drawProfileShortcut(Font font, bool active) {
-    const float x = 1184;
-    const Color color = active ? TEXT : ACCENT;
-    DrawPoly(point(x, 61), 6, 23 * scale(), 30, MenuTheme::Panel);
-    DrawPolyLinesEx(point(x, 61), 6, 23 * scale(), 30, std::max(1.0f, scale()),
-                    active ? ACCENT : MenuTheme::Border);
-    DrawCircleV(point(x, 56), 4 * scale(), color);
-    DrawCircleSector(point(x, 69), 8 * scale(), 180, 360, 16, color);
-    centeredText(font, "PROFILES", x, 94, 14, 1, active ? TEXT : MUTED);
-}
 }
 
 // Own optional system fonts inside the graphics context, alongside the animated background.
@@ -160,13 +145,6 @@ Screen MainMenu::update() {
         if (clicked) {
             SetMouseCursor(MOUSE_CURSOR_DEFAULT);
             return DESTINATIONS[index];
-        }
-    }
-    if (CheckCollisionPointRec(mouse, profileBounds())) {
-        hovered = true;
-        if (clicked) {
-            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-            return Screen::PLAYER_SELECT;
         }
     }
     SetMouseCursor(hovered ? MOUSE_CURSOR_POINTING_HAND : MOUSE_CURSOR_DEFAULT);
@@ -215,7 +193,6 @@ void MainMenu::draw() const {
         text(menuFont, LABELS[index], 122, y + 10, 26, 2, active ? TEXT : MUTED);
     }
 
-    drawProfileShortcut(detailFont, CheckCollisionPointRec(GetMousePosition(), profileBounds()));
     line(84, 635, 336, 635, MenuTheme::Border);
     text(detailFont, "UP / DOWN   navigate     ENTER   select", 84, 650, 14, 0, MUTED);
 }

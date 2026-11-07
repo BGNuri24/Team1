@@ -68,7 +68,7 @@ void MazeGenerationScreen::draw(const Game& game) const {
         for (int col = 0; col < size; ++col) {
             Color color = Ink;
             if (revealed[row * size + col]) {
-                color = MazeTop;
+                color = MapWall;
                 if (row == 0 && col == 0)
                     color = Accent;
                 if (game.maze().cell(row, col) == 'E' && progress >= 1)

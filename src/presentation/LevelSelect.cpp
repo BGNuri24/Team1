@@ -135,7 +135,7 @@ void LevelSelect::draw() const {
                                     active ? rowAccent : Border);
         if (active)
             DrawRectangle(uiX(430), uiY(y + 16), std::max(2, uiSize(3)), uiSize(32), rowAccent);
-        DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, MazeSide);
+        DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, Badge);
         const std::string badge = gravity ? "G" : level ? std::to_string(level->size) : "+";
         type.centeredIn(badge.c_str(), uiRect(446, y + 12, 40, 40), 22, active ? rowAccent : Paper);
         type.draw(level ? level->name : "Custom", 504, y + 9, 23, active ? Paper : Muted, true,

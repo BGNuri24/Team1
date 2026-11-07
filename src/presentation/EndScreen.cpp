@@ -103,7 +103,7 @@ void EndScreen::draw(const Game& game, const std::string& playerName, float best
         for (int col = 0; col < game.maze().size(); ++col)
             if (game.maze().cell(row, col) == '#')
                 DrawRectangle(originX + col * cell, originY + row * cell, std::max(1, cell - 1),
-                              std::max(1, cell - 1), Fade(MazeTop, 0.3f));
+                              std::max(1, cell - 1), Fade(MapWall, 0.3f));
     resultMark(won, hazard, result, reveal);
     type.centered(TextFormat("%d x %d", game.maze().size(), game.maze().size()), 230, 369, 22,
                   Paper, true, 230);

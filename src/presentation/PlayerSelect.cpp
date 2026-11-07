@@ -126,7 +126,7 @@ void PlayerSelect::draw() const {
                                     active ? Accent : Border);
         if (active)
             DrawRectangle(uiX(430), uiY(y + 16), std::max(2, uiSize(3)), uiSize(32), Accent);
-        DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, MazeSide);
+        DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, Badge);
         const std::string letter = saved ? initials(players.name(index)).substr(0, 1) : "+";
         type.centeredIn(letter.c_str(), uiRect(446, y + 12, 40, 40), 24, active ? Accent : Paper);
         type.draw(saved ? players.name(index).c_str() : "New player", 504, y + 9, 23,

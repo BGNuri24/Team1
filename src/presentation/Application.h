@@ -31,10 +31,11 @@ private:
     Screen updatePaused();
     Screen updateEnd();
     Screen startGame();
+    void prepareTheme();
 
     Players players;
     GameSettings settings;
-    MazeThemeSelector themeSelector;
+    RunThemeSelector themeSelector;
     Renderer renderer;
     MainMenu mainMenu;
     ControlsScreen controls;

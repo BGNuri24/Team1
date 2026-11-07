@@ -9,7 +9,7 @@ void keycap(const MenuTypography& type, const char* label, int key, int x, int y
     using namespace MenuTheme;
     const bool held = key != KEY_NULL && IsKeyDown(key);
     const Rectangle cap = uiRect(x, y, width, height);
-    DrawRectangleRounded(cap, 0.10f, 6, held ? Selected : MazeShade);
+    DrawRectangleRounded(cap, 0.10f, 6, held ? Selected : Keycap);
     DrawRectangleRoundedLinesEx(cap, 0.10f, 6, std::max(1.0f, uiScale()), held ? Accent : Border);
     DrawRectangle(uiX(x + 6), uiY(y + height - 6), uiSize(width - 12), std::max(1, uiSize(2)),
                   held ? Accent : Border);
@@ -57,7 +57,7 @@ void ControlsScreen::draw() const {
 
     drawMenuPanel(uiRect(504, 210, 432, 180));
     type.draw("02 / LOOK AROUND", 530, 232, 14, Accent, true);
-    DrawRectangleRounded(uiRect(540, 272, 58, 80), 0.7f, 14, MazeShade);
+    DrawRectangleRounded(uiRect(540, 272, 58, 80), 0.7f, 14, Keycap);
     DrawRectangleRoundedLinesEx(uiRect(540, 272, 58, 80), 0.7f, 14, 2 * uiScale(), Muted);
     DrawLine(uiX(569), uiY(273), uiX(569), uiY(306), Border);
     DrawRectangleRounded(uiRect(564, 282, 10, 19), 0.5f, 8, Secondary);

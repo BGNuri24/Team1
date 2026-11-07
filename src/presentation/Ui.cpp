@@ -5,6 +5,78 @@
 #include <cstdlib>
 #include <limits>
 
+namespace MenuTheme {
+Colors colorsFor(const MazePalette& palette) {
+    Colors colors{};
+    colors.panel = ColorLerp(palette.floor, palette.wall, .47f);
+    colors.ink = ColorLerp(palette.trim, palette.wall, .35f);
+    colors.border = ColorLerp(palette.wall, palette.paper, .40f);
+    colors.selected = ColorLerp(colors.panel, palette.wall, .08f);
+    colors.accent = ColorLerp(palette.pattern, palette.paper, .86f);
+    colors.paper = palette.paper;
+    colors.muted = ColorLerp(palette.paper, palette.wall, .14f);
+    colors.secondary = ColorLerp(palette.wall, palette.paper, .90f);
+    colors.danger = {255, 221, 210, 255};
+    colors.badge = ColorLerp(colors.panel, palette.trim, .15f);
+    colors.keycap = colors.selected;
+    colors.onWorld = palette.paper;
+    colors.mazeTop = ColorLerp(palette.wall, palette.paper, .55f);
+    colors.mazeSage = ColorLerp(palette.wall, palette.paper, .20f);
+    colors.mazeOlive = ColorLerp(palette.pattern, palette.paper, .35f);
+    colors.mazeStone = ColorLerp(palette.ceiling, palette.wall, .30f);
+    colors.mazeSide = ColorLerp(palette.trim, palette.wall, .30f);
+    colors.mazeShade = palette.trim;
+    colors.mazeEdge = ColorLerp(colors.mazeTop, palette.paper, .28f);
+    colors.mazeFloor = ColorLerp(palette.floor, palette.wall, .22f);
+    colors.mapWall = ColorLerp(palette.wall, palette.paper, .50f);
+    colors.mapVisited = ColorLerp(colors.panel, colors.mapWall, .32f);
+    colors.mapUnknown = ColorLerp(colors.panel, palette.fog, .45f);
+    colors.mapVisible = ColorLerp(colors.mapUnknown, colors.panel, .55f);
+    colors.marker = palette.lamp;
+    colors.track = ColorLerp(colors.panel, colors.border, .38f);
+    return colors;
+}
+
+namespace {
+MazeTheme activeTheme = MazeTheme::Slate;
+Colors activeColors = colorsFor(mazePalette(activeTheme));
+}
+
+constinit const Color& Ink = activeColors.ink;
+constinit const Color& Panel = activeColors.panel;
+constinit const Color& Border = activeColors.border;
+constinit const Color& Selected = activeColors.selected;
+constinit const Color& Accent = activeColors.accent;
+constinit const Color& Paper = activeColors.paper;
+constinit const Color& Muted = activeColors.muted;
+constinit const Color& Secondary = activeColors.secondary;
+constinit const Color& Danger = activeColors.danger;
+constinit const Color& Badge = activeColors.badge;
+constinit const Color& Keycap = activeColors.keycap;
+constinit const Color& OnWorld = activeColors.onWorld;
+constinit const Color& MazeTop = activeColors.mazeTop;
+constinit const Color& MazeSage = activeColors.mazeSage;
+constinit const Color& MazeOlive = activeColors.mazeOlive;
+constinit const Color& MazeStone = activeColors.mazeStone;
+constinit const Color& MazeSide = activeColors.mazeSide;
+constinit const Color& MazeShade = activeColors.mazeShade;
+constinit const Color& MazeEdge = activeColors.mazeEdge;
+constinit const Color& MazeFloor = activeColors.mazeFloor;
+constinit const Color& MapWall = activeColors.mapWall;
+constinit const Color& MapVisited = activeColors.mapVisited;
+
+// Apply between frames. References remain bound to these fields as their values change.
+void apply(MazeTheme theme) {
+    const int index = static_cast<int>(theme);
+    activeTheme = index >= 0 && index < MazeThemeCount ? theme : MazeTheme::Slate;
+    activeColors = colorsFor(mazePalette(activeTheme));
+}
+
+MazeTheme current() {
+    return activeTheme;
+}
+}
+
 namespace {
 // System fonts are optional; the built-in font remains available on other platforms.
 Font nativeMenuFont(int pixels, bool bold) {
