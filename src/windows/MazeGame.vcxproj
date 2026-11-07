@@ -80,6 +80,7 @@
     <ClInclude Include="..\presentation\MazeGenerationScreen.h" />
     <ClInclude Include="..\presentation\MainMenu.h" />
     <ClInclude Include="..\presentation\MenuBackground.h" />
+    <ClInclude Include="..\presentation\MenuJourney.h" />
     <ClInclude Include="..\presentation\LevelSelect.h" />
     <ClInclude Include="..\presentation\Input.h" />
     <ClInclude Include="..\presentation\EndScreen.h" />
@@ -101,6 +102,7 @@
     <ClInclude Include="..\data\RandomSeed.h" />
     <ClInclude Include="..\presentation\HudRenderer.h" />
     <ClInclude Include="..\presentation\MazeShaders.h" />
+    <ClInclude Include="..\presentation\MazeLightingShader.h" />
     <ClInclude Include="..\data\MazeData.h" />
   </ItemGroup>
   <ItemGroup>
@@ -112,6 +114,15 @@
   <ItemGroup>
     <ResourceCompile Include="MazeGame.rc" />
     <None Include="T1_.ico" />
+    <None Include="..\..\assets\menu-corridor.png" />
+    <None Include="..\..\assets\menu-players.png" />
+    <None Include="..\..\assets\menu-levels.png" />
+    <None Include="..\..\assets\menu-preparing.png" />
+    <None Include="..\..\assets\wall-damask.png" />
+    <None Include="..\..\assets\carpet-persian-field.png" />
+    <None Include="..\..\assets\carpet-persian-border.png" />
+    <None Include="..\..\assets\hotel-wall-panels.png" />
+    <None Include="..\..\assets\hotel-marble.png" />
     <None Include="T1_.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

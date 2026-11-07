@@ -24,18 +24,21 @@ private:
     void drawObstacles(const Game& game, bool glow);
     void drawExit(const Game& game, bool glow);
     void updateLights(const Game& game);
+    void material(float roughness, float metalness, float relief, float clearCoat = 0,
+                  bool wallSurface = false);
 
     Camera3D cam;
     Textures tex;
     HudRenderer hud;
     Bloom bloom;
-    MazeTheme activeTheme = MazeTheme::Slate;
-    MazePalette palette = mazePalette(MazeTheme::Slate);
+    MazeTheme activeTheme = ActiveMazeTheme;
+    MazePalette palette = mazePalette(ActiveMazeTheme);
     bool texturesReady = false;
     Shader atmosphere{};
     int eyeLocation = -1;
     int directionLocation = -1;
     int emissionLocation = -1;
+    int materialLocation = -1, hdrLocation = -1, wallSurfaceLocation = -1;
     int lightPositionsLocation = -1;
     int lightDirectionsLocation = -1;
     int lightExtentsLocation = -1;

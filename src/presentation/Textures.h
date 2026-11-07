@@ -7,7 +7,8 @@
 class Textures {
 public:
     Textures() = default;
-    Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D decals) noexcept;
+    Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D decals,
+             Texture2D marble) noexcept;
     ~Textures();
     Textures(const Textures&) = delete;
     Textures& operator=(const Textures&) = delete;
@@ -18,12 +19,13 @@ public:
     const Texture2D& floor() const { return floorTexture; }
     const Texture2D& ceiling() const { return ceilingTexture; }
     const Texture2D& decals() const { return decalTexture; }
+    const Texture2D& marble() const { return marbleTexture; }
     bool valid() const;
 
 private:
     void reset() noexcept;
-    Texture2D wallTexture{}, floorTexture{}, ceilingTexture{}, decalTexture{};
+    Texture2D wallTexture{}, floorTexture{}, ceilingTexture{}, decalTexture{}, marbleTexture{};
 };
 
 // Generate and upload the maze materials after InitWindow has created a valid graphics context.
-Textures createTextures(const MazePalette& palette = mazePalette(MazeTheme::Slate));
+Textures createTextures(const MazePalette& palette = mazePalette(ActiveMazeTheme));

@@ -14,13 +14,16 @@ void runResourceTests() {
     if (!original.valid())
         throw std::runtime_error("resource fixture must create every material");
     const unsigned int wall = original.wall().id;
+    const unsigned int marble = original.marble().id;
     Textures moved(std::move(original));
-    if (original.valid() || original.wall().id || !moved.valid() || moved.wall().id != wall)
+    if (original.valid() || original.wall().id || original.marble().id || !moved.valid() ||
+        moved.wall().id != wall || moved.marble().id != marble)
         throw std::runtime_error(
             "moving textures must transfer their handles and empty the source");
     Textures replacement = createTextures(mazePalette(MazeTheme::Sage));
     replacement = std::move(moved);
-    if (moved.wall().id || !replacement.valid() || replacement.wall().id != wall)
+    if (moved.wall().id || moved.marble().id || !replacement.valid() ||
+        replacement.wall().id != wall || replacement.marble().id != marble)
         throw std::runtime_error(
             "move assignment must replace owned resources without duplicating them");
     replacement = std::move(replacement);

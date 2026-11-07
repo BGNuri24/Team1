@@ -172,6 +172,118 @@ void checkBloom() {
     BeginDrawing();
     EndDrawing();
 }
+
+// Float targets must preserve distinct lamp intensities above one until display conversion. A
+// byte target silently clips both inputs to the same white and fails this observable comparison.
+void checkHdrComposition() {
+    constexpr const char* source = R"glsl(#version 330
+uniform vec3 radiance;
+out vec4 finalColor;
+void main() { finalColor = vec4(radiance, 1.0); }
+)glsl";
+    Shader lamp = LoadShaderFromMemory(nullptr, source);
+    require(lamp.id && lamp.id != rlGetShaderIdDefault(), "HDR fixture shader did not compile");
+    const int location = GetShaderLocation(lamp, "radiance");
+    const int width = GetScreenWidth(), height = GetScreenHeight();
+    RenderTexture2D canvas = LoadRenderTexture(width, height);
+    {
+        Bloom bloom;
+        Color results[3]{};
+        const float levels[] = {1.0f, 3.0f, 1.0f};
+        const Color interfaceColor{35, 62, 90, 255};
+        for (int frame = 0; frame < 3; ++frame) {
+            const Vector3 radiance{levels[frame], levels[frame] * .70f, levels[frame] * .40f};
+            BeginDrawing();
+            BeginTextureMode(canvas);
+            const unsigned int destination = rlGetActiveFramebuffer();
+            require(bloom.begin(true), "HDR targets or compositor are unavailable");
+            ClearBackground(BLACK);
+            BeginShaderMode(lamp);
+            SetShaderValue(lamp, location, &radiance, SHADER_UNIFORM_VEC3);
+            DrawRectangle(width / 2 - 12, height / 2 - 12, 24, 24, WHITE);
+            EndShaderMode();
+            bloom.end();
+            require(rlGetActiveFramebuffer() == destination,
+                    "HDR composition lost its destination");
+            DrawRectangle(10, 10, 24, 24, interfaceColor);
+            EndTextureMode();
+            EndDrawing();
+            Image image = LoadImageFromTexture(canvas.texture);
+            ImageFlipVertical(&image);
+            results[frame] = GetImageColor(image, width / 2, height / 2);
+            const Color ui = GetImageColor(image, 12, 12);
+            const Color dark = GetImageColor(image, width - 2, height - 2);
+            UnloadImage(image);
+            require(ui.r == interfaceColor.r && ui.g == interfaceColor.g &&
+                        ui.b == interfaceColor.b,
+                    "HDR tone mapping must leave UI colors unchanged");
+            require(dark.r == 0 && dark.g == 0 && dark.b == 0,
+                    "HDR glow must not wash out unlit corners");
+        }
+        require(results[1].r > results[0].r + 5 && results[1].r < 255,
+                "HDR must preserve brightness differences above one without clipping to white");
+        require(results[1].r > results[1].b + 3,
+                "bright warm fixtures must retain a warm highlight shoulder");
+        require(std::abs(results[0].r - results[2].r) <= 1,
+                "HDR composition must not accumulate bloom between frames");
+    }
+    UnloadRenderTexture(canvas);
+    UnloadShader(lamp);
+}
+
+// A polished dielectric must have a stronger aligned source reflection than a rough surface,
+// and the highlight must respond to a moving camera instead of being painted into the material.
+void checkMaterialHighlights() {
+    Shader shader = LoadShaderFromMemory(MazeShaders::Vertex, MazeShaders::Fragment);
+    require(shader.id && shader.id != rlGetShaderIdDefault(), "material shader did not compile");
+    auto set = [&](const char* name, const void* value, int type) {
+        const int location = GetShaderLocation(shader, name);
+        require(location >= 0, "material fixture uniform is unavailable");
+        SetShaderValue(shader, location, value, type);
+    };
+    const int size = 15, count = 1;
+    const float cell = MazeGeometry::CellSize, height = MazeGeometry::CeilingHeight;
+    const Vector3 white{1, 1, 1}, black{}, down{0, -1, 0};
+    const Vector3 point{9, 0, 9};
+    const Vector4 lamp{9, .8f, 7, 6}, facing{0, -1, 0, 1.5f}, extent{.08f, 0, 0, .08f};
+    set("fixtureColor", &white, SHADER_UNIFORM_VEC3);
+    set("bounceColor", &white, SHADER_UNIFORM_VEC3);
+    set("fogColor", &black, SHADER_UNIFORM_VEC3);
+    set("viewDirection", &down, SHADER_UNIFORM_VEC3);
+    set("mazeSize", &size, SHADER_UNIFORM_INT);
+    set("cellSize", &cell, SHADER_UNIFORM_FLOAT);
+    set("roomHeight", &height, SHADER_UNIFORM_FLOAT);
+    set("lightCount", &count, SHADER_UNIFORM_INT);
+    set("lightPositions", &lamp, SHADER_UNIFORM_VEC4);
+    set("lightDirections", &facing, SHADER_UNIFORM_VEC4);
+    set("lightExtents", &extent, SHADER_UNIFORM_VEC4);
+    RenderTexture2D canvas = LoadRenderTexture(96, 96);
+    auto sample = [&](float roughness, float across) {
+        const Vector4 material{roughness, 0, 0, 0};
+        const Camera3D camera{{9 + across, .8f, 11}, point, {0, 1, 0}, 35, CAMERA_PERSPECTIVE};
+        set("eyePosition", &camera.position, SHADER_UNIFORM_VEC3);
+        set("materialParams", &material, SHADER_UNIFORM_VEC4);
+        BeginDrawing();
+        BeginTextureMode(canvas);
+        ClearBackground(BLACK);
+        BeginMode3D(camera);
+        BeginShaderMode(shader);
+        DrawPlane(point, {.8f, .8f}, WHITE);
+        EndShaderMode();
+        EndMode3D();
+        EndTextureMode();
+        EndDrawing();
+        Image image = LoadImageFromTexture(canvas.texture);
+        const Color pixel = GetImageColor(image, 48, 48);
+        UnloadImage(image);
+        return pixel;
+    };
+    const Color polished = sample(.24f, 0), rough = sample(.95f, 0), moved = sample(.24f, 1.3f);
+    UnloadRenderTexture(canvas);
+    UnloadShader(shader);
+    require(polished.r > rough.r + 12, "polished stone must have a distinct fixture highlight");
+    require(polished.r > moved.r + 12, "material highlights must move with the viewing direction");
+}
 }
 
 // Called inside the UI suite's hidden graphics context; gameplay and saved data are untouched.
@@ -179,4 +291,6 @@ void runLightingTests() {
     checkWallShadows();
     checkBatchTransforms();
     checkBloom();
+    checkHdrComposition();
+    checkMaterialHighlights();
 }

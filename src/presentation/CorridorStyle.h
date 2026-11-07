@@ -3,21 +3,20 @@
 
 // Architectural materials share one silhouette in every run; their pigments come from the maze.
 struct CorridorStyle {
-    Color plaster, panel, trim, trimLight, trimShade;
-    Color carpet, thread, ceiling, ceilingInset;
+    Color plaster, panel, trim, trimLight, trimShade, brass;
+    Color ceiling, ceilingInset;
 };
 
 inline CorridorStyle corridorStyle(const MazePalette& palette) {
     CorridorStyle style{};
-    style.plaster = ColorLerp(palette.ceiling, palette.paper, .48f);
-    style.panel = ColorLerp(palette.wall, palette.pattern, .20f);
-    style.trim = ColorLerp(palette.accent, palette.lamp, .40f);
-    style.trimLight = ColorLerp(style.trim, palette.paper, .42f);
-    style.trimShade = ColorLerp(style.trim, palette.trim, .48f);
-    style.carpet = ColorLerp(palette.wall, palette.floor, .28f);
-    style.thread = ColorLerp(style.trim, palette.paper, .18f);
-    style.ceiling = ColorLerp(style.plaster, palette.ceiling, .20f);
-    style.ceilingInset = ColorLerp(style.ceiling, palette.wall, .14f);
+    style.plaster = ColorLerp(palette.wall, palette.paper, .10f);
+    style.panel = ColorLerp(palette.floor, palette.trim, .32f);
+    style.trim = ColorLerp(palette.accent, palette.trim, .30f);
+    style.trimLight = palette.accent;
+    style.trimShade = ColorLerp(style.trim, palette.trim, .55f);
+    style.brass = palette.accent;
+    style.ceiling = ColorLerp(palette.ceiling, palette.paper, .16f);
+    style.ceilingInset = ColorLerp(style.ceiling, palette.trim, .13f);
     return style;
 }
 

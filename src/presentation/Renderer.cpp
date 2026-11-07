@@ -15,6 +15,11 @@ static_assert(MAX_SIZE <= MazeShaders::MaxMazeRows);
 static_assert(MazeShaders::MaxMazeRows <= 64);
 constexpr float VIEW_DISTANCE = 15.0f;
 
+// Darker wall pigments let the red/cream carpet lead, while separate gilt trim and lamps retain
+// their highlights. Balance the honey stone toward warm charcoal rather than bright orange.
+constexpr Color WallMaterialTint{180, 180, 180, 255};
+constexpr Color MarbleMaterialTint{126, 139, 157, 255};
+
 struct Corner {
     float x, y, z, u, v;
 };
@@ -95,6 +100,11 @@ void wallStrip(const Wall& wall, float left, float right, float bottom, float to
          {x1, top, z1, right, 1 - top}, {x0, top, z0, left, 1 - top}, color);
 }
 
+Vector3 wallPoint(const Wall& wall, float across, float height, float depth) {
+    const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
+    return world({wall.lx + dx * across - dz * depth, height, wall.lz + dz * across + dx * depth});
+}
+
 // Raised architectural pieces stay shallow enough to leave the playable corridor clear.
 void wallBlock(const Wall& wall, float left, float right, float bottom, float top, float depth,
                Color color) {
@@ -105,12 +115,40 @@ void wallBlock(const Wall& wall, float left, float right, float bottom, float to
     detailCube(center, dx ? right - left : depth, top - bottom, dx ? depth : right - left, color);
 }
 
-void wallFrame(const Wall& wall, float left, float right, float bottom, float top,
-               const CorridorStyle& style) {
-    wallBlock(wall, left, left + .009f, bottom, top, .012f, style.trim);
-    wallBlock(wall, right - .009f, right, bottom, top, .012f, style.trim);
-    wallBlock(wall, left, right, bottom, bottom + .012f, .012f, style.trimShade);
-    wallBlock(wall, left, right, top - .012f, top, .012f, style.trimLight);
+// Map marble in world proportions across the front and returns of a shallow pilaster. Its caps
+// are covered by the gilded molding pass; texture density stays stable on narrow column faces.
+void marbleBlock(const Wall& wall, float left, float right, float bottom, float top, float depth) {
+    const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
+    auto point = [&](float across, float height, float offset, float u) {
+        return Corner{wall.lx + dx * across - dz * offset, height,
+                      wall.lz + dz * across + dx * offset, u * MazeGeometry::CellSize / .8f,
+                      1 - height * MazeGeometry::CeilingHeight / .8f};
+    };
+    quad(point(left, bottom, depth, left), point(right, bottom, depth, right),
+         point(right, top, depth, right), point(left, top, depth, left), MarbleMaterialTint);
+    quad(point(left, bottom, 0, left - depth), point(left, bottom, depth, left),
+         point(left, top, depth, left), point(left, top, 0, left - depth), MarbleMaterialTint);
+    quad(point(right, bottom, depth, right), point(right, bottom, 0, right + depth),
+         point(right, top, 0, right + depth), point(right, top, depth, right), MarbleMaterialTint);
+}
+
+// Curved gilt arms support the two upright glass cups seen in the loading-screen corridor.
+void sconceArm(const Wall& wall, int side, Color metal) {
+    auto point = [&](float t) {
+        const float u = 1 - t;
+        const float across =
+            .5f + side * (3 * u * u * t * .09f + 3 * u * t * t * .10f + t * t * t * .06f);
+        const float height =
+            u * u * u * .727f + 3 * u * u * t * .665f + 3 * u * t * t * .720f + t * t * t * .790f;
+        return wallPoint(wall, across, height + (side > 0 ? .018f * t : 0),
+                         .028f + .072f * std::sin(t * PI * .5f));
+    };
+    Vector3 previous = point(0);
+    for (int segment = 1; segment <= 6; ++segment) {
+        const Vector3 next = point(segment / 6.0f);
+        DrawCylinderEx(previous, next, .007f, .007f, 6, metal);
+        previous = next;
+    }
 }
 
 // Visit open cells within the renderer's bounded neighborhood and distance cutoff before issuing
@@ -260,6 +298,9 @@ Renderer::Renderer() {
         eyeLocation = GetShaderLocation(atmosphere, "eyePosition");
         directionLocation = GetShaderLocation(atmosphere, "viewDirection");
         emissionLocation = GetShaderLocation(atmosphere, "emission");
+        materialLocation = GetShaderLocation(atmosphere, "materialParams");
+        wallSurfaceLocation = GetShaderLocation(atmosphere, "wallSurface");
+        hdrLocation = GetShaderLocation(atmosphere, "hdrOutput");
         lightPositionsLocation = GetShaderLocation(atmosphere, "lightPositions");
         lightDirectionsLocation = GetShaderLocation(atmosphere, "lightDirections");
         lightExtentsLocation = GetShaderLocation(atmosphere, "lightExtents");
@@ -309,11 +350,12 @@ void Renderer::draw(const Game& game) {
                   cam.position.z + direction.z};
     cam.up = game.cameraUp();
 
-    const bool glow = atmosphere.id && bloom.begin();
+    const bool glow = atmosphere.id && bloom.begin(true);
     ClearBackground(palette.fog);
     BeginMode3D(cam);
     if (atmosphere.id) {
         float emission = 0;
+        const float hdr = glow ? 1.0f : 0.0f;
         const float fixture[] = {palette.lamp.r / 255.0f, palette.lamp.g / 255.0f,
                                  palette.lamp.b / 255.0f};
         const float fog[] = {palette.fog.r / 255.0f, palette.fog.g / 255.0f,
@@ -329,12 +371,15 @@ void Renderer::draw(const Game& game) {
         SetShaderValue(atmosphere, eyeLocation, &cam.position, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, directionLocation, &direction, SHADER_UNIFORM_VEC3);
         SetShaderValue(atmosphere, emissionLocation, &emission, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(atmosphere, hdrLocation, &hdr, SHADER_UNIFORM_FLOAT);
         updateLights(game);
         BeginShaderMode(atmosphere);
     }
     drawMaze(game);
     drawDetails(game);
+    material(.38f, .08f, .0002f, .20f);
     drawExit(game, false);
+    material(.33f, .55f, 0, .10f);
     drawObstacles(game, false);
     // Submit queued surface geometry before enabling emission so it retains the lighting uniforms
     // used when it was queued.
@@ -353,30 +398,46 @@ void Renderer::draw(const Game& game) {
         bloom.end();
 
     const int width = GetScreenWidth(), height = GetScreenHeight();
-    DrawRectangleGradientV(0, 0, width, uiSize(160), {3, 10, 15, 115}, {3, 10, 15, 0});
-    DrawRectangleGradientV(0, height - uiSize(130), width, uiSize(130), {3, 10, 15, 0},
-                           {3, 10, 15, 160});
+    DrawRectangleGradientV(0, 0, width, uiSize(160), Fade(palette.fog, .45f), Fade(palette.fog, 0));
+    DrawRectangleGradientV(0, height - uiSize(130), width, uiSize(130), Fade(palette.fog, 0),
+                           Fade(palette.fog, .63f));
     hud.draw(game, palette);
+}
+
+// Flush a material's vertices before changing the uniforms used by the next geometry group.
+void Renderer::material(float roughness, float metalness, float relief, float clearCoat,
+                        bool wallSurface) {
+    if (!atmosphere.id)
+        return;
+    rlDrawRenderBatchActive();
+    const float values[] = {roughness, metalness, relief, clearCoat};
+    const int wall = wallSurface ? 1 : 0;
+    SetShaderValue(atmosphere, materialLocation, values, SHADER_UNIFORM_VEC4);
+    SetShaderValue(atmosphere, wallSurfaceLocation, &wall, SHADER_UNIFORM_INT);
 }
 
 // Batch nearby floor, ceiling and exposed wall surfaces, followed by shallow wall trim, with
 // textures and culling state managed explicitly.
 void Renderer::drawMaze(const Game& game) {
     rlDisableBackfaceCulling();
+    material(.84f, 0, .0012f, 0, true);
     rlSetTexture(tex.wall().id);
     rlBegin(RL_QUADS);
     exposedWalls(game, [](const Wall& wall) {
         unsigned char brightness = wall.side < 2 ? 255 : 235;
-        wallStrip(wall, 0, 1, 0, 1, {brightness, brightness, brightness, 255}, 0);
+        wallStrip(wall, 0, 1, 0, 1,
+                  ColorTint(WallMaterialTint, {brightness, brightness, brightness, 255}), 0);
     });
     rlEnd();
 
+    material(.96f, 0, .0008f);
     rlSetTexture(tex.floor().id);
     rlBegin(RL_QUADS);
     nearbyCells(game, [&](int row, int col) { carpetField(game, row, col); });
     exposedWalls(game, [&](const Wall& wall) { carpetBorder(game, wall); });
     rlEnd();
 
+    material(.72f, 0, .00025f, .02f);
     rlSetTexture(tex.ceiling().id);
     rlBegin(RL_QUADS);
     nearbyCells(game,
@@ -446,11 +507,12 @@ void Renderer::updateLights(const Game& game) {
         if (!wallFixture(wall))
             return;
         const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
-        Vector3 center = world({(wall.lx + wall.rx) * .5f, .795f, (wall.lz + wall.rz) * .5f});
-        center.x -= dz * .12f;
-        center.z += dx * .12f;
-        add(center, {-dz, 0, dx}, {0, .05f * MazeGeometry::CeilingHeight, 0},
-            .045f * MazeGeometry::CellSize, 2.8f, 1.5f);
+        Vector3 center = world({(wall.lx + wall.rx) * .5f, .820f, (wall.lz + wall.rz) * .5f});
+        center.x -= dz * .23f;
+        center.z += dx * .23f;
+        add(center, {-dz, 0, dx},
+            {dx * .07f * MazeGeometry::CellSize, 0, dz * .07f * MazeGeometry::CellSize},
+            .035f * MazeGeometry::CellSize, 2.8f, 1.5f);
     });
     SetShaderValue(atmosphere, lightCountLocation, &count, SHADER_UNIFORM_INT);
     if (count) {
@@ -466,6 +528,7 @@ void Renderer::updateLights(const Game& game) {
 void Renderer::drawDetails(const Game& game) {
     const CorridorStyle style = corridorStyle(palette);
     rlDisableBackfaceCulling();
+    material(.68f, 0, 0);
     rlSetTexture(tex.decals().id);
     rlBegin(RL_QUADS);
     exposedWalls(game, [&](const Wall& wall) {
@@ -479,48 +542,75 @@ void Renderer::drawDetails(const Game& game) {
              {x1, .57f, z1, .999f, .001f}, {x0, .57f, z0, .001f, .001f}, WHITE);
     });
     rlEnd();
+    material(.27f, 0, .00015f, .40f);
+    rlSetTexture(tex.marble().id);
+    rlBegin(RL_QUADS);
+    exposedWalls(game, [&](const Wall& wall) {
+        if (!detailVisible(cam, world({(wall.lx + wall.rx) * .5f, .5f, (wall.lz + wall.rz) * .5f})))
+            return;
+        for (float left : {0.0f, .925f}) {
+            marbleBlock(wall, left, left + .075f, .060f, .925f, .033f);
+            marbleBlock(wall, left, left + .075f, .065f, .280f, .045f);
+        }
+    });
+    rlEnd();
+    material(.28f, .78f, 0, .05f);
     rlSetTexture(rlGetTextureIdDefault());
     exposedWalls(game, [&](const Wall& wall) {
         if (!detailVisible(cam, world({(wall.lx + wall.rx) * .5f, .5f, (wall.lz + wall.rz) * .5f})))
             return;
         wallBlock(wall, 0, 1, .008f, .046f, .018f, style.trimShade);
-        wallBlock(wall, 0, 1, .046f, .067f, .025f, style.plaster);
+        wallBlock(wall, 0, 1, .046f, .067f, .025f, style.trim);
         wallBlock(wall, 0, 1, .067f, .080f, .029f, style.trimLight);
         wallBlock(wall, 0, 1, .300f, .312f, .009f, style.trimShade);
         wallBlock(wall, 0, 1, .312f, .325f, .015f, style.trimLight);
-        wallBlock(wall, 0, 1, .325f, .336f, .011f, style.trim);
+        wallBlock(wall, 0, 1, .325f, .330f, .011f, style.brass);
         wallBlock(wall, 0, 1, .916f, .940f, .014f, style.trimShade);
-        wallBlock(wall, 0, 1, .940f, .963f, .026f, style.plaster);
+        wallBlock(wall, 0, 1, .940f, .963f, .026f, style.trim);
         wallBlock(wall, 0, 1, .963f, .985f, .038f, style.trimLight);
-        wallBlock(wall, 0, 1, .985f, 1.0f, .042f, style.plaster);
-        wallFrame(wall, .023f, .977f, .348f, .924f, style);
-        wallFrame(wall, .043f, .480f, .076f, .262f, style);
-        wallFrame(wall, .520f, .957f, .076f, .262f, style);
-        // Slim stiles retain the long upper fabric surface shown in the reference.
-        wallBlock(wall, 0, .007f, .336f, .940f, .008f, style.trimShade);
-        wallBlock(wall, .993f, 1, .336f, .940f, .008f, style.trimLight);
+        wallBlock(wall, 0, 1, .985f, 1.0f, .042f, style.trim);
+        // Keep the authored beading and carved scroll corners visible on the wall panels.
+        // Stepped bases and capitals give the marble columns the loading screen's silhouette.
+        for (float left : {0.0f, .925f}) {
+            const float right = left + .075f;
+            wallBlock(wall, left, right, .022f, .040f, .056f, style.trimShade);
+            wallBlock(wall, left, right, .040f, .060f, .060f, style.trim);
+            wallBlock(wall, left, right, .060f, .069f, .052f, style.trimLight);
+            wallBlock(wall, left, right, .275f, .290f, .054f, style.trimLight);
+            wallBlock(wall, left, right, .290f, .310f, .064f, style.trim);
+            wallBlock(wall, left, right, .310f, .322f, .055f, style.trimLight);
+            wallBlock(wall, left, right, .915f, .930f, .046f, style.trimLight);
+            wallBlock(wall, left, right, .930f, .954f, .058f, style.trim);
+            wallBlock(wall, left, right, .954f, .963f, .065f, style.trimLight);
+            wallBlock(wall, left + .006f, left + .010f, .322f, .915f, .036f, style.trim);
+            wallBlock(wall, right - .010f, right - .006f, .322f, .915f, .036f, style.trim);
+        }
         if (wallFixture(wall)) {
-            wallBlock(wall, .474f, .526f, .689f, .867f, .018f, style.trimShade);
-            wallBlock(wall, .464f, .536f, .692f, .716f, .040f, style.trim);
-            wallBlock(wall, .447f, .553f, .727f, .748f, .069f, style.trimLight);
-            wallBlock(wall, .438f, .562f, .846f, .864f, .069f, style.trim);
-            wallBlock(wall, .446f, .454f, .748f, .846f, .068f, style.trimShade);
-            wallBlock(wall, .546f, .554f, .748f, .846f, .068f, style.trimShade);
+            wallBlock(wall, .484f, .516f, .670f, .840f, .018f, style.trimShade);
+            wallBlock(wall, .489f, .511f, .680f, .830f, .024f, style.brass);
+            DrawSphereEx(wallPoint(wall, .5f, .695f, .037f), .018f, 4, 8, style.brass);
+            for (int side : {-1, 1}) {
+                sconceArm(wall, side, style.brass);
+                const float x = .5f + side * .06f, y = .790f + (side > 0 ? .018f : 0);
+                DrawCylinderEx(wallPoint(wall, x, y - .006f, .100f),
+                               wallPoint(wall, x, y + .004f, .100f), .023f * MazeGeometry::CellSize,
+                               .019f * MazeGeometry::CellSize, 12, style.brass);
+            }
         }
     });
     nearbyCells(game, [&](int row, int col) {
         const float x = (float)col, z = (float)row;
         if (!detailVisible(cam, world({x, .96f, z})))
             return;
-        detailCube({x - .487f, .987f, z}, .026f, .026f, 1.0f, style.plaster);
-        detailCube({x, .987f, z - .487f}, 1.0f, .026f, .026f, style.plaster);
+        detailCube({x - .487f, .987f, z}, .026f, .026f, 1.0f, style.trim);
+        detailCube({x, .987f, z - .487f}, 1.0f, .026f, .026f, style.trim);
         if (ceilingFixture(game, row, col)) {
             DrawCylinder(world({x, .989f, z}), .19f * MazeGeometry::CellSize,
                          .19f * MazeGeometry::CellSize, .012f, 20, style.ceiling);
             DrawCylinder(world({x, .977f, z}), .14f * MazeGeometry::CellSize,
                          .14f * MazeGeometry::CellSize, .014f, 20, style.trimShade);
             DrawCylinder(world({x, .966f, z}), .145f * MazeGeometry::CellSize,
-                         .145f * MazeGeometry::CellSize, .012f, 20, style.trimLight);
+                         .145f * MazeGeometry::CellSize, .012f, 20, style.brass);
         }
     });
     rlSetTexture(rlGetTextureIdDefault());
@@ -528,7 +618,7 @@ void Renderer::drawDetails(const Game& game) {
     rlEnableBackfaceCulling();
 }
 
-// Frosted lantern shades and shallow opal-glass bowls emit through the existing soft-light pass.
+// Twin flared opal-glass sconce cups match the loading-screen artwork's warm practical lighting.
 // The bowls remain above the ceiling-walking camera and do not change collision or gameplay.
 void Renderer::drawLights(const Game& game) {
     exposedWalls(game, [&](const Wall& wall) {
@@ -536,8 +626,17 @@ void Renderer::drawLights(const Game& game) {
             return;
         if (!detailVisible(cam, world({(wall.lx + wall.rx) * .5f, .8f, (wall.lz + wall.rz) * .5f})))
             return;
-        wallBlock(wall, .454f, .546f, .748f, .846f, .065f,
-                  ColorLerp(palette.lamp, palette.paper, .14f));
+        const Color glass = ColorLerp(palette.lamp, palette.paper, .14f);
+        for (int side : {-1, 1}) {
+            const float x = .5f + side * .06f, y = .790f + (side > 0 ? .018f : 0);
+            DrawCylinderEx(wallPoint(wall, x, y + .004f, .100f),
+                           wallPoint(wall, x, y + .035f, .100f), .017f * MazeGeometry::CellSize,
+                           .034f * MazeGeometry::CellSize, 12, glass);
+            DrawCylinderEx(wallPoint(wall, x, y + .035f, .100f),
+                           wallPoint(wall, x, y + .068f, .100f), .034f * MazeGeometry::CellSize,
+                           .043f * MazeGeometry::CellSize, 12,
+                           ColorLerp(glass, palette.paper, .18f));
+        }
     });
     nearbyCells(game, [&](int row, int col) {
         if (!ceilingFixture(game, row, col))

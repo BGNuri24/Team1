@@ -47,6 +47,15 @@
   <ItemGroup>
     <ResourceCompile Include="MazeGame.rc" />
     <None Include="T1_.ico" />
+    <None Include="..\..\assets\menu-corridor.png" />
+    <None Include="..\..\assets\menu-players.png" />
+    <None Include="..\..\assets\menu-levels.png" />
+    <None Include="..\..\assets\menu-preparing.png" />
+    <None Include="..\..\assets\wall-damask.png" />
+    <None Include="..\..\assets\carpet-persian-field.png" />
+    <None Include="..\..\assets\carpet-persian-border.png" />
+    <None Include="..\..\assets\hotel-wall-panels.png" />
+    <None Include="..\..\assets\hotel-marble.png" />
     <None Include="T1_.png" />
   </ItemGroup>
   <ItemGroup>
@@ -64,6 +73,7 @@
     <ClInclude Include="..\presentation\MazeGenerationScreen.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\MainMenu.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\MenuBackground.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\presentation\MenuJourney.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\LevelSelect.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\Input.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\EndScreen.h"><Filter>src\presentation</Filter></ClInclude>
@@ -79,6 +89,7 @@
     <ClInclude Include="..\data\PlayerStore.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\GameDatabase.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\presentation\MazeShaders.h"><Filter>src\presentation</Filter></ClInclude>
+    <ClInclude Include="..\presentation\MazeLightingShader.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\presentation\HudRenderer.h"><Filter>src\presentation</Filter></ClInclude>
     <ClInclude Include="..\data\RandomSeed.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\Sqlite.h"><Filter>src\data</Filter></ClInclude>

@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 // Derive surface grain from pixel coordinates so texture generation does not consume the maze
@@ -89,32 +91,60 @@ void floralMotif(Image& image, float x, float y, float size, Color thread, Color
     ImageDrawCircle(&image, (int)x, (int)y, std::max(1, (int)(2 * size)), thread);
 }
 
-// Broad, quiet fabric above a molded dado and inset lower panels follows the wall reference.
-// All pigments still come from the active palette; only the surface design changes here.
+Image materialArtwork(const char* filename) {
+    std::string path = std::string(GetApplicationDirectory()) + "assets/" + filename;
+    if (!FileExists(path.c_str()))
+        path = std::string("assets/") + filename;
+    return FileExists(path.c_str()) ? LoadImage(path.c_str()) : Image{};
+}
+
+// The diffuse wall bay follows the loading-screen artwork: dark damask, gilt scroll corners,
+// marble wainscoting and layered moldings. Real sconces provide the room's light separately.
 Texture2D wallMaterial(const MazePalette& palette) {
+    Image artwork = materialArtwork("hotel-wall-panels.png");
+    if (artwork.data) {
+        ImageResize(&artwork, 1024, 1024);
+        return upload(artwork);
+    }
     const CorridorStyle style = corridorStyle(palette);
     Image image = GenImageColor(1024, 1024, style.panel);
-    // Subtle vertical fibers give the upper material depth without repeating floral wallpaper.
+    ImageDrawRectangle(&image, 0, 700, 1024, 324, style.trim);
     for (int x = 0; x < 1024; ++x) {
-        const float fiber = .012f + .012f * std::sin(x * .39f) + .010f * std::sin(x * .071f);
-        ImageDrawRectangle(&image, x, 0, 1, 700,
-                           ColorLerp(style.panel, style.trim, std::max(0.0f, fiber)));
+        const float fiber = .018f + .006f * std::sin(x * .39f) + .008f * std::sin(x * .071f);
+        ImageDrawRectangle(&image, x, 0, 1, 700, ColorLerp(style.panel, palette.paper, fiber));
+        const float wood = .03f + .025f * std::sin(x * .19f + std::sin(x * .037f));
+        ImageDrawRectangle(&image, x, 700, 1, 324, ColorLerp(style.trim, style.trimLight, wood));
     }
-    ImageDrawRectangle(&image, 0, 700, 1024, 324, style.plaster);
     for (int left : {44, 532}) {
         ImageDrawRectangle(&image, left, 756, 448, 190,
-                           ColorLerp(style.plaster, style.trimShade, .10f));
+                           ColorLerp(style.trim, style.trimShade, .24f));
         frame(image, left, 756, 448, 190, style.trimShade, style.trimLight);
         frame(image, left + 7, 763, 434, 176, style.trimLight, style.trimShade);
-        ImageDrawRectangle(&image, left + 13, 769, 422, 164, style.plaster);
+        ImageDrawRectangle(&image, left + 13, 769, 422, 164, style.trim);
     }
-    frame(image, 23, 78, 978, 590, style.trimLight, style.trimShade);
-    frame(image, 29, 84, 966, 578, style.trim, style.trimLight);
+    frame(image, 62, 78, 900, 590, style.trimLight, style.trimShade);
+    frame(image, 68, 84, 888, 578, style.brass, style.trimLight);
+    for (int left : {0, 990}) {
+        ImageDrawRectangle(&image, left, 0, 34, 1024, style.trim);
+        ImageDrawRectangle(&image, left + 5, 0, 2, 1024, style.trimLight);
+    }
     for (int y : {12, 28, 45, 675, 683, 699, 961, 984, 1009}) {
         ImageDrawRectangle(&image, 0, y, 1024, 4, style.trimLight);
         ImageDrawRectangle(&image, 0, y + 4, 1024, 3, style.trimShade);
     }
     grain(image, 1);
+    return upload(image);
+}
+
+// A separate material lets the pilaster fronts and returns use stone rather than stretched wall
+// wallpaper. It shares the same ownership and filtering as the other room materials.
+Texture2D marbleMaterial(const MazePalette& palette) {
+    Image image = materialArtwork("hotel-marble.png");
+    if (!image.data) {
+        image = GenImageColor(512, 512, corridorStyle(palette).plaster);
+        grain(image, 3);
+    }
+    ImageResize(&image, 512, 512);
     return upload(image);
 }
 
@@ -206,74 +236,96 @@ void medallion(Image& image, int x, int y, int radius, Color field, Color dye, C
     }
 }
 
-// The center field and continuous border are separate atlas regions. One large medallion per
-// corridor cell stays legible at a grazing angle; the border is mapped along physical walls.
-Texture2D floorMaterial(const MazePalette& palette) {
+// Fit the full-color textile artwork into its own atlas region without applying the maze palette.
+void carpetArtwork(Image& atlas, const char* filename, int left, int width) {
+    Image source = materialArtwork(filename);
+    if (!source.data)
+        return;
+    ImageResize(&source, width, CarpetLayout::FieldSize);
+    ImageDraw(&atlas, source, {0, 0, (float)width, (float)CarpetLayout::FieldSize},
+              {(float)left, 0, (float)width, (float)CarpetLayout::FieldSize}, WHITE);
+    UnloadImage(source);
+}
+
+// Cache the same cream, crimson and near-black carpet for every run. Center and border remain
+// separate atlas regions so borders can follow walls and miter around corridor corners.
+Texture2D floorMaterial() {
     using namespace CarpetLayout;
-    const CorridorStyle style = corridorStyle(palette);
-    const Color field = ColorLerp(palette.floor, palette.pattern, .20f);
-    const Color dye = ColorLerp(style.carpet, style.panel, .50f);
-    const Color yarn = ColorLerp(style.thread, palette.paper, .14f);
-    const Color dark = ColorLerp(field, palette.floor, .55f);
-    Image image = GenImageColor(AtlasWidth, FieldSize, field);
-    medallion(image, 512, 512, 332, field, dye, yarn, dark);
-    for (int x : {238, 786})
-        for (int y : {176, 848}) {
-            diamond(image, x, y, 65, 65, dye);
-            diamond(image, x, y, 54, 54, yarn);
-            diamond(image, x, y, 44, 44, dark);
-            star(image, x, y, 34, 34, yarn);
-            diamond(image, x, y, 13, 13, dye);
+    static const std::vector<Color> pixels = [] {
+        constexpr Color field{214, 199, 164, 255}, dye{165, 38, 29, 255};
+        constexpr Color yarn{225, 207, 165, 255}, dark{33, 24, 21, 255};
+        // Procedural motifs keep the material usable if the packaged artwork is unavailable.
+        Image image = GenImageColor(AtlasWidth, FieldSize, field);
+        medallion(image, 512, 512, 332, field, dye, yarn, dark);
+        for (int x : {238, 786})
+            for (int y : {176, 848}) {
+                diamond(image, x, y, 65, 65, dye);
+                diamond(image, x, y, 54, 54, yarn);
+                diamond(image, x, y, 44, 44, dark);
+                star(image, x, y, 34, 34, yarn);
+                diamond(image, x, y, 13, 13, dye);
+            }
+        for (int y : {0, 1024}) {
+            star(image, 512, y, 73, 73, yarn);
+            star(image, 512, y, 52, 52, dye);
         }
-    for (int y : {0, 1024}) {
-        star(image, 512, y, 73, 73, yarn);
-        star(image, 512, y, 52, 52, dye);
-    }
-    for (int x : {190, 834})
-        for (int y = 320; y <= 704; y += 96) {
-            star(image, x, y, 31, 31, dye);
-            star(image, x, y, 20, 20, yarn);
-        }
-    for (int x : {350, 674})
-        for (int y : {88, 936}) {
-            wovenHook(image, x, y, 32, yarn, dye);
-            diamond(image, x, y, 10, 10, dye);
-        }
-    for (int y : {256, 768})
         for (int x : {190, 834})
-            wovenHook(image, x, y, 23, ColorLerp(yarn, dye, .28f), dye);
-    for (int y : {115, 909}) {
-        diamond(image, 512, y, 37, 37, dye);
-        diamond(image, 512, y, 27, 27, yarn);
-        star(image, 512, y, 18, 18, field);
-    }
-    // A broad repeating star band sits between narrow guard stripes and a stepped meander.
-    // The dark guard gap prevents border colors bleeding into the field's mipmapped repeat edge.
-    const int border = BorderOffset;
-    ImageDrawRectangle(&image, border, 0, BorderSize, FieldSize, dye);
-    for (int offset : {0, 19, 40, 178, 192, 232, 247})
-        ImageDrawRectangle(&image, border + offset, 0, offset == 192 ? 40 : 6, FieldSize,
-                           offset == 192 ? yarn : dark);
-    for (int y = 64; y < FieldSize; y += 128) {
-        star(image, border + 109, y, 65, 50, yarn);
-        star(image, border + 109, y, 46, 35, dark);
-        diamond(image, border + 109, y, 24, 19, dye);
-        for (int end : {-1, 1})
-            diamond(image, border + 109 + end * 52, y + 56, 16, 12, yarn);
-    }
-    for (int y = -32; y < FieldSize; y += 64) {
-        ImageDrawRectangle(&image, border + 202, y, 20, 8, dye);
-        ImageDrawRectangle(&image, border + 202, y, 7, 36, dye);
-        ImageDrawRectangle(&image, border + 202, y + 29, 20, 7, dye);
-        ImageDrawRectangle(&image, border + 215, y + 29, 7, 35, dye);
-    }
-    // Low-contrast weave preserves large filled motifs and lets mipmaps remove subpixel threads.
-    for (int y = 0; y < image.height; ++y)
-        for (int x = 0; x < BorderOffset + BorderSize; ++x) {
-            const Color color = GetImageColor(image, x, y);
-            ImageDrawPixel(&image, x, y, ColorLerp(color, (x + y) % 2 ? dark : field, .035f));
+            for (int y = 320; y <= 704; y += 96) {
+                star(image, x, y, 31, 31, dye);
+                star(image, x, y, 20, 20, yarn);
+            }
+        for (int x : {350, 674})
+            for (int y : {88, 936}) {
+                wovenHook(image, x, y, 32, yarn, dye);
+                diamond(image, x, y, 10, 10, dye);
+            }
+        for (int y : {256, 768})
+            for (int x : {190, 834})
+                wovenHook(image, x, y, 23, ColorLerp(yarn, dye, .28f), dye);
+        for (int y : {115, 909}) {
+            diamond(image, 512, y, 37, 37, dye);
+            diamond(image, 512, y, 27, 27, yarn);
+            star(image, 512, y, 18, 18, field);
         }
-    grain(image, 2);
+        // A broad repeating star band sits between narrow guard stripes and a stepped meander.
+        // The dark guard gap prevents border colors bleeding into the field's mipmapped repeat
+        // edge.
+        const int border = BorderOffset;
+        ImageDrawRectangle(&image, border, 0, BorderSize, FieldSize, dye);
+        for (int offset : {0, 19, 40, 178, 192, 232, 247})
+            ImageDrawRectangle(&image, border + offset, 0, offset == 192 ? 40 : 6, FieldSize,
+                               offset == 192 ? yarn : dark);
+        for (int y = 64; y < FieldSize; y += 128) {
+            star(image, border + 109, y, 65, 50, yarn);
+            star(image, border + 109, y, 46, 35, dark);
+            diamond(image, border + 109, y, 24, 19, dye);
+            for (int end : {-1, 1})
+                diamond(image, border + 109 + end * 52, y + 56, 16, 12, yarn);
+        }
+        for (int y = -32; y < FieldSize; y += 64) {
+            ImageDrawRectangle(&image, border + 202, y, 20, 8, dye);
+            ImageDrawRectangle(&image, border + 202, y, 7, 36, dye);
+            ImageDrawRectangle(&image, border + 202, y + 29, 20, 7, dye);
+            ImageDrawRectangle(&image, border + 215, y + 29, 7, 35, dye);
+        }
+        carpetArtwork(image, "carpet-persian-field.png", 0, FieldSize);
+        carpetArtwork(image, "carpet-persian-border.png", BorderOffset, BorderSize);
+        // Low-contrast weave preserves large filled motifs and lets mipmaps remove subpixel
+        // threads.
+        for (int y = 0; y < image.height; ++y)
+            for (int x = 0; x < BorderOffset + BorderSize; ++x) {
+                const Color color = GetImageColor(image, x, y);
+                ImageDrawPixel(&image, x, y, ColorLerp(color, (x + y) % 2 ? dark : field, .035f));
+            }
+        grain(image, 2);
+        Color* colors = LoadImageColors(image);
+        std::vector<Color> result(colors, colors + AtlasWidth * FieldSize);
+        UnloadImageColors(colors);
+        UnloadImage(image);
+        return result;
+    }();
+    Image image = GenImageColor(AtlasWidth, FieldSize, BLANK);
+    std::copy(pixels.begin(), pixels.end(), static_cast<Color*>(image.data));
     return upload(image);
 }
 
@@ -363,16 +415,17 @@ Texture2D decalMaterial(const MazePalette& palette) {
 }
 }
 
-// Create the wall, floor, ceiling and decal textures and return their GPU handles as one resource
-// group.
+// Create the room materials and return their GPU handles as one resource group.
 Textures createTextures(const MazePalette& palette) {
-    return {wallMaterial(palette), floorMaterial(palette), ceilingMaterial(palette),
-            decalMaterial(palette)};
+    return {wallMaterial(palette), floorMaterial(), ceilingMaterial(palette),
+            decalMaterial(palette), marbleMaterial(palette)};
 }
 
 // Adopt handles returned by material creation without duplicating their ownership.
-Textures::Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D decals) noexcept
-    : wallTexture(wall), floorTexture(floor), ceilingTexture(ceiling), decalTexture(decals) {
+Textures::Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D decals,
+                   Texture2D marble) noexcept
+    : wallTexture(wall), floorTexture(floor), ceilingTexture(ceiling), decalTexture(decals),
+      marbleTexture(marble) {
 }
 
 // Release resources automatically at the end of their owner's lifetime.
@@ -385,7 +438,8 @@ Textures::Textures(Textures&& other) noexcept
     : wallTexture(std::exchange(other.wallTexture, {})),
       floorTexture(std::exchange(other.floorTexture, {})),
       ceilingTexture(std::exchange(other.ceilingTexture, {})),
-      decalTexture(std::exchange(other.decalTexture, {})) {
+      decalTexture(std::exchange(other.decalTexture, {})),
+      marbleTexture(std::exchange(other.marbleTexture, {})) {
 }
 
 // Release the destination's old resources before adopting a replacement, including partial material
@@ -397,18 +451,21 @@ Textures& Textures::operator=(Textures&& other) noexcept {
         floorTexture = std::exchange(other.floorTexture, {});
         ceilingTexture = std::exchange(other.ceilingTexture, {});
         decalTexture = std::exchange(other.decalTexture, {});
+        marbleTexture = std::exchange(other.marbleTexture, {});
     }
     return *this;
 }
 
 // Require every material before publishing a new palette to the renderer.
 bool Textures::valid() const {
-    return wallTexture.id && floorTexture.id && ceilingTexture.id && decalTexture.id;
+    return wallTexture.id && floorTexture.id && ceilingTexture.id && decalTexture.id &&
+           marbleTexture.id;
 }
 
 // Clear handles after unloading so destruction and move assignment can share the same cleanup path.
 void Textures::reset() noexcept {
-    for (Texture2D* texture : {&wallTexture, &floorTexture, &ceilingTexture, &decalTexture}) {
+    for (Texture2D* texture :
+         {&wallTexture, &floorTexture, &ceilingTexture, &decalTexture, &marbleTexture}) {
         if (texture->id)
             UnloadTexture(*texture);
         *texture = {};
