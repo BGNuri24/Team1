@@ -14,6 +14,10 @@ Maze generation uses an explicitly seeded `std::mt19937`, independent of theme s
 Game reproduced(size, duration, original.mode(), original.seed(), original.theme());
 ```
 
-Without a supplied theme, the seed also determines the default palette. The application owns a `MazeThemeSelector` for non-repeating random themes across new runs. Supplying the same selector seed reproduces its entire sequence. No process-wide `srand` setup is needed.
+Without a supplied theme, the seed also determines the default palette. The application owns a `RunThemeSelector`, which wraps `MazeThemeSelector` for non-repeating random themes across new runs. Supplying the same selector seed reproduces its entire sequence. No process-wide `srand` setup is needed.
+
+`RunThemeSelector` reserves the next theme for menu previews and consumes it when a run starts. Menu navigation preserves that choice; restarting can consume the next theme directly. The current run keeps its palette through generation, gameplay, pause and results. Returning to the menus previews the next run's theme.
+
+`MenuTheme::colorsFor` derives all interface materials from a maze palette. `MenuTheme::apply` updates the live color references used by drawing helpers and their default arguments. Main-menu and background color aliases must remain references so existing screens update without reloading fonts or recreating their geometry. The HUD uses the same palette factory for its active run.
 
 The root `.clang-format` defines four-space indentation, a 100-column limit and consistent braces and spacing. Format edited C++ files before reviewing their diff. Existing explanatory comments remain above the code they describe.
