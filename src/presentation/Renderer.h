@@ -22,7 +22,7 @@ private:
     void drawDetails(const Game& game);
     void drawObstacles(const Game& game, bool glow);
     void drawExit(const Game& game, bool glow);
-    void updateCeilingLights(const Game& game);
+    void updateLights(const Game& game);
 
     Camera3D cam;
     Textures tex;
@@ -34,8 +34,15 @@ private:
     int eyeLocation = -1;
     int directionLocation = -1;
     int emissionLocation = -1;
-    int ceilingLightsLocation = -1;
-    int ceilingLightCountLocation = -1;
+    int lightPositionsLocation = -1;
+    int lightDirectionsLocation = -1;
+    int lightExtentsLocation = -1;
+    int lightCountLocation = -1;
+    int wallRowsLocation = -1;
+    int mazeSizeLocation = -1;
+    int cellSizeLocation = -1;
+    int lightMazeSize = 0;
+    std::uint32_t lightMazeSeed = 0;
     int fixtureColorLocation = -1;
     int fogColorLocation = -1;
 };
