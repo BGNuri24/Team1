@@ -34,4 +34,11 @@
   <Target Name="PrepareTestDirectory" BeforeTargets="PrepareForBuild" Condition="'$(NativeTest)'=='true'">
     <MakeDir Directories="$(LocalDebuggerWorkingDirectory)" />
   </Target>
+  <Target Name="CopyGameArtwork" AfterTargets="Build" Condition="'$(ProjectName)'=='MazeGame' or '$(ProjectName)'=='MazeGameTests'">
+    <ItemGroup>
+      <GameArtwork Include="$(ProjectRoot)assets\*.png" />
+    </ItemGroup>
+    <MakeDir Directories="$(OutDir)assets" />
+    <Copy SourceFiles="@(GameArtwork)" DestinationFolder="$(OutDir)assets" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
