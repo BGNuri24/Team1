@@ -284,7 +284,112 @@ void checkMaterialHighlights() {
     require(polished.r > rough.r + 12, "polished stone must have a distinct fixture highlight");
     require(polished.r > moved.r + 12, "material highlights must move with the viewing direction");
 }
+
+// A red object must appear in polished floor reflections, while rough flooring stays diffuse.
+// Exercise the first frame, target resizing, repeated frames and UI after the actual MRT pass.
+void checkSurfaceEffects() {
+    constexpr const char* source = R"glsl(#version 330
+in vec3 worldPosition;
+in vec4 fragColor;
+uniform vec3 eyePosition;
+uniform float roughness;
+layout(location = 0) out vec4 finalColor;
+layout(location = 1) out vec4 surfaceData;
+void main() {
+    vec3 n = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
+    if (dot(n, eyePosition - worldPosition) < 0.0) n = -n;
+    n /= abs(n.x) + abs(n.y) + abs(n.z);
+    vec2 e = n.xy;
+    if (n.z < 0.0) e = (1.0 - abs(e.yx)) * sign(e + 0.000001);
+    surfaceData = vec4(e * 0.5 + 0.5, roughness, 0.20);
+    finalColor = vec4(fragColor.rgb * 0.4, 1.0);
 }
+)glsl";
+    Shader fixture = LoadShaderFromMemory(MazeShaders::Vertex, source);
+    require(fixture.id && fixture.id != rlGetShaderIdDefault(),
+            "surface reflection fixture did not compile");
+    const int eyeLocation = GetShaderLocation(fixture, "eyePosition");
+    const int roughnessLocation = GetShaderLocation(fixture, "roughness");
+    const int originalWidth = GetScreenWidth(), originalHeight = GetScreenHeight();
+    const Camera3D camera{{0, 1.2f, 3}, {0, .6f, 0}, {0, 1, 0}, 55, CAMERA_PERSPECTIVE};
+    const Color interfaceColor{35, 62, 90, 255};
+    {
+        Bloom bloom;
+        for (int width : {640, 800, 640}) {
+            SetWindowSize(width, 480);
+            BeginDrawing();
+            EndDrawing();
+            RenderTexture2D canvas = LoadRenderTexture(width, 480);
+            auto render = [&](float roughness, bool effects) {
+                BeginDrawing();
+                BeginTextureMode(canvas);
+                const unsigned int destination = rlGetActiveFramebuffer();
+                require(bloom.begin(true), "surface targets are unavailable");
+                ClearBackground(BLACK);
+                BeginMode3D(camera);
+                if (effects)
+                    bloom.setView(rlGetMatrixModelview(), rlGetMatrixProjection());
+                BeginShaderMode(fixture);
+                SetShaderValue(fixture, eyeLocation, &camera.position, SHADER_UNIFORM_VEC3);
+                SetShaderValue(fixture, roughnessLocation, &roughness, SHADER_UNIFORM_FLOAT);
+                DrawPlane({0, 0, 0}, {6, 6}, {150, 150, 150, 255});
+                DrawCube({0, .5f, 0}, 1, 1, 1, {230, 25, 15, 255});
+                EndShaderMode();
+                EndMode3D();
+                bloom.end();
+                require(rlGetActiveFramebuffer() == destination,
+                        "surface effects must restore the caller's framebuffer");
+                DrawRectangle(10, 10, 24, 24, interfaceColor);
+                DrawText("12:34", width / 2 - 45, 24, 32, WHITE);
+                EndTextureMode();
+                EndDrawing();
+                Image result = LoadImageFromTexture(canvas.texture);
+                ImageFlipVertical(&result);
+                const Color ui = GetImageColor(result, 12, 12);
+                require(ui.r == interfaceColor.r && ui.g == interfaceColor.g &&
+                            ui.b == interfaceColor.b,
+                        "surface lighting must leave the UI's colors and placement intact");
+                int textPixels = 0;
+                for (int y = 24; y < 56; ++y)
+                    for (int x = width / 2 - 45; x < width / 2 + 65; ++x) {
+                        const Color pixel = GetImageColor(result, x, y);
+                        textPixels += pixel.r == 255 && pixel.g == 255 && pixel.b == 255;
+                    }
+                require(textPixels > 100,
+                        "the timer must remain visible after surface composition");
+                return result;
+            };
+            Image baseline = render(.20f, false);
+            Image polished = render(.20f, true);
+            Image rough = render(.96f, true);
+            Image repeated = render(.20f, true);
+            const Vector2 mirrored = GetWorldToScreen({0, -.5f, 0}, camera);
+            const Color reflection = GetImageColor(polished, (int)mirrored.x, (int)mirrored.y);
+            const Color diffuse = GetImageColor(rough, (int)mirrored.x, (int)mirrored.y);
+            const Color stable = GetImageColor(repeated, (int)mirrored.x, (int)mirrored.y);
+            require(reflection.r > diffuse.r + 5 && reflection.r > reflection.g + 5,
+                    "polished surfaces must reflect actual colored scene geometry");
+            require(std::abs(reflection.r - stable.r) <= 1,
+                    "repeated surface passes must not accumulate stale reflections");
+            int darkened = 0;
+            for (int y = 100; y < 440; ++y)
+                for (int x = width / 2 - 150; x < width / 2 + 150; ++x) {
+                    const Color before = GetImageColor(baseline, x, y);
+                    const Color after = GetImageColor(rough, x, y);
+                    darkened += before.r > after.r + 3 && before.g > after.g + 3;
+                }
+            require(darkened > 30, "nearby geometry must produce visible contact occlusion");
+            for (Image image : {baseline, polished, rough, repeated})
+                UnloadImage(image);
+            UnloadRenderTexture(canvas);
+        }
+    }
+    UnloadShader(fixture);
+    SetWindowSize(originalWidth, originalHeight);
+    BeginDrawing();
+    EndDrawing();
+}
+} // namespace
 
 // Called inside the UI suite's hidden graphics context; gameplay and saved data are untouched.
 void runLightingTests() {
@@ -293,4 +398,5 @@ void runLightingTests() {
     checkBloom();
     checkHdrComposition();
     checkMaterialHighlights();
+    checkSurfaceEffects();
 }
