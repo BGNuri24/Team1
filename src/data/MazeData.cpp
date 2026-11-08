@@ -1,45 +1,111 @@
 #include "MazeData.h"
 #include <algorithm>
+#include <limits>
 #include <utility>
 
-// Initialize a wall-filled square grid, carve connected passages, and record the generation steps
-// ending at the exit.
-MazeData::MazeData(int size, std::uint32_t seed) : n(size), grid(size* size, '#') {
-    std::mt19937 random(seed);
-    // Carve the connected passage network from the top-left starting cell.
-    carve(0, 0, random);
-
-    // For even dimensions, connect the carved grid to the bottom-right corner,
-    // which lies outside the generator's two-cell stepping pattern.
-    if (n % 2 == 0) {
-        grid[(n - 2) * n + n - 1] = '.';
-        steps.push_back({ n - 2, n - 1 });
+namespace {
+// Prefer decision points and turns along the actual exit route. Penalize excessive detours so
+// making navigation harder does not just consume the existing level timers with longer walks.
+int routeDifficulty(const MazeData& maze) {
+    const int n = maze.size();
+    const int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
+    std::vector<int> previous(n * n, -1), pending{0};
+    previous[0] = 0;
+    for (std::size_t head = 0; head < pending.size(); ++head) {
+        const int cell = pending[head];
+        for (int direction = 0; direction < 4; ++direction) {
+            const int row = cell / n + dr[direction], col = cell % n + dc[direction];
+            if (maze.cell(row, col) == '#')
+                continue;
+            const int next = row * n + col;
+            if (previous[next] < 0) {
+                previous[next] = cell;
+                pending.push_back(next);
+            }
+        }
     }
 
-    // Mark the bottom-right cell as the exit and include it in the generation animation.
-    grid[(n - 1) * n + n - 1] = 'E';
-    steps.push_back({ n - 1, n - 1 });
+    int length = 0, turns = 0, choices = 0, lastDirection = 0;
+    for (int cell = n * n - 1; cell != 0; cell = previous[cell]) {
+        const int direction = cell - previous[cell];
+        turns += lastDirection != 0 && direction != lastDirection;
+        lastDirection = direction;
+        ++length;
+        int neighbors = 0;
+        for (int side = 0; side < 4; ++side)
+            neighbors += maze.cell(cell / n + dr[side], cell % n + dc[side]) != '#';
+        choices += neighbors > 2;
+    }
+    if (length > 6 * (n - 1))
+        return -length;
+    return choices * 12 + turns + length / 4;
+}
+} // namespace
+
+// Try a small, fixed number of seeded layouts and retain the more challenging exit route together
+// with its own carving animation. All candidates keep the same dimensions, spawn and exit.
+MazeData::MazeData(int size, std::uint32_t seed) : n(size), grid(size * size, '#') {
+    std::mt19937 random(seed);
+    int bestScore = std::numeric_limits<int>::min();
+    std::vector<char> bestGrid;
+    std::vector<MazeStep> bestSteps;
+    for (int attempt = 0; attempt < 6; ++attempt) {
+        std::fill(grid.begin(), grid.end(), '#');
+        steps.clear();
+        carve(random);
+
+        // For even dimensions, join the two-cell carving pattern to the bottom-right exit.
+        if (n % 2 == 0) {
+            grid[(n - 2) * n + n - 1] = '.';
+            steps.push_back({n - 2, n - 1});
+        }
+        grid[n * n - 1] = 'E';
+        steps.push_back({n - 1, n - 1});
+
+        const int score = routeDifficulty(*this);
+        if (score > bestScore) {
+            bestScore = score;
+            bestGrid = grid;
+            bestSteps = steps;
+        }
+    }
+    grid = std::move(bestGrid);
+    steps = std::move(bestSteps);
 }
 
-// Use randomized depth-first traversal in two-cell increments, opening each connecting wall and
-// recording newly carved cells.
-void MazeData::carve(int r, int c, std::mt19937& random) {
-    grid[r * n + c] = '.';
-    steps.push_back({ r, c });
-    int dr[4] = { -2, 2, 0, 0 };
-    int dc[4] = { 0, 0, -2, 2 };
-    int o[4] = { 0, 1, 2, 3 };
-    std::shuffle(std::begin(o), std::end(o), random);
-
-    for (int k = 0; k < 4; k++) {
-        int nr = r + dr[o[k]], nc = c + dc[o[k]];
-        if (nr >= 0 && nr < n && nc >= 0 && nc < n && grid[nr * n + nc] == '#') {
-            int wallR = r + dr[o[k]] / 2;
-            int wallC = c + dc[o[k]] / 2;
-            grid[wallR * n + wallC] = '.';
-            steps.push_back({ wallR, wallC });
-            carve(nr, nc, random);
+// Grow mostly from the newest passage, occasionally returning to an older frontier to form more
+// branches. Only connect unvisited cells, keeping every passage reachable without creating loops.
+void MazeData::carve(std::mt19937& random) {
+    const int dr[] = {-2, 2, 0, 0}, dc[] = {0, 0, -2, 2};
+    std::vector<int> active{0};
+    grid[0] = '.';
+    steps.push_back({0, 0});
+    while (!active.empty()) {
+        const int newest = (int)active.size() - 1;
+        const int index = std::uniform_int_distribution<int>(0, 15)(random) == 0
+                              ? std::uniform_int_distribution<int>(0, newest)(random)
+                              : newest;
+        const int row = active[index] / n, col = active[index] % n;
+        int order[] = {0, 1, 2, 3};
+        std::shuffle(std::begin(order), std::end(order), random);
+        bool carved = false;
+        for (int direction : order) {
+            const int nextRow = row + dr[direction], nextCol = col + dc[direction];
+            if (nextRow < 0 || nextRow >= n || nextCol < 0 || nextCol >= n ||
+                grid[nextRow * n + nextCol] != '#')
+                continue;
+            const int wallRow = row + dr[direction] / 2;
+            const int wallCol = col + dc[direction] / 2;
+            grid[wallRow * n + wallCol] = '.';
+            steps.push_back({wallRow, wallCol});
+            grid[nextRow * n + nextCol] = '.';
+            steps.push_back({nextRow, nextCol});
+            active.push_back(nextRow * n + nextCol);
+            carved = true;
+            break;
         }
+        if (!carved)
+            active.erase(active.begin() + index);
     }
 }
 

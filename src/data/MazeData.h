@@ -17,7 +17,7 @@ public:
     const std::vector<MazeStep>& generationSteps() const;
 
 private:
-    void carve(int r, int c, std::mt19937& random);
+    void carve(std::mt19937& random);
     int n;
     std::vector<char> grid;
     std::vector<MazeStep> steps;

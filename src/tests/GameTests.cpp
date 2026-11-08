@@ -1,4 +1,5 @@
 #include "../logic/Game.h"
+#include "../logic/Difficulty.h"
 #include "../logic/MazeThemeSelection.h"
 #include <algorithm>
 #include <array>
@@ -237,6 +238,23 @@ static void testReachableExit(int size, GameMode mode = GameMode::Normal, unsign
     require(game.timeTaken() == elapsed, "winning must freeze the timer");
 }
 
+// Exercise real movement and gravity transfers with the unchanged preset timers. Stronger
+// branching must still leave enough time for a player who follows the correct route.
+static void testPresetCompletion() {
+    for (unsigned seed = 0; seed < 32; ++seed) {
+        for (int level = 0; level <= DIFFICULTY_COUNT; ++level) {
+            const bool zeroGravity = level == DIFFICULTY_COUNT;
+            const Difficulty& difficulty =
+                zeroGravity ? getZeroGravityLevel() : getDifficulty(level);
+            Game game(difficulty.size, difficulty.seconds,
+                      zeroGravity ? GameMode::ZeroGravity : GameMode::Normal, seed);
+            followPath(game, pathTo(game, difficulty.size * difficulty.size - 1));
+            require(game.won() && game.timeLeft() > 0,
+                    "preset mazes must remain completable within their original timers");
+        }
+    }
+}
+
 // Deliberately cross each barrier type on its blocked surface and verify immediate failure,
 // a frozen result, and no victory points or timer-expiry explanation.
 static void testObstacleFailure() {
@@ -358,6 +376,7 @@ int main() {
         testZeroGravityWallCollision();
         testWideCorridorClearance();
         testNoWallTunneling();
+        testPresetCompletion();
         for (int size : {10, 11, 15, 25, 40, 50}) {
             testReachableExit(size);
             for (unsigned seed : {0u, 1u, 1234u, 9917u})

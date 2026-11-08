@@ -30,6 +30,7 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\CoreTests.cpp" />
+    <ClCompile Include="..\tests\MazeGenerationTests.cpp" />
     <ClCompile Include="..\tests\UiTests.cpp" />
     <ClCompile Include="..\tests\ResourceTests.cpp" />
     <ClCompile Include="..\tests\LightingTests.cpp" />

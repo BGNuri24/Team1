@@ -16,6 +16,7 @@
 #include <vector>
 void runDatabaseTests();
 void runUiTests();
+void runMazeGenerationTests();
 
 // Fail the current test by throwing its explanatory message when an expected invariant is false.
 static void require(bool condition, const std::string& message) {
@@ -337,6 +338,7 @@ int main() {
         testMaze(10);
         testMaze(11);
         testMaze(50);
+        runMazeGenerationTests();
         testPlayerStore();
         testProfilesAndValidation();
         testSeparateModeRecords();
