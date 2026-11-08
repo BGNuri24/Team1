@@ -346,87 +346,17 @@ Texture2D ceilingMaterial(const MazePalette& palette) {
     return upload(image);
 }
 
-// Center a sign label inside its atlas slot while keeping its glyphs inside the available width.
-void signText(Image& image, const char* text, int center, int y, int width, int fontSize,
-              Color color) {
-    while (fontSize > 10 && MeasureText(text, fontSize) > width)
-        --fontSize;
-    ImageDrawText(&image, text, center - MeasureText(text, fontSize) / 2, y, fontSize, color);
-}
-
-// Draw one padded sign frame inside the atlas at the supplied vertical slot offset.
-void signBacking(Image& image, int top, Color accent, const MazePalette& palette) {
-    ImageDrawRectangle(&image, 8, top + 8, 496, 112, Fade(palette.trim, .96f));
-    frame(image, 8, top + 8, 496, 112, ColorLerp(palette.trim, palette.paper, .28f), palette.trim);
-    ImageDrawRectangle(&image, 17, top + 17, 3, 94, accent);
-    ImageDrawRectangle(&image, 30, top + 106, 452, 1, ColorLerp(palette.trim, palette.accent, .2f));
-    for (int x : {16, 495})
-        for (int y : {16, 111}) {
-            ImageDrawCircle(&image, x, top + y, 2, palette.accent);
-        }
-}
-
-// Build the four-slot decorative sign atlas, upload it with clamped UV wrapping, and release the
-// source image.
-Texture2D decalMaterial(const MazePalette& palette) {
-    const Color AMBER = ColorLerp(palette.accent, palette.paper, .38f);
-    const Color PAPER = palette.paper;
-    const Color MUTED = ColorLerp(palette.accent, palette.paper, .6f);
-    constexpr Color MINT = {113, 216, 182, 255};
-    Image image = GenImageColor(512, 512, BLANK);
-
-    signBacking(image, 0, AMBER, palette);
-    // Construct the first sign's labyrinth emblem from line segments without encoding a direction
-    // through the maze.
-    ImageDrawRectangle(&image, 40, 37, 52, 3, AMBER);
-    ImageDrawRectangle(&image, 40, 37, 3, 52, AMBER);
-    ImageDrawRectangle(&image, 89, 37, 3, 52, AMBER);
-    ImageDrawRectangle(&image, 56, 86, 36, 3, AMBER);
-    ImageDrawRectangle(&image, 56, 54, 3, 35, AMBER);
-    ImageDrawRectangle(&image, 56, 54, 20, 3, AMBER);
-    signText(image, "LABYRINTH", 297, 31, 370, 36, PAPER);
-    signText(image, "EXPLORER FACILITY", 297, 78, 370, 16, MUTED);
-
-    signBacking(image, 128, MINT, palette);
-    signText(image, "07", 69, 169, 70, 40, MINT);
-    ImageDrawRectangle(&image, 116, 155, 1, 73, {54, 83, 87, 255});
-    signText(image, "SECTOR", 303, 159, 334, 34, PAPER);
-    signText(image, "SURVEY ZONE", 303, 206, 334, 16, MUTED);
-
-    signBacking(image, 256, AMBER, palette);
-    for (int i = 0; i < 4; ++i) {
-        // Add repeated diagonal maintenance markings to the sign; their orientation has no
-        // navigation meaning.
-        int y = 286 + i * 16;
-        ImageDrawLine(&image, 34, y + 9, 49, y - 6, AMBER);
-        ImageDrawLine(&image, 35, y + 9, 50, y - 6, AMBER);
-        ImageDrawLine(&image, 463, y + 9, 478, y - 6, AMBER);
-        ImageDrawLine(&image, 464, y + 9, 479, y - 6, AMBER);
-    }
-    signText(image, "MAINTENANCE", 256, 287, 390, 32, PAPER);
-    signText(image, "KEEP ACCESS CLEAR", 256, 334, 390, 16, AMBER);
-
-    signBacking(image, 384, MINT, palette);
-    signText(image, "FIND YOUR OWN WAY", 262, 414, 444, 30, PAPER);
-    signText(image, "EVERY TURN TELLS A STORY", 262, 462, 444, 16, MUTED);
-    Texture2D texture = upload(image);
-    SetTextureWrap(texture, TEXTURE_WRAP_CLAMP);
-    return texture;
-}
-}
+} // namespace
 
 // Create the room materials and return their GPU handles as one resource group.
 Textures createTextures(const MazePalette& palette) {
     return {wallMaterial(palette), floorMaterial(), ceilingMaterial(palette),
-            decalMaterial(palette), marbleMaterial(palette)};
+            marbleMaterial(palette)};
 }
 
 // Adopt handles returned by material creation without duplicating their ownership.
-Textures::Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D decals,
-                   Texture2D marble) noexcept
-    : wallTexture(wall), floorTexture(floor), ceilingTexture(ceiling), decalTexture(decals),
-      marbleTexture(marble) {
-}
+Textures::Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D marble) noexcept
+    : wallTexture(wall), floorTexture(floor), ceilingTexture(ceiling), marbleTexture(marble) {}
 
 // Release resources automatically at the end of their owner's lifetime.
 Textures::~Textures() {
@@ -438,9 +368,7 @@ Textures::Textures(Textures&& other) noexcept
     : wallTexture(std::exchange(other.wallTexture, {})),
       floorTexture(std::exchange(other.floorTexture, {})),
       ceilingTexture(std::exchange(other.ceilingTexture, {})),
-      decalTexture(std::exchange(other.decalTexture, {})),
-      marbleTexture(std::exchange(other.marbleTexture, {})) {
-}
+      marbleTexture(std::exchange(other.marbleTexture, {})) {}
 
 // Release the destination's old resources before adopting a replacement, including partial material
 // sets.
@@ -450,7 +378,6 @@ Textures& Textures::operator=(Textures&& other) noexcept {
         wallTexture = std::exchange(other.wallTexture, {});
         floorTexture = std::exchange(other.floorTexture, {});
         ceilingTexture = std::exchange(other.ceilingTexture, {});
-        decalTexture = std::exchange(other.decalTexture, {});
         marbleTexture = std::exchange(other.marbleTexture, {});
     }
     return *this;
@@ -458,14 +385,12 @@ Textures& Textures::operator=(Textures&& other) noexcept {
 
 // Require every material before publishing a new palette to the renderer.
 bool Textures::valid() const {
-    return wallTexture.id && floorTexture.id && ceilingTexture.id && decalTexture.id &&
-           marbleTexture.id;
+    return wallTexture.id && floorTexture.id && ceilingTexture.id && marbleTexture.id;
 }
 
 // Clear handles after unloading so destruction and move assignment can share the same cleanup path.
 void Textures::reset() noexcept {
-    for (Texture2D* texture :
-         {&wallTexture, &floorTexture, &ceilingTexture, &decalTexture, &marbleTexture}) {
+    for (Texture2D* texture : {&wallTexture, &floorTexture, &ceilingTexture, &marbleTexture}) {
         if (texture->id)
             UnloadTexture(*texture);
         *texture = {};

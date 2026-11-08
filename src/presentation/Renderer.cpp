@@ -358,6 +358,8 @@ void Renderer::drawWorld(const Game& game) {
     const bool glow = atmosphere.id && bloom.begin(true);
     ClearBackground(palette.fog);
     BeginMode3D(cam);
+    if (glow)
+        bloom.setView(rlGetMatrixModelview(), rlGetMatrixProjection());
     if (atmosphere.id) {
         float emission = 0;
         const float hdr = glow ? 1.0f : 0.0f;
@@ -528,24 +530,9 @@ void Renderer::updateLights(const Game& game) {
 }
 
 // Layer classical skirting, cornices, a chair rail and fine panel frames over the wall material.
-// Only the small entrance plaque uses the sign atlas; the corridors stay free of service clutter.
 void Renderer::drawDetails(const Game& game) {
     const CorridorStyle style = corridorStyle(palette);
     rlDisableBackfaceCulling();
-    material(.68f, 0, 0);
-    rlSetTexture(tex.decals().id);
-    rlBegin(RL_QUADS);
-    exposedWalls(game, [&](const Wall& wall) {
-        bool welcome = wall.row == 0 && wall.col == 0 && wall.side == 0;
-        if (!welcome)
-            return;
-        const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
-        float x0 = wall.lx + dx * .35f - dz * .015f, z0 = wall.lz + dz * .35f + dx * .015f;
-        float x1 = wall.lx + dx * .65f - dz * .015f, z1 = wall.lz + dz * .65f + dx * .015f;
-        quad({x0, .47f, z0, .001f, .249f}, {x1, .47f, z1, .999f, .249f},
-             {x1, .57f, z1, .999f, .001f}, {x0, .57f, z0, .001f, .001f}, WHITE);
-    });
-    rlEnd();
     material(.27f, 0, .00015f, .40f);
     rlSetTexture(tex.marble().id);
     rlBegin(RL_QUADS);

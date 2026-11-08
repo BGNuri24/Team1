@@ -27,7 +27,8 @@ uniform int lightCount;
 uniform ivec2 wallRows[50];
 uniform int mazeSize;
 uniform float cellSize;
-out vec4 finalColor;
+layout(location = 0) out vec4 finalColor;
+layout(location = 1) out vec4 surfaceData;
 const float PI = 3.14159265359;
 
 vec3 linearColor(vec3 c) {
@@ -99,6 +100,14 @@ vec3 fresnel(vec3 f0, float v) {
     return f0 + (1.0 - f0) * pow(1.0 - clamp(v, 0.0, 1.0), 5.0);
 }
 
+// Store a full-sphere normal in two channels, leaving roughness and reflectance independent.
+vec2 encodeNormal(vec3 n) {
+    n /= abs(n.x) + abs(n.y) + abs(n.z);
+    vec2 encoded = n.xy;
+    if (n.z < 0.0) encoded = (1.0 - abs(encoded.yx)) * sign(encoded + 0.000001);
+    return encoded * 0.5 + 0.5;
+}
+
 vec3 specularBrdf(vec3 n, vec3 v, vec3 l, float roughness, vec3 f0) {
     float nv = max(dot(n, v), 0.001), nl = max(dot(n, l), 0.001);
     vec3 h = (v + l) / max(length(v + l), 0.0001);
@@ -156,6 +165,7 @@ float lampHaze(int i, vec3 ray, float rayLength) {
 }
 
 void main() {
+    surfaceData = vec4(0.5, 0.5, 1.0, 0.0);
     vec4 texel = texture(texture0, fragTexCoord);
     vec4 surface = texel * fragColor * colDiffuse;
     vec3 albedo = linearColor(surface.rgb);
@@ -190,6 +200,8 @@ void main() {
     vec3 ambient = vec3(0.030, 0.027, 0.024) + vec3(0.012) * (0.5 + 0.5 * normal.y)
         + vec3(0.006) * viewer * exp(-distance * 0.16);
     vec3 f0 = mix(vec3(0.04), albedo, material.y);
+    surfaceData = vec4(encodeNormal(normal), roughness,
+                       clamp(max(max(f0.r, f0.g), f0.b) + coat * 0.02, 0.0, 1.0));
     vec3 lit = albedo * ambient * ao * (1.0 - material.y);
     lit += fresnel(f0, max(dot(normal, view), 0.0)) * vec3(0.018, 0.014, 0.010) * ao;
     vec3 fixture = linearColor(fixtureColor), bounce = linearColor(bounceColor);
