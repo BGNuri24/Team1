@@ -88,6 +88,7 @@
     <ClInclude Include="..\presentation\Application.h" />
     <ClInclude Include="..\logic\Players.h" />
     <ClInclude Include="..\logic\Game.h" />
+    <ClInclude Include="..\logic\MapPeek.h" />
     <ClInclude Include="..\logic\GravityObstacles.h" />
     <ClInclude Include="..\data\GravityObstacle.h" />
     <ClInclude Include="..\logic\JumpMovement.h" />

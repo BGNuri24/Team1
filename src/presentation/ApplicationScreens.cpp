@@ -75,6 +75,7 @@ Screen Application::startGame() {
     const MazeTheme selected = ActiveMazeTheme;
     MenuTheme::apply(selected);
     game = std::make_unique<Game>(currentSize, currentSeconds, currentMode, std::nullopt, selected);
+    mapPeek.reset(currentSize, currentMode);
     renderer.prepareMazeTheme(game->theme());
     generationScreen.begin(*game);
     return Screen::GENERATING;
@@ -125,8 +126,10 @@ Screen Application::updatePlaying() {
         });
         return Screen::PAUSED;
     }
-    game->update(readInput(settings.sensitivityMultiplier()));
-    drawFrame([&] { renderer.draw(*game); });
+    const InputState input = readInput(settings.sensitivityMultiplier());
+    game->update(input);
+    mapPeek.update(input.dt, input.mapPressed);
+    drawFrame([&] { renderer.draw(*game, &mapPeek); });
 
     if (game->finished()) {
         EnableCursor();
@@ -178,7 +181,7 @@ Screen Application::updatePaused() {
 Screen Application::updateEnd() {
     Screen next = endScreen.update(GetFrameTime());
     drawFrame([&] {
-        renderer.draw(*game);
+        renderer.drawWorld(*game);
         endScreen.draw(*game, players.activeName(), bestTime, newBestTime, bestTimeSaveFailed);
     });
 

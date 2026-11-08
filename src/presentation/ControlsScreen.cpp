@@ -52,10 +52,11 @@ void ControlsScreen::draw() const {
     type.draw("Jump", 292, 424, 22, Paper, true);
     type.draw("Mouse wheel also jumps.", 292, 454, 12, Muted, false, 162);
     DrawLine(uiX(88), uiY(494), uiX(454), uiY(494), Border);
-    keycap(type, "ESC", KEY_ESCAPE, 96, 514, 62, 28);
-    type.draw("Pause / back", 178, 516, 18, Paper, false, 270);
-    keycap(type, "ENTER", KEY_ENTER, 96, 552, 82, 28);
-    type.draw("Confirm a choice", 196, 554, 18, Paper, false, 254);
+    keycap(type, "E", KEY_E, 96, 514, 42, 28);
+    type.draw("Map", 178, 516, 18, Paper);
+    type.draw("1-2s / 3s cooldown", 286, 519, 13, Muted, false, 168);
+    keycap(type, "ESC", KEY_ESCAPE, 96, 552, 62, 28);
+    type.draw("Pause / back", 178, 554, 18, Paper, false, 270);
 
     drawMenuPanel(uiRect(504, 210, 432, 180));
     type.draw("02 / LOOK AROUND", 530, 232, 14, Accent, true);
@@ -91,6 +92,5 @@ void ControlsScreen::draw() const {
     type.draw("Press G to preview", 530, 566, 12, Muted);
 
     DrawLine(uiX(64), uiY(624), uiX(936), uiY(624), Border);
-    type.draw("Reach the exit door before time runs out.", 64, 643, 14, Muted, false, 620);
     type.centered("ENTER / ESC  back", 848, 643, 14, Muted, false, 176);
 }

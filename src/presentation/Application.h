@@ -2,6 +2,7 @@
 
 #include "../logic/Game.h"
 #include "../logic/GameSettings.h"
+#include "../logic/MapPeek.h"
 #include "../logic/Players.h"
 #include "ControlsScreen.h"
 #include "EndScreen.h"
@@ -46,6 +47,7 @@ private:
     EndScreen endScreen;
     MazeGenerationScreen generationScreen;
     std::unique_ptr<Game> game;
+    MapPeek mapPeek;
     int currentSize;
     float currentSeconds;
     GameMode currentMode;

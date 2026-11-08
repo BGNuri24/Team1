@@ -3,40 +3,67 @@
 #include <algorithm>
 #include <cmath>
 namespace {
-// Normalize an angle in radians to the signed interval around zero so compass offsets follow the
-// shortest turn.
-float wrapAngle(float angle) {
-    return std::atan2(std::sin(angle), std::cos(angle));
-}
-
 struct HudTheme {
-    Color panel, border, text, muted, accent, track;
+    Color panel, border, text, muted, accent, track, warning;
     Color unknown, walls, visible, visited, marker;
 };
 
-// Both corner panels follow the loaded run's palette, independently of the menu theme. Derive
+// HUD elements follow the loaded run's palette, independently of the menu theme. Derive
 // readable material roles without consuming randomness or retaining colors from an earlier run.
 HudTheme hudTheme(const MazePalette& palette) {
     const MenuTheme::Colors colors = MenuTheme::colorsFor(palette);
-    return {colors.panel,      colors.border,     colors.paper,      colors.muted,
-            colors.accent,     colors.track,      colors.mapUnknown, colors.mapWall,
-            colors.mapVisible, colors.mapVisited, colors.marker};
+    return {colors.panel,   colors.border,     colors.paper,      colors.muted,
+            colors.accent,  colors.track,      colors.danger,     colors.mapUnknown,
+            colors.mapWall, colors.mapVisible, colors.mapVisited, colors.marker};
 }
 
-// Draw matching opaque backings so text stays readable over either bright fixtures or dark halls.
-void hudPanel(Rectangle bounds, const HudTheme& colors) {
-    DrawRectangleRounded(bounds, 0.10f, 8, colors.panel);
+// Tint only the frame, leaving the map canvas to draw one translucent layer over the world.
+void hudPanel(Rectangle bounds, Rectangle canvas, const HudTheme& colors) {
+    const Rectangle strips[] = {{bounds.x, bounds.y, bounds.width, canvas.y - bounds.y},
+                                {bounds.x, canvas.y + canvas.height, bounds.width,
+                                 bounds.y + bounds.height - canvas.y - canvas.height},
+                                {bounds.x, canvas.y, canvas.x - bounds.x, canvas.height},
+                                {canvas.x + canvas.width, canvas.y,
+                                 bounds.x + bounds.width - canvas.x - canvas.width, canvas.height}};
+    for (const Rectangle strip : strips) {
+        BeginScissorMode((int)strip.x, (int)strip.y, (int)strip.width, (int)strip.height);
+        DrawRectangleRounded(bounds, 0.10f, 8, Fade(colors.panel, .85f));
+        EndScissorMode();
+    }
     DrawRectangleRoundedLinesEx(bounds, 0.10f, 8, std::max(1.0f, uiScale()), colors.border);
 }
+
+// Keep a small key hint in the corner while the map is hidden. The ring refills during cooldown.
+void mapKey(const MapPeek& peek, const HudTheme& colors) {
+    const int margin = uiSize(22), radius = std::max(12, uiSize(15));
+    const Vector2 center = {(float)(GetScreenWidth() - margin - radius), (float)(margin + radius)};
+    DrawCircleLinesV(center, (float)radius, Fade(colors.accent, .20f));
+    if (peek.ready())
+        DrawCircleLinesV(center, (float)radius, Fade(colors.accent, .8f));
+    else {
+        const float progress =
+            std::clamp(1 - peek.cooldownTimeLeft() / MapPeek::CooldownSeconds, 0.0f, 1.0f);
+        if (progress > 0)
+            DrawRing(center, radius - std::max(1.0f, uiScale()), (float)radius, -90,
+                     -90 + progress * 360, 64, Fade(colors.accent, .8f));
+    }
+    const int size = std::max(10, uiSize(15));
+    DrawText("E", (int)center.x - MeasureText("E", size) / 2, (int)center.y - size / 2, size,
+             Fade(colors.text, peek.ready() ? .8f : .35f));
 }
+} // namespace
 // Keep HUD composition in one screen-space pass after world rendering has ended.
-void HudRenderer::draw(const Game& game, const MazePalette& palette) const {
-    drawHud(game, palette);
-    drawMinimap(game, palette);
+void HudRenderer::draw(const Game& game, const MazePalette& palette, const MapPeek* mapPeek) const {
+    drawHud(game, palette, !mapPeek || !mapPeek->visible());
+    if (mapPeek) {
+        if (mapPeek->visible())
+            drawMinimap(game, palette);
+        else
+            mapKey(*mapPeek, hudTheme(palette));
+    }
 }
-// Display the remaining time, mode, compass heading and applicable controls, with warning colors
-// when time is short.
-void HudRenderer::drawHud(const Game& game, const MazePalette& palette) const {
+// Center translucent timer digits over the scene, without a panel or compass.
+void HudRenderer::drawHud(const Game& game, const MazePalette& palette, bool showReticle) const {
     using namespace MenuTheme;
     const HudTheme colors = hudTheme(palette);
     const int margin = uiSize(22);
@@ -44,51 +71,15 @@ void HudRenderer::drawHud(const Game& game, const MazePalette& palette) const {
         DrawText(label, x, y, std::max(1, uiSize(size)), color);
     };
     const int remaining = std::max(0, (int)std::ceil(game.timeLeft()));
-    const bool urgent = remaining <= 30;
-    const Color clockColor = urgent ? Danger : colors.text;
-    hudPanel({(float)margin, (float)margin, (float)uiSize(220), (float)uiSize(118)}, colors);
-    DrawRectangle(margin, margin + uiSize(20), std::max(2, uiSize(3)), uiSize(28),
-                  urgent ? Danger : colors.accent);
-    text("TIME REMAINING", margin + uiSize(18), margin + uiSize(14), 12, colors.muted);
-    text(TextFormat("%02d:%02d", remaining / 60, remaining % 60), margin + uiSize(16),
-         margin + uiSize(35), 42, clockColor);
+    const Color clockColor = remaining <= 30 ? colors.warning : colors.text;
+    const char* clock = TextFormat("%02d:%02d", remaining / 60, remaining % 60);
+    const int clockSize = std::max(10, uiSize(42));
+    const int clockX = (GetScreenWidth() - MeasureText(clock, clockSize)) / 2;
+    const int clockY = margin + uiSize(10);
+    const int shadow = std::max(1, uiSize(1));
+    DrawText(clock, clockX + shadow, clockY + shadow, clockSize, Fade(colors.unknown, .32f));
+    DrawText(clock, clockX, clockY, clockSize, Fade(clockColor, .78f));
     const bool zero = game.mode() == GameMode::ZeroGravity;
-    text(zero ? "ZERO GRAVITY" : palette.name, margin + uiSize(18), margin + uiSize(88), 13,
-         zero ? colors.marker : colors.accent);
-    float duration = game.timeLeft() + game.timeTaken();
-    float ratio = duration > 0 ? std::clamp(game.timeLeft() / duration, 0.0f, 1.0f) : 0;
-    DrawRectangle(margin + uiSize(18), margin + uiSize(108), uiSize(184), std::max(1, uiSize(2)),
-                  colors.track);
-    DrawRectangle(margin + uiSize(18), margin + uiSize(108), (int)(uiSize(184) * ratio),
-                  std::max(1, uiSize(2)), urgent ? Danger : colors.accent);
-
-    // Project compass ticks relative to camera yaw, with east at +X and south at +Z in maze
-    // coordinates.
-    const int center = GetScreenWidth() / 2;
-    const int compassWidth = uiSize(220);
-    const int compassY = margin + uiSize(12);
-    DrawLine(center - compassWidth / 2, compassY + uiSize(24), center + compassWidth / 2,
-             compassY + uiSize(24), Fade(Border, .8f));
-    for (int degree = 0; degree < 360; degree += 15) {
-        float angle = degree * DEG2RAD;
-        float offset = wrapAngle(angle - game.yaw());
-        if (std::fabs(offset) > 1.0f)
-            continue;
-        int x = center + (int)(offset * compassWidth * .5f);
-        DrawLine(x, compassY + uiSize(20), x, compassY + uiSize(24), OnWorld);
-        if (degree % 90 == 0) {
-            const char* direction = degree == 0     ? "E"
-                                    : degree == 90  ? "S"
-                                    : degree == 180 ? "W"
-                                                    : "N";
-            DrawText(direction, x - MeasureText(direction, uiSize(14)) / 2, compassY, uiSize(14),
-                     OnWorld);
-        }
-    }
-    DrawTriangle({(float)center, (float)(compassY + uiSize(29))},
-                 {(float)(center - uiSize(3)), (float)(compassY + uiSize(35))},
-                 {(float)(center + uiSize(3)), (float)(compassY + uiSize(35))},
-                 ColorLerp(Accent, OnWorld, .65f));
 
     const int footer = GetScreenHeight() - uiSize(40);
     text("ESC  pause", margin, footer, 15, OnWorld);
@@ -98,8 +89,9 @@ void HudRenderer::drawHud(const Game& game, const MazePalette& palette) const {
     if (zero)
         text("RED BARRIERS ARE LETHAL", margin, footer - uiSize(52), 13,
              ColorLerp(Danger, OnWorld, .65f));
-    text("FIND THE EXIT", GetScreenWidth() - margin - MeasureText("FIND THE EXIT", uiSize(14)),
-         footer, 14, OnWorld);
+    // Keep the world reticle from showing through the map and resembling a second player marker.
+    if (!showReticle)
+        return;
     // Keep a central reticle as a stable reference while the camera rolls between surfaces.
     int cx = GetScreenWidth() / 2, cy = GetScreenHeight() / 2;
     Color aim = Fade(OnWorld, .8f);
@@ -109,48 +101,58 @@ void HudRenderer::drawHud(const Game& game, const MazePalette& palette) const {
     DrawLine(cx, cy + uiSize(2), cx, cy + uiSize(5), aim);
 }
 
-// Draw only revealed maze cells and the player's marker, distinguishing visited passages without
-// disclosing the solution.
+// Enlarge the peek into a centered map while keeping the timer and screen edges clear. Only
+// explored cells are shown, so increasing its size does not disclose the route to the exit.
 void HudRenderer::drawMinimap(const Game& game, const MazePalette& palette) const {
     const HudTheme colors = hudTheme(palette);
-    int size = game.maze().size();
-    int cell = std::max(1, uiSize(164) / size);
-    int board = size * cell;
-    int padding = uiSize(14), margin = uiSize(22);
-    int panelWidth = board + padding * 2;
-    int panelX = GetScreenWidth() - margin - panelWidth;
-    hudPanel({(float)panelX, (float)margin, (float)panelWidth, (float)(board + uiSize(68))},
-             colors);
-    int x = panelX + padding, y = margin + uiSize(35);
-    DrawText("MINIMAP", x, margin + uiSize(13), uiSize(12), colors.muted);
-    const char* dimensions = TextFormat("%d", size);
-    DrawText(dimensions, panelX + panelWidth - padding - MeasureText(dimensions, uiSize(12)),
-             margin + uiSize(13), uiSize(12), colors.accent);
-    DrawRectangle(x, y, board, board, colors.unknown);
+    const int size = game.maze().size();
+    const int available =
+        std::max(1, std::min({(int)(std::min(GetScreenWidth(), GetScreenHeight()) * .62f),
+                              GetScreenWidth() - uiSize(80), GetScreenHeight() - uiSize(160)}));
+    const int cell = std::max(1, available / size), board = size * cell;
+    const int padding = std::max(12, uiSize(20));
+    const int header = std::max(30, uiSize(40)), footer = std::max(26, uiSize(34));
+    const int panelWidth = board + padding * 2, panelHeight = board + header + footer;
+    const int panelX = (GetScreenWidth() - panelWidth) / 2;
+    const int panelY = (GetScreenHeight() - panelHeight) / 2;
+    const Rectangle panel = {(float)panelX, (float)panelY, (float)panelWidth, (float)panelHeight};
+    const int x = panelX + padding, y = panelY + header;
+    DrawRectangleRoundedLinesEx(
+        {panel.x + uiSize(3), panel.y + uiSize(4), panel.width, panel.height}, .10f, 8,
+        std::max(1.0f, 2 * uiScale()), Fade(colors.unknown, .35f));
+    hudPanel(panel, {(float)x, (float)y, (float)board, (float)board}, colors);
+    const int labelSize = std::max(12, uiSize(14));
+    const int labelY = panelY + (header - labelSize) / 2;
+    DrawText("MAP", x, labelY, labelSize, colors.muted);
+    const char* dimensions = TextFormat("%d x %d", size, size);
+    DrawText(dimensions, x + board - MeasureText(dimensions, labelSize), labelY, labelSize,
+             colors.accent);
+    BeginScissorMode(x, y, board, board);
     for (int row = 0; row < size; ++row)
         for (int col = 0; col < size; ++col) {
             int seen = game.seenState(row, col);
-            if (!seen)
-                continue;
             char tile = game.maze().cell(row, col);
-            Color color = tile == '#'   ? colors.walls
+            Color color = !seen         ? colors.unknown
+                          : tile == '#' ? colors.walls
                           : tile == 'E' ? colors.marker
                           : seen == 2   ? colors.visited
                                         : colors.visible;
-            DrawRectangle(x + col * cell, y + row * cell, cell, cell, color);
+            DrawRectangle(x + col * cell, y + row * cell, cell, cell,
+                          Fade(color, seen ? .90f : .82f));
         }
     float px = x + (game.x() / MazeGeometry::CellSize + .5f) * cell;
     float py = y + (game.z() / MazeGeometry::CellSize + .5f) * cell;
-    float radius = std::max(2.0f, cell * .48f);
+    const float radius = std::clamp(cell * .35f, 2.0f, std::max(3.0f, 7 * uiScale()));
     DrawCircleV({px, py}, radius, colors.marker);
     DrawLineEx({px, py},
                {px + std::cos(game.yaw()) * radius * 3, py + std::sin(game.yaw()) * radius * 3},
                std::max(1.0f, uiScale()), colors.text);
+    EndScissorMode();
     const char* caption = "EXPLORED AREA";
     // Respect DrawText's ten-pixel minimum font size and switch to a shorter caption when the
     // minimap label would overflow.
     int captionSize = std::max(10, uiSize(10));
     if (MeasureText(caption, captionSize) > board)
         caption = "MAP";
-    DrawText(caption, x, y + board + uiSize(12), captionSize, colors.muted);
+    DrawText(caption, x, y + board + (footer - captionSize) / 2, captionSize, colors.muted);
 }

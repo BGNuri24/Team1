@@ -12,7 +12,10 @@ public:
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
-    void draw(const Game& game);
+    // Supply peek state only for active gameplay; pause and result backdrops never reveal the map.
+    void draw(const Game& game, const MapPeek* mapPeek = nullptr);
+    // Result screens retain the final corridor without carrying the gameplay HUD into the report.
+    void drawWorld(const Game& game);
     // Prepare one palette's materials at run creation, keeping them stable until another run is
     // loaded.
     void prepareMazeTheme(MazeTheme theme);

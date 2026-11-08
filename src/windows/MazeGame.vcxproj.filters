@@ -7,6 +7,7 @@
     <Filter Include="src\presentation"><UniqueIdentifier>{3D2796E0-2AEC-440D-AD64-7B9F55092187}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\logic\MapPeek.h"><Filter>src\logic</Filter></ClInclude>
     <ClInclude Include="..\data\Validation.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\SettingsStore.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\MazeGeometry.h"><Filter>src\data</Filter></ClInclude>

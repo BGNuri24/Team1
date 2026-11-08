@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+void runMapPeekTests();
 
 // Supply deterministic keyboard, text, mouse and timing events through raylib stubs without opening a
 // window.
@@ -44,6 +45,7 @@ static void require(bool condition, const char* message) {
 // input using synthetic events.
 int main() {
     try {
+        runMapPeekTests();
         int selected = 0;
         pressed[KEY_UP] = true;
         updateMenuSelection(selected, 4);
@@ -122,7 +124,18 @@ int main() {
         require(readInput().jumpPressed, "wheel up must request a jump");
         wheel = 0;
         require(!readInput().jumpPressed, "jump input must clear between presses");
-        require(gameplayWindowActive() && !gameplayPauseRequested(), "an active idle window must allow gameplay");
+        held[KEY_E] = true;
+        require(!readInput().mapPressed, "holding E must not repeatedly request the map");
+        pressed[KEY_E] = true;
+        require(readInput().mapPressed, "a fresh E press must request a map peek");
+        pressed[KEY_E] = false;
+        require(!readInput().mapPressed, "map requests must clear after the initial press");
+        held[KEY_E] = false;
+        pressed[KEY_M] = true;
+        require(!readInput().mapPressed, "M must no longer request the map");
+        pressed[KEY_M] = false;
+        require(gameplayWindowActive() && !gameplayPauseRequested(),
+                "an active idle window must allow gameplay");
         pressed[KEY_ESCAPE] = true;
         require(gameplayPauseRequested(), "Escape must request a pause before gameplay input is consumed");
         pressed[KEY_ESCAPE] = false;

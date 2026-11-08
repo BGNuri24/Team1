@@ -340,9 +340,14 @@ void Renderer::prepareMazeTheme(MazeTheme theme) {
     texturesReady = true;
 }
 
-// Copy the game's displayed camera pose, render lit geometry and emissive details, then draw the
-// HUD and explored-area minimap.
-void Renderer::draw(const Game& game) {
+// Draw gameplay information over the lit world only when the caller requests the gameplay view.
+void Renderer::draw(const Game& game, const MapPeek* mapPeek) {
+    drawWorld(game);
+    hud.draw(game, palette, mapPeek);
+}
+
+// Copy the displayed camera pose and render lit geometry, emissive details and atmosphere.
+void Renderer::drawWorld(const Game& game) {
     prepareMazeTheme(game.theme());
     cam.position = game.position();
     const Vector3 direction = game.cameraDirection();
@@ -401,7 +406,6 @@ void Renderer::draw(const Game& game) {
     DrawRectangleGradientV(0, 0, width, uiSize(160), Fade(palette.fog, .45f), Fade(palette.fog, 0));
     DrawRectangleGradientV(0, height - uiSize(130), width, uiSize(130), Fade(palette.fog, 0),
                            Fade(palette.fog, .63f));
-    hud.draw(game, palette);
 }
 
 // Flush a material's vertices before changing the uniforms used by the next geometry group.

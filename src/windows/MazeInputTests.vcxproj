@@ -29,6 +29,7 @@
   </ImportGroup>
   <ItemGroup>
     <ClCompile Include="..\tests\InputTests.cpp" />
+    <ClCompile Include="..\tests\MapPeekTests.cpp" />
     <ClCompile Include="..\presentation\Input.cpp" />
   </ItemGroup>
   <ItemGroup>
