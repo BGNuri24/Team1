@@ -16,6 +16,7 @@ uniform sampler2D texture0;
 uniform vec3 wallColor;
 uniform float yaw;
 uniform float aspect;
+uniform float clock;
 uniform int mirror;
 out vec4 finalColor;
 void main() {
@@ -33,6 +34,12 @@ void main() {
     // Dye the wall fabric while retaining the carpet's original red and gold pigments.
     float wallSurface = 1.0 - smoothstep(0.60, 0.82, uv.y);
     color = mix(color, dyed, redFabric * wallSurface * 0.90);
+    // Slow, low-amplitude warmth in the brightest lamp pixels, without flashing the whole view.
+    float lamp = smoothstep(0.64, 0.96, dot(color, vec3(0.2126, 0.7152, 0.0722)))
+        * (1.0 - smoothstep(0.48, 0.78, saturation));
+    float breath = sin(clock * 1.15 + uv.x * 3.0 + uv.y * 4.0) * 0.75
+        + sin(clock * 0.31 - uv.y * 5.0) * 0.25;
+    color += color * vec3(1.0, 0.88, 0.65) * lamp * breath * 0.080;
     vec2 vignette = (fragTexCoord - 0.5) * vec2(1.10, 0.85);
     color *= 1.0 - smoothstep(0.22, 0.64, length(vignette)) * 0.32;
     finalColor = vec4(color, 1.0) * fragColor;
@@ -59,13 +66,14 @@ int viewIndex(MenuPlace place) {
         return 0;
     }
 }
-}
+} // namespace
 
 struct MenuBackground::Scene {
     std::array<Texture2D, 4> artwork{};
     Shader grade{};
     int wallLocation = -1;
     int yawLocation = -1, aspectLocation = -1, mirrorLocation = -1;
+    int clockLocation = -1;
     MenuJourney journey;
     RenderTexture2D overlay{};
     bool suppressBackdrop = false;
@@ -90,6 +98,7 @@ struct MenuBackground::Scene {
             yawLocation = GetShaderLocation(grade, "yaw");
             aspectLocation = GetShaderLocation(grade, "aspect");
             mirrorLocation = GetShaderLocation(grade, "mirror");
+            clockLocation = GetShaderLocation(grade, "clock");
         } else
             grade = {};
     }
@@ -104,7 +113,7 @@ struct MenuBackground::Scene {
                 UnloadTexture(texture);
     }
 
-    void drawView(MenuPlace place, float zoom, float yaw, float alpha) const {
+    void drawView(MenuPlace place, float zoom, float yaw, float alpha, float time) const {
         const Texture2D image =
             artwork[viewIndex(place)].id ? artwork[viewIndex(place)] : artwork[0];
         if (!image.id || alpha <= 0)
@@ -113,6 +122,9 @@ struct MenuBackground::Scene {
         const float cover = std::max(width / (float)image.width, height / (float)image.height);
         const float artWidth = std::max((float)width, image.width * cover * zoom);
         const float artHeight = std::max((float)height, image.height * cover * zoom);
+        const float phase = viewIndex(place) * 1.19f;
+        const float panX = width * .014f * std::sin(time * .35f + phase);
+        const float panY = height * .006f * std::sin(time * .27f + phase * .6f);
         if (grade.id) {
             const Color pigment = mazePalette(MenuTheme::current()).wall;
             const float wall[] = {pigment.r / 255.0f, pigment.g / 255.0f, pigment.b / 255.0f};
@@ -123,9 +135,11 @@ struct MenuBackground::Scene {
             SetShaderValue(grade, yawLocation, &yaw, SHADER_UNIFORM_FLOAT);
             SetShaderValue(grade, aspectLocation, &aspect, SHADER_UNIFORM_FLOAT);
             SetShaderValue(grade, mirrorLocation, &mirror, SHADER_UNIFORM_INT);
+            SetShaderValue(grade, clockLocation, &time, SHADER_UNIFORM_FLOAT);
         }
         DrawTexturePro(image, {0, 0, (float)image.width, (float)image.height},
-                       {(width - artWidth) * .5f, (height - artHeight) * .5f, artWidth, artHeight},
+                       {(width - artWidth) * .5f + panX, (height - artHeight) * .5f + panY,
+                        artWidth, artHeight},
                        {0, 0}, 0, Fade(WHITE, alpha));
         if (grade.id)
             EndShaderMode();
@@ -149,21 +163,24 @@ void MenuBackground::draw(float time) const {
     const int width = GetScreenWidth(), height = GetScreenHeight();
     ClearBackground(MenuTheme::Ink);
     const MenuJourney& path = scene->journey;
-    const float drift = .05f * (1 - std::exp(-std::max(0.0f, time) / 32.0f));
-    const float base = 1.08f + drift + .06f * path.detailAmount();
+    const float clock = std::isfinite(time) ? std::max(0.0f, time) : 0.0f;
+    // Bounded idle movement continues for as long as the menu is open, with overscan at each edge.
+    const float base = 1.12f + .014f * std::sin(clock * .22f) + .06f * path.detailAmount();
+    const float idleYaw = -.010f * std::sin(clock * .23f);
     const float t = path.progress(), eased = MenuJourney::smooth(t);
     auto depth = [](MenuPlace place) { return viewIndex(place) * .025f; };
     if (!path.moving() || path.detailMove()) {
-        scene->drawView(path.to(), base + depth(path.to()), path.detailAmount() * .025f, 1);
+        scene->drawView(path.to(), base + depth(path.to()), path.detailAmount() * .025f + idleYaw,
+                        1, clock);
     } else {
         const float departing = path.backwards() ? -.05f : .22f;
         const float arriving = path.backwards() ? .20f : -.035f;
         scene->drawView(path.from(), base + depth(path.from()) + departing * eased,
-                        path.turn() * .14f * eased, 1);
+                        path.turn() * .14f * eased + idleYaw, 1, clock);
         if (path.to() != MenuPlace::Exit)
             scene->drawView(path.to(), base + depth(path.to()) + arriving * (1 - eased),
-                            -path.turn() * .14f * (1 - eased),
-                            MenuJourney::smooth((t - .30f) / .45f));
+                            -path.turn() * .14f * (1 - eased) + idleYaw,
+                            MenuJourney::smooth((t - .30f) / .45f), clock);
     }
     // Quiet the extremities for headings and navigation without washing out the architecture.
     DrawRectangleGradientV(0, 0, width, height / 3, Fade(MenuTheme::Ink, .30f), BLANK);

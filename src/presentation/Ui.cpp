@@ -423,16 +423,23 @@ Rectangle menuBackBounds() {
 }
 // Render the common back button using its live hover state.
 void drawMenuBack() {
-    drawMenuButton(menuBackBounds(), "Back",
-                   CheckCollisionPointRec(GetMousePosition(), menuBackBounds()));
+    const Rectangle bounds = menuBackBounds();
+    const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
+    DrawRectangleRounded(bounds, 0.08f, 6, MenuTheme::Panel);
+    DrawRectangleRoundedLinesEx(bounds, 0.08f, 6, std::max(1.0f, uiScale()),
+                                over ? MenuTheme::Accent : MenuTheme::Border);
+    const float cx = bounds.x + bounds.width * .5f, cy = bounds.y + bounds.height * .5f;
+    const float half = 13 * uiScale(), head = 6 * uiScale();
+    const float stroke = std::max(1.5f, 2 * uiScale());
+    const Color color = over ? MenuTheme::Accent : MenuTheme::Muted;
+    const Vector2 tip{cx - half, cy};
+    DrawLineEx({cx + half, cy}, tip, stroke, color);
+    DrawLineEx({tip.x + head, cy - head}, tip, stroke, color);
+    DrawLineEx(tip, {tip.x + head, cy + head}, stroke, color);
 }
 
-void drawMenuBack(const MenuTypography& type) {
-    const bool over = CheckCollisionPointRec(GetMousePosition(), menuBackBounds());
-    DrawRectangleRounded(menuBackBounds(), 0.08f, 6, MenuTheme::Panel);
-    DrawRectangleRoundedLinesEx(menuBackBounds(), 0.08f, 6, std::max(1.0f, uiScale()),
-                                over ? MenuTheme::Accent : MenuTheme::Border);
-    type.centered("BACK", 873, 52, 14, over ? MenuTheme::Accent : MenuTheme::Muted, true);
+void drawMenuBack(const MenuTypography&) {
+    drawMenuBack();
 }
 // Return the shared entry dialog's confirmation-button hit rectangle in window pixels.
 Rectangle entryConfirmBounds() {
