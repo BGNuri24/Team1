@@ -52,8 +52,7 @@ Game::Game(int mazeSize, float seconds, GameMode mode, std::optional<std::uint32
       py(StandingEyeHeight), pz(0), lookDirection{1, 0, 0}, gravityUp{0, 1, 0}, rollFrom{0, 1, 0},
       rollAxis{1, 0, 0}, rollAngle(0), rollTime(0.25f),
       transitionFromPosition{0, StandingEyeHeight, 0}, transitionFromDirection{1, 0, 0},
-      attachedToSurface(false), hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0),
-      points(0) {
+      attachedToSurface(false), hasWon(false), hasLost(false), timeLeftSec(seconds), elapsedSec(0) {
     int n = mazeData.size();
     seen.assign(n * n, 0);
     if (gameMode == GameMode::ZeroGravity)
@@ -196,10 +195,8 @@ void Game::update(const InputState& in) {
     }
 
     reveal();
-    if (mazeData.cell(row(), col()) == 'E') {
+    if (mazeData.cell(row(), col()) == 'E')
         hasWon = true;
-        points = mazeData.size() * 100 + (int)std::ceil(timeLeftSec) * 10;
-    }
 }
 
 // Resolve horizontal clearance without ever attaching to a side wall. Test each accepted segment
@@ -307,10 +304,6 @@ float Game::timeLeft() const {
 // Return the accumulated simulation seconds used for completed-run results and best-time records.
 float Game::timeTaken() const {
     return elapsedSec;
-}
-// Return the points assigned on victory, or the initial zero while no win has been recorded.
-int Game::score() const {
-    return points;
 }
 // Report whether the logical player position has reached the exit before the countdown expires.
 bool Game::won() const {

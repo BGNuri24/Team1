@@ -225,17 +225,16 @@ static void testNoWallTunneling() {
             "a slow frame must not jump through an entire wall into another corridor");
 }
 
-// Follow a computed route to the exit and verify victory scoring plus frozen elapsed time after
-// completion.
+// Follow a computed route to the exit and verify victory plus frozen timers after completion.
 static void testReachableExit(int size, GameMode mode = GameMode::Normal, unsigned seed = 1234) {
     Game game(size, 10000.0f, mode, seed);
     followPath(game, pathTo(game, size * size - 1));
-    require(game.won() && !game.lost(), "following a valid path must win");
-    require(game.score() == size * 100 + (int)std::ceil(game.timeLeft()) * 10,
-            "win score formula must remain unchanged");
-    float elapsed = game.timeTaken();
+    require(game.won() && !game.lost() && game.timeLeft() > 0,
+            "following a valid path must win before the timer expires");
+    const float elapsed = game.timeTaken(), remaining = game.timeLeft();
     game.update({1, 1, 100, 100, 1, true});
-    require(game.timeTaken() == elapsed, "winning must freeze the timer");
+    require(game.timeTaken() == elapsed && game.timeLeft() == remaining,
+            "winning must freeze both elapsed and remaining time");
 }
 
 // Exercise real movement and gravity transfers with the unchanged preset timers. Stronger
@@ -256,7 +255,7 @@ static void testPresetCompletion() {
 }
 
 // Deliberately cross each barrier type on its blocked surface and verify immediate failure,
-// a frozen result, and no victory points or timer-expiry explanation.
+// a frozen result, and the correct failure reason.
 static void testObstacleFailure() {
     for (bool ceiling : {false, true}) {
         Game game(25, 10000, GameMode::ZeroGravity, 1234);
@@ -267,7 +266,7 @@ static void testObstacleFailure() {
         const int cell = target->row * game.maze().size() + target->col;
         followPath(game, pathTo(game, cell), cell);
         require(game.lost() && !game.won() && game.failureReason() == FailureReason::ObstacleHit &&
-                    game.timeLeft() > 0 && game.score() == 0,
+                    game.timeLeft() > 0,
                 "touching either barrier type must fail the run");
         const Vector3 stopped = game.position();
         const float time = game.timeTaken();

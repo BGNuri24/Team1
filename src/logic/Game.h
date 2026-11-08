@@ -19,6 +19,7 @@ struct InputState {
     float dt;
     bool gravityToggle;
     bool jumpPressed = false;
+    bool mapPressed = false;
 };
 
 // Distinguish a timed-out run from a lethal barrier collision on the result screen.
@@ -55,7 +56,6 @@ public:
     // Elapsed simulation time in seconds; it advances during an active run and stops when the run
     // finishes.
     float timeTaken() const;
-    int score() const;
     bool won() const;
     bool lost() const;
     FailureReason failureReason() const;
@@ -95,6 +95,5 @@ private:
     bool hasLost;
     float timeLeftSec;
     float elapsedSec;
-    int points;
     std::vector<char> seen;
 };
