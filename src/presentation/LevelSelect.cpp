@@ -12,15 +12,51 @@ static const int OPTION_COUNT = DIFFICULTY_COUNT + 2;
 
 namespace {
 Rectangle levelBounds(int index) {
-    return uiRect(430, 210 + index * 76, 506, 64);
+    if (index < DIFFICULTY_COUNT)
+        return uiRect(144 + index * 248, 202, 216, 304);
+    return uiRect(index == DIFFICULTY_COUNT ? 144 : 516, 548, 340, 62);
 }
+
+void levelStroke(int x1, int y1, int x2, int y2, Color color, float width = 1) {
+    DrawLineEx({(float)uiX(x1), (float)uiY(y1)}, {(float)uiX(x2), (float)uiY(y2)},
+               std::max(1.0f, width * uiScale()), color);
 }
+
+// Cut corners and a punched hanging hole make the presets read as brass key tags.
+void levelKeyPlate(int x, int y, Color fill, Color rim) {
+    const Rectangle rect = uiRect(x, y, 216, 284);
+    const float cut = (float)uiSize(22), bottom = (float)uiSize(14);
+    const Vector2 edge[] = {{rect.x + cut, rect.y},
+                            {rect.x + rect.width - cut, rect.y},
+                            {rect.x + rect.width, rect.y + cut},
+                            {rect.x + rect.width, rect.y + rect.height - bottom},
+                            {rect.x + rect.width - bottom, rect.y + rect.height},
+                            {rect.x + bottom, rect.y + rect.height},
+                            {rect.x, rect.y + rect.height - bottom},
+                            {rect.x, rect.y + cut}};
+    Vector2 fan[10] = {{rect.x + rect.width / 2, rect.y + rect.height / 2}};
+    for (int side = 0; side < 8; ++side)
+        fan[side + 1] = edge[7 - side];
+    fan[9] = edge[7];
+    DrawTriangleFan(fan, 10, fill);
+    for (int side = 0; side < 8; ++side)
+        DrawLineEx(edge[side], edge[(side + 1) % 8], std::max(1.0f, uiScale()), rim);
+    const Vector2 hole = {(float)uiX(x + 108), (float)uiY(y + 34)};
+    DrawCircleV(hole, 8 * uiScale(), MenuTheme::Ink);
+    DrawCircleLinesV(hole, 9 * uiScale(), rim);
+}
+
+void levelClock(int x, int y, Color color) {
+    DrawCircleLinesV({(float)uiX(x), (float)uiY(y)}, 7 * uiScale(), color);
+    levelStroke(x, y - 4, x, y, color);
+    levelStroke(x, y, x + 3, y + 2, color);
+}
+} // namespace
 
 // Initialize an idle level menu with no confirmed size or duration and Normal mode as its default.
 LevelSelect::LevelSelect()
     : selected(0), typing(false), showError(false), chosenSize(0), chosenSeconds(0),
-      chosenMode(GameMode::Normal) {
-}
+      chosenMode(GameMode::Normal) {}
 
 // Handle preset selection or validated custom-size entry, recording the chosen size, time limit and
 // mode before requesting a new run.
@@ -53,6 +89,9 @@ Screen LevelSelect::update() {
     }
 
     updateMenuSelection(selected, OPTION_COUNT);
+    const int horizontal = (int)(IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) -
+                           (int)(IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A));
+    selected = (selected + horizontal + OPTION_COUNT) % OPTION_COUNT;
     bool clicked = false;
     for (int i = 0; i < OPTION_COUNT; ++i)
         clicked |= menuPointer(levelBounds(i), i, selected);
@@ -87,93 +126,92 @@ Screen LevelSelect::update() {
     return Screen::LEVEL_SELECT;
 }
 
-// Present the next corridor stop with a focused level emblem and readable option cards.
+// Presets hang as room-key tags; custom sizing and gravity remain separate, compact choices.
 void LevelSelect::draw() const {
     using namespace MenuTheme;
-    const bool zero = selected == ZERO_GRAVITY_OPTION;
-    const Difficulty* preview = selected < DIFFICULTY_COUNT ? &getDifficulty(selected)
-                                : zero                      ? &getZeroGravityLevel()
-                                                            : nullptr;
-    const Color accent = zero ? Secondary : Accent;
-    const std::string mark = preview ? std::to_string(preview->size) : "?";
     background.draw((float)GetTime());
-    DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
-    drawMenuHeading(type, "02 / LEVELS", "Select level",
-                    "Choose a difficulty or set a custom maze size.");
+    DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(154), Fade(Ink, .65f), Fade(Ink, 0));
     drawMenuBack(type);
+    type.centered("Levels", 500, 77, 36, Paper, true);
+    levelStroke(466, 130, 534, 130, Fade(Accent, .65f));
+    levelStroke(172, 164, 828, 164, Border, 4);
+    levelStroke(172, 162, 828, 162, Accent);
+    for (int x : {172, 828})
+        DrawCircleV({(float)uiX(x), (float)uiY(164)}, 4 * uiScale(), Accent);
 
-    const Vector2 emblem = {(float)uiX(222), (float)uiY(332)};
-    DrawPoly(emblem, 6, 94 * uiScale(), 30, Panel);
-    DrawPolyLinesEx(emblem, 6, 94 * uiScale(), 30, std::max(1.0f, uiScale()), Border);
-    DrawPoly(emblem, 6, 80 * uiScale(), 30, Selected);
-    DrawPolyLinesEx(emblem, 6, 80 * uiScale(), 30, std::max(1.5f, 2 * uiScale()), accent);
-    type.centeredIn(
-        mark.c_str(),
-        {emblem.x - 80 * uiScale(), emblem.y - 80 * uiScale(), 160 * uiScale(), 160 * uiScale()},
-        68, Paper);
-    type.centered(preview ? preview->name : "Custom", 222, 433, 25, Paper, true, 316);
-    type.centered(preview ? TextFormat("%d x %d cells / %d seconds", preview->size, preview->size,
-                                       (int)preview->seconds)
-                          : TextFormat("Choose %d - %d cells", MIN_SIZE, MAX_SIZE),
-                  222, 473, 16, Muted, false, 316);
-    type.centered(zero ? "G flips floor / ceiling" : "Normal gravity", 222, 509, 14,
-                  zero ? Secondary : Muted, false, 316);
-    if (zero)
-        type.centered("Avoid red barriers", 222, 539, 14, Danger, false, 316);
-    else if (!preview)
-        type.centered("Time limit: 5 seconds per cell of width", 222, 539, 13, Muted, false, 316);
+    for (int index = 0; index < DIFFICULTY_COUNT; ++index) {
+        const Difficulty& level = getDifficulty(index);
+        const bool active = index == selected;
+        const int x = 144 + index * 248, center = x + 108;
+        const int y = active ? 206 : 214;
+        const Color rim = active ? Accent : Border;
+        DrawCircleLinesV({(float)uiX(center), (float)uiY(168)}, 7 * uiScale(), Accent);
+        levelStroke(center, 175, center, y + 26, Accent, 2);
+        levelKeyPlate(x + 5, y + 8, Fade(Ink, .65f), Fade(Ink, 0));
+        levelKeyPlate(x, y, active ? ColorLerp(Panel, Accent, .24f) : ColorLerp(Panel, Ink, .25f),
+                      rim);
+        levelStroke(x + 30, y + 62, x + 186, y + 62, Fade(rim, .5f));
+        type.centered(level.name, center, y + 82, 24, Paper, active, 176);
+        type.centered(TextFormat("%d x %d", level.size, level.size), center, y + 126, 31,
+                      active ? Accent : Paper, true, 176);
+        const int seconds = (int)level.seconds;
+        levelClock(center - 37, y + 197, active ? Accent : Muted);
+        type.centered(TextFormat("%d:%02d", seconds / 60, seconds % 60), center + 12, y + 183, 23,
+                      Muted, false, 100);
+        for (int pip = 0; pip < DIFFICULTY_COUNT; ++pip)
+            DrawRectangleRec(uiRect(center - 26 + pip * 20, y + 242, 12, 4),
+                             pip <= index ? rim : Fade(rim, .22f));
+    }
 
-    for (int index = 0; index < OPTION_COUNT; ++index) {
-        const Difficulty* level = index < DIFFICULTY_COUNT       ? &getDifficulty(index)
-                                  : index == ZERO_GRAVITY_OPTION ? &getZeroGravityLevel()
-                                                                 : nullptr;
+    for (int index : {DIFFICULTY_COUNT, ZERO_GRAVITY_OPTION}) {
         const bool active = index == selected;
         const bool gravity = index == ZERO_GRAVITY_OPTION;
-        const Color rowAccent = gravity ? Secondary : Accent;
-        const int y = 210 + index * 76;
-        const Rectangle row = levelBounds(index);
-        DrawRectangleRounded(row, 0.08f, 6, active ? Selected : Panel);
-        DrawRectangleRoundedLinesEx(row, 0.08f, 6, std::max(1.0f, uiScale()),
-                                    active ? rowAccent : Border);
-        if (active)
-            DrawRectangle(uiX(430), uiY(y + 16), std::max(2, uiSize(3)), uiSize(32), rowAccent);
-        DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, Badge);
-        const std::string badge = gravity ? "G" : level ? std::to_string(level->size) : "+";
-        type.centeredIn(badge.c_str(), uiRect(446, y + 12, 40, 40), 22, active ? rowAccent : Paper);
-        type.draw(level ? level->name : "Custom", 504, y + 9, 23, active ? Paper : Muted, true,
-                  334);
-        type.draw(level ? TextFormat("%d x %d cells / %d seconds", level->size, level->size,
-                                     (int)level->seconds)
-                        : TextFormat("Custom size / %d - %d cells", MIN_SIZE, MAX_SIZE),
-                  505, y + 39, 12, active ? rowAccent : Muted, false, 330);
-        const Color arrow = active ? rowAccent : Border;
-        DrawLineEx({(float)uiX(901), (float)uiY(y + 26)}, {(float)uiX(907), (float)uiY(y + 32)},
-                   std::max(1.5f, 2 * uiScale()), arrow);
-        DrawLineEx({(float)uiX(907), (float)uiY(y + 32)}, {(float)uiX(901), (float)uiY(y + 38)},
-                   std::max(1.5f, 2 * uiScale()), arrow);
+        const int x = gravity ? 516 : 144;
+        const Color accent = gravity ? Secondary : Accent;
+        DrawRectangleRounded(levelBounds(index), .12f, 6, active ? Selected : Panel);
+        DrawRectangleRoundedLinesEx(levelBounds(index), .12f, 6, std::max(1.0f, uiScale()),
+                                    active ? accent : Border);
+        if (gravity) {
+            DrawCircleLinesV({(float)uiX(x + 31), (float)uiY(579)}, 14 * uiScale(), accent);
+            type.centeredIn("G", uiRect(x + 17, 565, 28, 28), 19, accent);
+            type.draw("Zero gravity", x + 60, 557, 21, Paper, active, 248);
+            const Difficulty& level = getZeroGravityLevel();
+            const int seconds = (int)level.seconds;
+            type.draw(
+                TextFormat("%d x %d / %d:%02d", level.size, level.size, seconds / 60, seconds % 60),
+                x + 60, 585, 13, Muted, false, 248);
+        } else {
+            for (int row = 0; row < 3; ++row)
+                for (int col = 0; col < 3; ++col)
+                    DrawRectangleRec(uiRect(x + 20 + col * 8, 568 + row * 8, 5, 5), accent);
+            type.draw("Custom", x + 60, 565, 22, Paper, active, 170);
+            type.draw(TextFormat("%d-%d", MIN_SIZE, MAX_SIZE), x + 258, 571, 15, Muted, false, 64);
+        }
     }
-    drawMenuFooter(type, "UP / DOWN  choose     ENTER  start     ESC  back");
 
     if (typing) {
-        drawPopup(640, 330, Accent, Panel, 0.88f);
-        type.draw("CUSTOM MAZE", 208, 210, 13, Accent, true);
-        type.draw(TextFormat("Choose a size, %d - %d", MIN_SIZE, MAX_SIZE), 208, 238, 32, Paper,
-                  true, 584);
-        drawMenuPanel(uiRect(208, 292, 584, 62));
-        const std::string entry = text + ((((int)(GetTime() * 2)) % 2 == 0) ? "|" : "");
-        type.centered(entry.c_str(), 500, 301, 34, Paper, true, 544);
-        type.centered(showError ? TextFormat("Enter a number from %d to %d", MIN_SIZE, MAX_SIZE)
-                                : "Square maze. Normal gravity.",
-                      500, 371, 17, showError ? Danger : Muted, false, 584);
-        DrawRectangleRounded(entryConfirmBounds(), 0.1f, 6, Selected);
-        DrawRectangleRoundedLinesEx(entryConfirmBounds(), 0.1f, 6, std::max(1.0f, uiScale()),
+        drawPopup(640, 330, Accent, Panel, .88f);
+        type.draw("Custom", 208, 226, 32, Paper, true);
+        type.draw("Size", 208, 273, 13, Muted);
+        type.draw(TextFormat("%d-%d", MIN_SIZE, MAX_SIZE), 720, 273, 13, Muted, false, 72);
+        const std::string entry = text.empty() ? "00" : text;
+        type.centered(entry.c_str(), 500, 295, 46, text.empty() ? Border : Paper, true, 400);
+        levelStroke(374, 356, 626, 356, Accent);
+        const int size = text.empty() ? 0 : std::atoi(text.c_str());
+        if (showError)
+            type.centered(TextFormat("Use %d-%d", MIN_SIZE, MAX_SIZE), 500, 373, 16, Danger);
+        else if (isValidSize(size)) {
+            const int seconds = (int)customSeconds(size);
+            levelClock(463, 382, Muted);
+            type.draw(TextFormat("%d:%02d", seconds / 60, seconds % 60), 480, 369, 18, Muted);
+        }
+        DrawRectangleRounded(entryConfirmBounds(), .10f, 6, Selected);
+        DrawRectangleRoundedLinesEx(entryConfirmBounds(), .10f, 6, std::max(1.0f, uiScale()),
                                     Accent);
-        DrawRectangleRounded(entryCancelBounds(), 0.1f, 6, Panel);
-        DrawRectangleRoundedLinesEx(entryCancelBounds(), 0.1f, 6, std::max(1.0f, uiScale()),
+        DrawRectangleRoundedLinesEx(entryCancelBounds(), .10f, 6, std::max(1.0f, uiScale()),
                                     Border);
-        type.centered("Confirm", 405, 415, 19, Paper, true);
-        type.centered("Cancel", 595, 415, 19, Muted, true);
-        type.centered("ENTER  confirm     ESC  cancel", 500, 476, 14, Muted);
+        type.centered("Start", 405, 415, 19, Paper, true);
+        type.centered("Cancel", 595, 415, 19, Muted);
     }
 }
 
