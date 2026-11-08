@@ -5,11 +5,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <string>
 
 namespace {
 constexpr int COUNT = 3;
-constexpr float TITLE_STRETCH = 2.8f;
+constexpr float TITLE_STRETCH = 1.65f;
 const char* const LABELS[COUNT] = {"PLAY", "CONTROLS", "QUIT"};
 constexpr Screen DESTINATIONS[COUNT] = {Screen::PLAYER_SELECT, Screen::CONTROLS, Screen::QUIT};
 const Color& ACCENT = MenuTheme::Accent;
@@ -40,7 +41,18 @@ Rectangle optionBounds(int index) {
     return bounds(440, 335 + index * 76.0f, 400, 62);
 }
 
-// Borrow the default font when system typography is unavailable; no downloaded assets are needed.
+Font loadFontFile(const std::string& path, int size, int* glyphs = nullptr, int count = 0) {
+    if (FileExists(path.c_str())) {
+        Font font = LoadFontEx(path.c_str(), size, glyphs, count);
+        if (font.texture.id != 0 && font.texture.id != GetFontDefault().texture.id) {
+            SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+            return font;
+        }
+    }
+    return GetFontDefault();
+}
+
+// Borrow the default font when system typography is unavailable.
 Font loadMenuFont(const char* filename, int size, int* glyphs = nullptr, int count = 0) {
 #if defined(_WIN32)
     char* directory = nullptr;
@@ -49,15 +61,22 @@ Font loadMenuFont(const char* filename, int size, int* glyphs = nullptr, int cou
     const std::string path =
         std::string(directory ? directory : "C:/Windows") + "/Fonts/" + filename;
     std::free(directory);
-    if (FileExists(path.c_str())) {
-        Font font = LoadFontEx(path.c_str(), size, glyphs, count);
-        if (font.texture.id != 0 && font.texture.id != GetFontDefault().texture.id) {
-            SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
-            return font;
-        }
-    }
+    return loadFontFile(path, size, glyphs, count);
 #endif
     return GetFontDefault();
+}
+
+// Package the calligraphy face so the title is consistent across devices; retain a system-script
+// fallback when someone runs an incomplete copy without its assets folder.
+Font loadTitleFont(int size) {
+    int glyphs[] = {'T', '1'};
+    const std::string packaged = std::string(GetApplicationDirectory()) + "assets/fonts/Ballet.ttf";
+    for (const std::string& path : {packaged, std::string("src/assets/fonts/Ballet.ttf")}) {
+        Font font = loadFontFile(path, size, glyphs, 2);
+        if (font.texture.id != GetFontDefault().texture.id)
+            return font;
+    }
+    return loadMenuFont("Gabriola.ttf", size, glyphs, 2);
 }
 
 void releaseFont(Font& font) {
@@ -85,21 +104,35 @@ void diamond(float x, float y, float radius, Color color) {
     DrawTriangle(point(x, y - radius), point(x, y + radius), point(x + radius, y), color);
 }
 
-// Oversample the two title glyphs before stretching X, keeping the widened wordmark crisp.
+// Center the visible calligraphy, including overhanging swashes. Fit its actual ink bounds so
+// tall ascenders and flourishes remain clear of the navigation at every supported window size.
 void wordmark(Font font, Color color) {
-    const float pixels = fontSize(112), tracking = std::round(14 * scale());
-    const float width = MeasureTextEx(font, "T1", pixels, tracking).x;
-    const Vector2 anchor = point(640, 140);
+    float left = std::numeric_limits<float>::max(), top = left;
+    float right = -left, bottom = right, advance = 0;
+    for (int codepoint : {'T', '1'}) {
+        const int index = GetGlyphIndex(font, codepoint);
+        const GlyphInfo& glyph = font.glyphs[index];
+        const Rectangle& rect = font.recs[index];
+        left = std::min(left, advance + glyph.offsetX);
+        top = std::min(top, (float)glyph.offsetY);
+        right = std::max(right, advance + glyph.offsetX + rect.width);
+        bottom = std::max(bottom, glyph.offsetY + rect.height);
+        advance += glyph.advanceX ? glyph.advanceX : rect.width + glyph.offsetX;
+    }
+    const float fit = std::min(150 * scale() / std::max(1.0f, bottom - top),
+                               510 * scale() / std::max(1.0f, (right - left) * TITLE_STRETCH));
+    const Vector2 anchor = point(640, 190);
     rlPushMatrix();
     rlTranslatef(std::round(anchor.x), std::round(anchor.y), 0);
-    rlScalef(TITLE_STRETCH, 1, 1);
-    DrawTextEx(font, "T1", {-width * .5f, 0}, pixels, tracking, color);
+    rlScalef(fit * TITLE_STRETCH, fit, 1);
+    DrawTextEx(font, "T1", {-(left + right) * .5f, -(top + bottom) * .5f}, (float)font.baseSize, 0,
+               color);
     rlPopMatrix();
 }
 
-}
+} // namespace
 
-// Own optional system fonts inside the graphics context, alongside the animated background.
+// Own the bundled title and native navigation fonts inside the graphics context.
 MainMenu::MainMenu() : selected(0) {
     refreshFonts();
 }
@@ -112,15 +145,14 @@ MainMenu::~MainMenu() {
 
 // Rasterize each font at its actual display size, including after resizing the window.
 void MainMenu::refreshFonts() const {
-    const std::array<int, 3> pixels = {(int)std::ceil(fontSize(112) * TITLE_STRETCH),
+    const std::array<int, 3> pixels = {(int)std::ceil(fontSize(180) * TITLE_STRETCH),
                                        (int)fontSize(24), (int)fontSize(14)};
     if (fontPixels == pixels)
         return;
     releaseFont(titleFont);
     releaseFont(menuFont);
     releaseFont(detailFont);
-    int titleGlyphs[] = {'T', '1'};
-    titleFont = loadMenuFont("timesbd.ttf", pixels[0], titleGlyphs, 2);
+    titleFont = loadTitleFont(pixels[0]);
     menuFont = loadMenuFont("segoeuib.ttf", pixels[1]);
     detailFont = loadMenuFont("segoeui.ttf", pixels[2]);
     fontPixels = pixels;
