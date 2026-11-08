@@ -6,7 +6,23 @@
 
 namespace {
 Rectangle playerBounds(int index) {
-    return uiRect(430, 210 + index * 76, 506, 64);
+    return uiRect(280, 232 + index * 58, 448, 52);
+}
+
+Rectangle playerDeleteBounds(int index) {
+    return uiRect(672, 246 + index * 58, 28, 28);
+}
+
+void profileRule(int x1, int y1, int x2, int y2, Color color, float width = 1) {
+    DrawLineEx({(float)uiX(x1), (float)uiY(y1)}, {(float)uiX(x2), (float)uiY(y2)},
+               std::max(1.0f, width * uiScale()), color);
+}
+
+void profileDeleteIcon(int index, Color color) {
+    const int y = 232 + index * 58;
+    profileRule(680, y + 19, 692, y + 19, color);
+    profileRule(683, y + 16, 689, y + 16, color);
+    DrawRectangleLinesEx(uiRect(682, y + 22, 8, 10), std::max(1.0f, uiScale()), color);
 }
 
 std::string initials(const std::string& name) {
@@ -15,12 +31,11 @@ std::string initials(const std::string& name) {
         ch = (char)std::toupper((unsigned char)ch);
     return value;
 }
-}
+} // namespace
 
 // Retain access to shared profiles and initialize selection, name entry and error display to their
 // idle states.
-PlayerSelect::PlayerSelect(Players& p) : players(p), selected(0), typing(false), error(0) {
-}
+PlayerSelect::PlayerSelect(Players& p) : players(p), selected(0), typing(false), error(0) {}
 
 // Count selectable profiles and include the new-player option only when profile capacity remains.
 int PlayerSelect::optionCount() const {
@@ -61,20 +76,23 @@ Screen PlayerSelect::update() {
 
     int n = optionCount();
     updateMenuSelection(selected, n);
+    const int deleting =
+        selected < players.count() && menuClicked(playerDeleteBounds(selected)) ? selected : -1;
     bool clicked = false;
     for (int i = 0; i < n; ++i)
         clicked |= menuPointer(playerBounds(i), i, selected);
     if (IsKeyPressed(KEY_ESCAPE) || menuClicked(menuBackBounds()))
         return Screen::MAIN_MENU;
 
-    if (IsKeyPressed(KEY_DELETE) && selected < players.count()) {
-        if (players.remove(selected)) {
+    if (deleting >= 0 || (IsKeyPressed(KEY_DELETE) && selected < players.count())) {
+        if (players.remove(deleting >= 0 ? deleting : selected)) {
             error = 0;
             if (selected >= optionCount())
                 selected = optionCount() - 1;
         } else {
             error = 3;
         }
+        return Screen::PLAYER_SELECT;
     }
 
     if (menuConfirmed() || clicked) {
@@ -95,85 +113,80 @@ Screen PlayerSelect::update() {
     return Screen::PLAYER_SELECT;
 }
 
-// Render a selected-profile preview at this stop along the corridor journey.
+// A ruled guest register keeps names together without a separate profile preview or repeated
+// labels.
 void PlayerSelect::draw() const {
     using namespace MenuTheme;
-    const bool existing = selected < players.count();
-    const std::string name = existing ? players.name(selected) : "New player";
-    const std::string mark = existing ? initials(name) : "+";
     background.draw((float)GetTime());
-    DrawRectangleGradientV(0, 0, GetScreenWidth(), uiY(190), Ink, Fade(Ink, 0));
-    drawMenuHeading(type, "01 / PROFILES", "Select player",
-                    "Choose a saved player or create a new one.");
     drawMenuBack(type);
+    const Color page = ColorLerp(Paper, Accent, .12f);
+    const Color rule = Fade(Ink, .18f);
+    DrawRectangleRec(uiRect(244, 168, 526, 426), Fade(Ink, .65f));
+    DrawRectangleRec(uiRect(234, 156, 32, 420), Panel);
+    DrawRectangleRec(uiRect(254, 156, 508, 420), page);
+    DrawRectangleLinesEx(uiRect(254, 156, 508, 420), std::max(1.0f, uiScale()),
+                         ColorLerp(Accent, Ink, .4f));
+    profileRule(248, 162, 248, 570, Accent);
+    profileRule(270, 164, 270, 568, Fade(Ink, .15f));
+    for (int y : {196, 274, 352, 430, 508})
+        profileRule(238, y, 257, y, Border, 3);
+    DrawRectangleRec(uiRect(742, 156, 20, 32), ColorLerp(page, Accent, .45f));
+    type.draw("Players", 286, 178, 32, Ink, true);
+    type.draw(TextFormat("%d / %d", players.count(), MAX_PLAYERS), 676, 193, 14, Fade(Ink, .6f),
+              false, 66);
+    profileRule(286, 222, 728, 222, Fade(Ink, .36f));
 
-    const Vector2 portrait = {(float)uiX(222), (float)uiY(332)};
-    DrawPoly(portrait, 6, 94 * uiScale(), 30, Panel);
-    DrawPolyLinesEx(portrait, 6, 94 * uiScale(), 30, std::max(1.0f, uiScale()), Border);
-    DrawPoly(portrait, 6, 80 * uiScale(), 30, Selected);
-    DrawPolyLinesEx(portrait, 6, 80 * uiScale(), 30, std::max(1.5f, 2 * uiScale()), Accent);
-    type.centeredIn(mark.c_str(),
-                    {portrait.x - 80 * uiScale(), portrait.y - 80 * uiScale(), 160 * uiScale(),
-                     160 * uiScale()},
-                    68, Paper);
-    type.centered(existing ? "PLAYER PROFILE" : "CREATE PROFILE", 222, 433, 13, Accent, true);
-
-    for (int index = 0; index < optionCount(); ++index) {
+    for (int index = 0; index < MAX_PLAYERS; ++index) {
+        const int y = 232 + index * 58;
+        profileRule(286, y + 52, 728, y + 52, rule);
+        if (index >= optionCount())
+            continue;
         const bool saved = index < players.count();
         const bool active = index == selected;
-        const int y = 210 + index * 76;
-        const Rectangle row = playerBounds(index);
-        DrawRectangleRounded(row, 0.08f, 6, active ? Selected : Panel);
-        DrawRectangleRoundedLinesEx(row, 0.08f, 6, std::max(1.0f, uiScale()),
-                                    active ? Accent : Border);
-        if (active)
-            DrawRectangle(uiX(430), uiY(y + 16), std::max(2, uiSize(3)), uiSize(32), Accent);
-        DrawRectangleRounded(uiRect(446, y + 12, 40, 40), 0.12f, 6, Badge);
-        const std::string letter = saved ? initials(players.name(index)).substr(0, 1) : "+";
-        type.centeredIn(letter.c_str(), uiRect(446, y + 12, 40, 40), 24, active ? Accent : Paper);
-        type.draw(saved ? players.name(index).c_str() : "New player", 504, y + 9, 23,
-                  active ? Paper : Muted, true, 334);
-        type.draw(saved ? TextFormat("PROFILE %02d", index + 1) : "Create a profile", 505, y + 39,
-                  12, active ? Accent : Muted, false, 330);
-        const int arrow = 906;
-        const Color color = active ? Accent : Border;
-        DrawLineEx({(float)uiX(arrow - 5), (float)uiY(y + 26)},
-                   {(float)uiX(arrow + 1), (float)uiY(y + 32)}, std::max(1.5f, 2 * uiScale()),
-                   color);
-        DrawLineEx({(float)uiX(arrow + 1), (float)uiY(y + 32)},
-                   {(float)uiX(arrow - 5), (float)uiY(y + 38)}, std::max(1.5f, 2 * uiScale()),
-                   color);
+        if (active) {
+            DrawRectangleRec(playerBounds(index), ColorLerp(page, Accent, .32f));
+            DrawRectangleRec(uiRect(280, y + 10, 3, 32), Ink);
+        }
+        const Color mark = active ? Ink : Fade(Ink, .65f);
+        DrawCircleV({(float)uiX(304), (float)uiY(y + 26)}, 17 * uiScale(), mark);
+        const std::string letters = saved ? initials(players.name(index)) : "+";
+        type.centeredIn(letters.c_str(), uiRect(286, y + 8, 36, 36), 18, page);
+        type.draw(saved ? players.name(index).c_str() : "New player", 338, y + 12, 23, Ink, active,
+                  310);
+        if (active) {
+            if (saved) {
+                const bool over =
+                    CheckCollisionPointRec(GetMousePosition(), playerDeleteBounds(index));
+                profileDeleteIcon(index, over ? Ink : Fade(Ink, .5f));
+            }
+            profileRule(710, y + 21, 716, y + 26, Ink);
+            profileRule(716, y + 26, 710, y + 31, Ink);
+        }
     }
-    drawMenuFooter(type,
-                   "UP / DOWN  choose     ENTER  select     DEL  remove player     ESC  back");
+    profileRule(286, 548, 728, 548, rule);
 
     if (typing) {
-        drawPopup(640, 330, Accent, Panel, 0.88f);
-        type.draw("NEW PLAYER", 208, 210, 13, Accent, true);
-        type.draw("Player name", 208, 238, 32, Paper, true);
-        drawMenuPanel(uiRect(208, 292, 584, 62));
+        drawPopup(640, 330, Accent, page, .88f);
+        type.draw("New player", 208, 226, 32, Ink, true);
+        type.draw("Name", 208, 273, 13, Fade(Ink, .65f));
+        type.draw(TextFormat("%d / %d", (int)text.size(), MAX_NAME_LENGTH), 724, 273, 13,
+                  Fade(Ink, .65f), false, 68);
+        DrawRectangleRec(uiRect(208, 296, 584, 58), Fade(Ink, .04f));
+        profileRule(208, 354, 792, 354, Fade(Ink, .45f));
         const std::string entry = text + ((((int)(GetTime() * 2)) % 2 == 0) ? "|" : "");
-        type.centered(entry.c_str(), 500, 301, 34, Paper, true, 544);
+        type.centered(entry.c_str(), 500, 300, 34, Ink, true, 544);
         if (error == 1)
-            type.centered(TextFormat("Use 1-%d letters, digits or _", MAX_NAME_LENGTH), 500, 371,
-                          17, Danger, false, 584);
+            type.centered(TextFormat("Use 1-%d letters, numbers or _", MAX_NAME_LENGTH), 500, 373,
+                          16, Ink, false, 584);
         else if (error == 2)
-            type.centered("That name already exists", 500, 371, 17, Danger);
+            type.centered("Name already taken", 500, 373, 16, Ink);
         else if (error == 3)
-            type.centered("Could not save player data", 500, 371, 17, Danger);
-        else
-            type.centered("Letters, digits and underscores. Up to 12 characters.", 500, 371, 16,
-                          Muted, false, 584);
-        DrawRectangleRounded(entryConfirmBounds(), 0.1f, 6, Selected);
-        DrawRectangleRoundedLinesEx(entryConfirmBounds(), 0.1f, 6, std::max(1.0f, uiScale()),
-                                    Accent);
-        DrawRectangleRounded(entryCancelBounds(), 0.1f, 6, Panel);
-        DrawRectangleRoundedLinesEx(entryCancelBounds(), 0.1f, 6, std::max(1.0f, uiScale()),
-                                    Border);
-        type.centered("Confirm", 405, 415, 19, Paper, true);
-        type.centered("Cancel", 595, 415, 19, Muted, true);
-        type.centered("ENTER  confirm     ESC  cancel", 500, 476, 14, Muted);
+            type.centered("Could not save player", 500, 373, 16, Ink);
+        DrawRectangleRec(entryConfirmBounds(), Ink);
+        DrawRectangleLinesEx(entryCancelBounds(), std::max(1.0f, uiScale()), Fade(Ink, .45f));
+        type.centered("Add", 405, 415, 19, page, true);
+        type.centered("Cancel", 595, 415, 19, Ink);
     }
     if (!typing && error == 3)
-        type.centered("Could not save player data", 500, 678, 15, Danger);
+        type.centered("Could not remove player", 500, 602, 16, Paper);
 }
