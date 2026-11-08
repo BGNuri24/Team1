@@ -24,6 +24,8 @@ Game reproduced(size, duration, original.mode(), original.seed(), original.theme
 
 `ActiveMazeTheme` in `src/data/MazeTheme.h` currently selects Grand Hotel for all normal application flows. Default `Game` construction uses the same theme regardless of seed or mode. Supplying a theme explicitly remains useful for material previews. Maze seeds still determine layouts independently of the fixed color palette.
 
+Ordinary walking on the floor and ceiling uses `MazeGeometry::MovementSpeed` at 3.24 world units per second. Jump takeoff and acceleration retain their original 4.0-unit scale through `JumpMovement::TakeoffSpeed`, independently of walking. Timed bunny hops preserve existing momentum and the 7.0-unit cap. Jump tests check the original air-strafe gain curve, slower walking after landing, and takeoff after returning to walking.
+
 The application applies the curated theme at startup, on menu return and when starting or retrying a run. Player/level selection, generation, gameplay, pause and results all retain it. The optional seeded theme selectors remain available for future collections, but application navigation does not instantiate or consume them.
 
 `MenuTheme::colorsFor` derives all interface materials from a maze palette. `MenuTheme::apply` updates the live color references used by drawing helpers and their default arguments. Main-menu and background color aliases must remain references so existing screens update without reloading fonts or recreating their geometry. The HUD uses the same palette factory for its active run.

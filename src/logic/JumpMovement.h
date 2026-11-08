@@ -6,6 +6,8 @@
 // friction.
 class JumpMovement {
 public:
+    // Keep the original takeoff and acceleration scale independent of ordinary walking speed.
+    static constexpr float TakeoffSpeed = 4.0f;
     static constexpr float MaxSpeed = 7.0f;
     static constexpr float JumpBuffer = 0.08f;
     // Buffer a fresh jump request for up to JumpBuffer seconds while waiting for floor contact.

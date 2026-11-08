@@ -164,12 +164,15 @@ static std::vector<int> pathTo(const Game& game, int target) {
     return path;
 }
 
-// Turn and move through cell centers using public game input, asserting that ordinary centered
-// movement does not attach to walls.
-static void followPath(Game& game, const std::vector<int>& path, int collisionTarget = -1) {
+// Follow passage waypoints through public game input, optionally taking inside corners, and
+// assert that ordinary movement never attaches to a side wall.
+static void followPath(Game& game, const std::vector<int>& path, int collisionTarget = -1,
+                       bool insideCorners = false) {
     const int size = game.maze().size();
+    const int startCell = game.row() * size + game.col();
     constexpr float pi = 3.14159265358979323846f;
-    for (int cell : path) {
+    for (int index = 0; index < (int)path.size(); ++index) {
+        const int cell = path[index];
         if (game.finished())
             break;
         for (const GravityObstacle& obstacle : game.obstacles()) {
@@ -181,7 +184,21 @@ static void followPath(Game& game, const std::vector<int>& path, int collisionTa
                 game.update({0, 0, 0, 0, .25f, false});
             }
         }
-        float dx = cellCenter(cell % size) - game.x(), dz = cellCenter(cell / size) - game.z();
+        float targetX = cellCenter(cell % size), targetZ = cellCenter(cell / size);
+        if (insideCorners && index + 1 < (int)path.size()) {
+            const int previous = index > 0 ? path[index - 1] : startCell;
+            const int next = path[index + 1];
+            const int inX = cell % size - previous % size, inZ = cell / size - previous / size;
+            const int outX = next % size - cell % size, outZ = next / size - cell / size;
+            if (inX * outX + inZ * outZ == 0) {
+                // Stay inside the corner cell with full player clearance. Every segment still
+                // uses real movement and collision, rather than teleporting or skipping time.
+                const float inset = HalfCell - PlayerRadius - .02f;
+                targetX += (outX - inX) * inset;
+                targetZ += (outZ - inZ) * inset;
+            }
+        }
+        float dx = targetX - game.x(), dz = targetZ - game.z();
         float turn = std::remainder(std::atan2(dz, dx) - game.yaw(), 2 * pi);
         game.update({0, 0, turn / (0.0025f * game.cameraUp().y), 0, 0, false});
         float distance = std::sqrt(dx * dx + dz * dz);
@@ -189,6 +206,9 @@ static void followPath(Game& game, const std::vector<int>& path, int collisionTa
         for (int tick = 0; tick < ticks && !game.finished(); ++tick)
             game.update({1, 0, 0, 0, distance / (ticks * MovementSpeed), false});
         require(std::fabs(game.cameraUp().y) > .99f, "path movement must stay on floor or ceiling");
+        if (insideCorners && !game.finished())
+            require(std::hypot(game.x() - targetX, game.z() - targetZ) < .005f,
+                    "an inside-corner route must reach its waypoint through normal collision");
     }
 }
 
@@ -238,7 +258,8 @@ static void testReachableExit(int size, GameMode mode = GameMode::Normal, unsign
 }
 
 // Exercise real movement and gravity transfers with the unchanged preset timers. Stronger
-// branching must still leave enough time for a player who follows the correct route.
+// branching must still leave enough time for a player who follows the correct route. Take corners
+// inside their clearance, as a player can, instead of adding a detour through every cell center.
 static void testPresetCompletion() {
     for (unsigned seed = 0; seed < 32; ++seed) {
         for (int level = 0; level <= DIFFICULTY_COUNT; ++level) {
@@ -247,7 +268,7 @@ static void testPresetCompletion() {
                 zeroGravity ? getZeroGravityLevel() : getDifficulty(level);
             Game game(difficulty.size, difficulty.seconds,
                       zeroGravity ? GameMode::ZeroGravity : GameMode::Normal, seed);
-            followPath(game, pathTo(game, difficulty.size * difficulty.size - 1));
+            followPath(game, pathTo(game, difficulty.size * difficulty.size - 1), -1, true);
             require(game.won() && game.timeLeft() > 0,
                     "preset mazes must remain completable within their original timers");
         }

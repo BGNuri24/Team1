@@ -9,7 +9,8 @@ inline constexpr float CeilingHeight = 1.35f;
 inline constexpr float StandingEyeHeight = 0.54f;
 inline constexpr float PlayerRadius = 0.10f;
 inline constexpr float SurfaceOffset = 0.22f;
-inline constexpr float MovementSpeed = 4.0f;
+// Ordinary floor and ceiling walking; bunny-hop tuning is independent in JumpMovement.
+inline constexpr float MovementSpeed = 3.24f;
 
 // Convert a row or column index to its cell-center coordinate in world units.
 inline constexpr float cellCenter(int index) { return index * CellSize; }

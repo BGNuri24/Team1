@@ -42,20 +42,44 @@ bool repeatedKey(int key) {
     return IsKeyPressed(key) || IsKeyPressedRepeat(key);
 }
 
-// Draw a compact sensitivity-adjustment button with hover feedback and a centered label.
-void smallButton(Rectangle bounds, const char* label) {
-    bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
-    DrawRectangleRounded(bounds, .15f, 6, over ? MenuTheme::Selected : MenuTheme::Panel);
-    DrawRectangleRoundedLinesEx(bounds, .15f, 6, std::max(1.0f, uiScale()), MenuTheme::Border);
-    int size = std::max(10, uiSize(22));
-    DrawText(label, (int)(bounds.x + (bounds.width - MeasureText(label, size)) / 2),
-             (int)(bounds.y + (bounds.height - size) / 2), size, MenuTheme::Accent);
-}
+struct PauseColors {
+    Color body, surface, selected, border, brass, text, muted;
+};
+
+// Keep the pause surfaces near black while retaining the hotel's warm brass and ivory lettering.
+PauseColors pauseColors() {
+    using namespace MenuTheme;
+    const Color surface = ColorLerp(Ink, Panel, .12f);
+    return {ColorLerp(Ink, BLACK, .45f),      surface,
+            ColorLerp(surface, Accent, .12f), ColorLerp(Ink, Accent, .23f),
+            ColorLerp(Accent, Panel, .30f),   Paper,
+            ColorLerp(Paper, Ink, .30f)};
 }
 
-// Bind the pause menu to the application's live settings and initially select Resume.
-PauseMenu::PauseMenu(GameSettings& settings) : settings(settings), selected(0) {
+void pauseButton(Rectangle bounds, const char* label, bool active, const PauseColors& colors,
+                 const MenuTypography& type, int fontSize = 21) {
+    DrawRectangleRounded(bounds, .08f, 6, active ? colors.selected : colors.surface);
+    DrawRectangleRoundedLinesEx(bounds, .08f, 6, std::max(1.0f, uiScale()),
+                                active ? colors.brass : colors.border);
+    if (active)
+        DrawRectangle((int)bounds.x, (int)(bounds.y + bounds.height * .28f), std::max(2, uiSize(2)),
+                      (int)(bounds.height * .44f), colors.brass);
+    type.centeredIn(label, bounds, fontSize, active ? colors.text : colors.muted);
 }
+
+// Draw a compact sensitivity-adjustment button with hover feedback and a centered label.
+void smallButton(Rectangle bounds, const char* label, const PauseColors& colors,
+                 const MenuTypography& type) {
+    const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
+    DrawRectangleRounded(bounds, .12f, 6, over ? colors.selected : colors.surface);
+    DrawRectangleRoundedLinesEx(bounds, .12f, 6, std::max(1.0f, uiScale()),
+                                over ? colors.brass : colors.border);
+    type.centeredIn(label, bounds, 22, colors.brass);
+}
+} // namespace
+
+// Bind the pause menu to the application's live settings and initially select Resume.
+PauseMenu::PauseMenu(GameSettings& settings) : settings(settings), selected(0) {}
 
 // Return selection to Resume and cancel slider dragging without changing the saved or live
 // sensitivity.
@@ -158,44 +182,50 @@ PauseAction PauseMenu::update() {
     return PauseAction::NONE;
 }
 
-// Render the pause overlay, action list, sensitivity range and current value, reset button and any
-// save-failure feedback.
+// Render the dark hotel overlay with opaque controls and a clear keyboard-selection state.
 void PauseMenu::draw() const {
     using namespace MenuTheme;
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, .78f));
-    drawMenuPanel(uiRect(236, 52, 528, 596));
-    DrawRectangle(uiX(270), uiY(83), uiSize(5), uiSize(18), Accent);
-    DrawRectangle(uiX(281), uiY(83), uiSize(5), uiSize(18), Accent);
-    drawMenuText("PAUSE MENU", 302, 86, 14, Accent);
-    drawMenuText("Paused", 267, 120, 38);
+    const PauseColors colors = pauseColors();
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, .84f));
+    DrawRectangleRounded(uiRect(242, 60, 528, 596), .025f, 8, Fade(BLACK, .35f));
+    DrawRectangleRounded(uiRect(236, 52, 528, 596), .025f, 8, colors.body);
+    DrawRectangleRoundedLinesEx(uiRect(236, 52, 528, 596), .025f, 8, std::max(1.0f, uiScale()),
+                                colors.border);
+    DrawRectangle(uiX(485), uiY(89), uiSize(30), std::max(1, uiSize(2)), colors.brass);
+    type.centered("Paused", 500, 114, 38, colors.text, true, 460);
+    DrawLine(uiX(270), uiY(174), uiX(730), uiY(174), colors.border);
     for (int i = 0; i < ACTION_COUNT; ++i)
-        drawMenuButton(actionBounds(i), LABELS[i], i == selected);
+        pauseButton(actionBounds(i), LABELS[i], i == selected, colors, type);
 
-    bool active = selected == SENSITIVITY_OPTION;
-    drawMenuPanel(sensitivityBounds(), active ? Fade(Accent, .8f) : Border);
-    drawMenuText("MOUSE SENSITIVITY", 292, 475, 16, active ? Paper : Muted);
-    drawMenuText(TextFormat("%.2fx", settings.sensitivityMultiplier()), 638, 472, 22, Accent);
-    smallButton(minusBounds(), "-");
-    smallButton(plusBounds(), "+");
-    Rectangle slider = sliderBounds();
-    float y = (float)uiY(523);
-    float ratio = (float)(settings.sensitivityPercent() - GameSettings::MinSensitivity) /
-                  (GameSettings::MaxSensitivity - GameSettings::MinSensitivity);
-    DrawRectangle((int)slider.x, (int)y, (int)slider.width, std::max(2, uiSize(4)), Border);
+    const bool active = selected == SENSITIVITY_OPTION;
+    DrawRectangleRounded(sensitivityBounds(), .04f, 6, colors.surface);
+    DrawRectangleRoundedLinesEx(sensitivityBounds(), .04f, 6, std::max(1.0f, uiScale()),
+                                active ? colors.brass : colors.border);
+    type.draw("Sensitivity", 292, 471, 17, active ? colors.text : colors.muted, true, 280);
+    type.centered(TextFormat("%.2fx", settings.sensitivityMultiplier()), 673, 469, 21, colors.brass,
+                  true, 78);
+    smallButton(minusBounds(), "-", colors, type);
+    smallButton(plusBounds(), "+", colors, type);
+    const Rectangle slider = sliderBounds();
+    const float y = (float)uiY(523);
+    const float ratio = (float)(settings.sensitivityPercent() - GameSettings::MinSensitivity) /
+                        (GameSettings::MaxSensitivity - GameSettings::MinSensitivity);
+    DrawRectangle((int)slider.x, (int)y, (int)slider.width, std::max(2, uiSize(4)), colors.border);
     DrawRectangle((int)slider.x, (int)y, (int)(slider.width * ratio), std::max(2, uiSize(4)),
-                  Accent);
-    float defaultRatio = (float)(GameSettings::DefaultSensitivity - GameSettings::MinSensitivity) /
-                         (GameSettings::MaxSensitivity - GameSettings::MinSensitivity);
-    int notch = (int)(slider.x + slider.width * defaultRatio);
-    DrawLine(notch, uiY(519), notch, uiY(532), Fade(Paper, .45f));
+                  colors.brass);
+    const float defaultRatio =
+        (float)(GameSettings::DefaultSensitivity - GameSettings::MinSensitivity) /
+        (GameSettings::MaxSensitivity - GameSettings::MinSensitivity);
+    const int notch = (int)(slider.x + slider.width * defaultRatio);
+    DrawLine(notch, uiY(519), notch, uiY(532), Fade(colors.text, .35f));
     DrawCircleV({slider.x + slider.width * ratio, y + uiSize(2)}, (float)std::max(4, uiSize(7)),
-                Paper);
-    drawMenuText("0.25x", 344, 543, 10, Muted);
-    drawMenuText("3.00x", 605, 543, 10, Muted);
-    drawMenuText("LEFT / RIGHT  adjust", 270, 581, 12, Muted);
-    drawMenuButton(resetBounds(), "Reset",
-                   CheckCollisionPointRec(GetMousePosition(), resetBounds()));
+                colors.brass);
+    type.draw("0.25x", 344, 541, 11, colors.muted, true, 72);
+    type.draw("3.00x", 605, 541, 11, colors.muted, true, 72);
+    type.draw("Left / Right to adjust", 270, 578, 12, colors.muted, false, 300);
+    pauseButton(resetBounds(), "Reset", CheckCollisionPointRec(GetMousePosition(), resetBounds()),
+                colors, type, 14);
     if (saveFailed)
-        drawCentered("Applied for this session. Could not save settings.", 605, 12, Danger);
-    drawCentered("UP / DOWN  choose    ENTER  select    ESC  resume", 627, 14, Muted);
+        type.centered("Settings not saved", 500, 605, 12, Danger, true, 460);
+    type.centered("Esc to resume", 500, 626, 12, colors.muted, true, 460);
 }

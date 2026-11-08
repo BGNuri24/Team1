@@ -21,7 +21,7 @@ namespace {
         JumpMovement movement;
         movement.step(1, 0, Tick);
         requireJump(movement.velocityX() == MazeGeometry::MovementSpeed && movement.grounded(),
-            "walking must keep its original speed");
+                    "walking must use the reduced walking speed");
         movement.requestJump();
         float apex = 0;
         for (int frame = 0; frame < 100; ++frame) {
@@ -63,10 +63,10 @@ namespace {
             const float current = speed(movement);
             movement.step(-movement.velocityZ() / current, movement.velocityX() / current, Tick);
             requireJump(speed(movement) <= JumpMovement::MaxSpeed + .0001f,
-                "air strafing must respect the bunny-hop speed cap");
+                        "air strafing must respect the bunny-hop speed cap");
         }
-        requireJump(speed(movement) > MazeGeometry::MovementSpeed + .3f,
-            "turning and air strafing must build useful momentum");
+        requireJump(speed(movement) > JumpMovement::TakeoffSpeed + .3f,
+                    "turning and air strafing must build useful momentum");
         while (!movement.grounded()) movement.step(0, 0, Tick);
         const float landingSpeed = speed(movement);
         movement.requestJump();
@@ -80,9 +80,11 @@ namespace {
         movement.reset();
         movement.requestJump();
         movement.step(1, 0, Tick);
-        for (int frame = 0; frame < 30; ++frame) movement.step(1, 0, Tick);
-        requireJump(std::fabs(speed(movement) - MazeGeometry::MovementSpeed) < .001f,
-            "holding forward alone must not grant a free bunny-hop speed boost");
+        for (int frame = 0; frame < 30; ++frame)
+            movement.step(1, 0, Tick);
+        requireJump(std::fabs(speed(movement) - JumpMovement::TakeoffSpeed) < .001f,
+                    "holding forward alone must retain the original takeoff speed without "
+                    "accumulating speed");
         for (int frame = 0; frame < 1200; ++frame) {
             if (movement.grounded()) movement.requestJump();
             const float current = speed(movement);
@@ -99,6 +101,73 @@ namespace {
             "reset must clear buffered jumps, height and momentum");
     }
 
+    // Walking slows down without changing takeoff, the air-strafe gain curve or chained-hop speed.
+    void testSeparateWalkingSpeed() {
+        for (Vector2 wish : {Vector2{1, 0}, {0, -1}, {1, 1}}) {
+            JumpMovement movement;
+            movement.step(wish.x, wish.y, Tick);
+            requireJump(
+                std::fabs(speed(movement) - 3.24f) < .001f,
+                "ordinary walking must use 3.24 units per second, including diagonal movement");
+            movement.requestJump();
+            movement.step(wish.x, wish.y, Tick);
+            requireJump(std::fabs(speed(movement) - 4.0f) < .001f,
+                        "jumping from the slower walk must preserve the original takeoff speed");
+            while (!movement.grounded())
+                movement.step(wish.x, wish.y, Tick);
+            for (int frame = 0; frame < 60; ++frame)
+                movement.step(wish.x, wish.y, Tick);
+            requireJump(std::fabs(speed(movement) - 3.24f) < .001f,
+                        "landing without chaining another hop must settle back to the slower walk");
+            movement.requestJump();
+            movement.step(wish.x, wish.y, Tick);
+            requireJump(
+                std::fabs(speed(movement) - 4.0f) < .001f,
+                "jumping again after returning to walking must retain the original takeoff speed");
+        }
+
+        JumpMovement chained;
+        chained.requestJump();
+        chained.step(1, 0, Tick);
+        for (int frame = 1; frame <= 300; ++frame) {
+            if (chained.grounded())
+                chained.requestJump();
+            const float current = speed(chained);
+            chained.step(-chained.velocityZ() / current, chained.velocityX() / current, Tick);
+            // The original 120 Hz model gains 0.4 units/s perpendicular to momentum each tick.
+            const float originalSpeed = std::min(7.0f, std::sqrt(16.0f + .16f * frame));
+            requireJump(std::fabs(speed(chained) - originalSpeed) < .001f,
+                        "the entire original bunny-hop acceleration curve and seven-unit cap must "
+                        "be preserved");
+        }
+
+        for (GameMode mode : {GameMode::Normal, GameMode::ZeroGravity}) {
+            for (bool ceiling : {false, true}) {
+                if (ceiling && mode != GameMode::ZeroGravity)
+                    continue;
+                Game game(25, 100, mode, 1234);
+                if (ceiling) {
+                    game.update({0, 0, 0, 0, 0, true});
+                    game.update({0, 0, 0, 0, .25f, false});
+                }
+                const Vector3 before = game.position();
+                game.update({1, 0, 0, 0, .1f, false});
+                requireJump(
+                    std::fabs(std::hypot(game.x() - before.x, game.z() - before.z) - .324f) < .001f,
+                    "actual floor and ceiling walking must both use the reduced speed");
+                if (!ceiling) {
+                    const Vector3 takeoff = game.position();
+                    game.update({1, 0, 0, 0, Tick, false, true});
+                    const float distance = std::hypot(game.x() - takeoff.x, game.z() - takeoff.z);
+                    requireJump(std::fabs(distance / Tick - 4.0f) < .001f &&
+                                    game.y() > MazeGeometry::StandingEyeHeight,
+                                "the game's jumping path must retain its original horizontal "
+                                "takeoff speed");
+                }
+            }
+        }
+    }
+
     // Exercise the actual camera-height integration, slow-frame wall collision, gravity-transition
     // resets and ignored input after timeout.
     void testJumpInGame() {
@@ -109,7 +178,8 @@ namespace {
             input.dt = Tick;
             input.jumpPressed = true;
             game.update(input);
-            requireJump(game.y() > StandingEyeHeight, "Space must raise the actual game camera from the floor");
+            requireJump(game.y() > StandingEyeHeight,
+                        "Space must raise the actual game camera from the floor");
             input.jumpPressed = false;
             for (int frame = 0; frame < 100; ++frame) {
                 game.update(input);
@@ -171,6 +241,7 @@ namespace {
 void runJumpTests() {
     testJumpArcAndBuffer();
     testAirStrafeAndFriction();
+    testSeparateWalkingSpeed();
     testJumpInGame();
     testFrameRates();
 }

@@ -33,20 +33,25 @@ void JumpMovement::step(float wishX, float wishZ, float dt) {
     // along that direction.
     auto accelerate = [&](float wishSpeed, float acceleration) {
         const float remaining = wishSpeed - (vx * wishX + vz * wishZ);
-        if (remaining <= 0) return;
-        const float amount = std::min(remaining, acceleration * MazeGeometry::MovementSpeed * dt);
+        if (remaining <= 0)
+            return;
+        const float amount = std::min(remaining, acceleration * TakeoffSpeed * dt);
         vx += wishX * amount;
         vz += wishZ * amount;
     };
 
     if (onGround) {
-        if (!momentum) {
-            // Before a jump introduces momentum, derive velocity directly from input to preserve
-            // immediate walking controls.
-            vx = wishX * MazeGeometry::MovementSpeed;
-            vz = wishZ * MazeGeometry::MovementSpeed;
+        const bool takingOff = bufferedJump > 0;
+        const bool walking = std::fabs(vx - wishX * MazeGeometry::MovementSpeed) < .001f &&
+                             std::fabs(vz - wishZ * MazeGeometry::MovementSpeed) < .001f;
+        if (!momentum || (takingOff && walking)) {
+            // Ordinary walking is slower, but a fresh jump from walking starts at the original
+            // takeoff speed. Chained hops retain their existing momentum without rescaling.
+            const float baseSpeed = takingOff ? TakeoffSpeed : MazeGeometry::MovementSpeed;
+            vx = wishX * baseSpeed;
+            vz = wishZ * baseSpeed;
         }
-        if (bufferedJump > 0) {
+        if (takingOff) {
             verticalSpeed = JumpImpulse;
             onGround = false;
             momentum = true;

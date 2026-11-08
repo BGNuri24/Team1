@@ -52,32 +52,39 @@ void EndScreen::draw(const Game& game, const std::string& playerName, float best
     using namespace MenuTheme;
     const bool won = game.won();
     const bool hazard = game.failureReason() == FailureReason::ObstacleHit;
-    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, 0.68f));
+    const Color card = ColorLerp(Ink, BLACK, .45f);
+    const Color surface = ColorLerp(Ink, Panel, .12f);
+    const Color focus = ColorLerp(surface, Accent, .12f);
+    const Color edge = ColorLerp(Ink, Accent, .23f);
+    const Color brass = ColorLerp(Accent, Panel, .30f);
+    const Color quiet = ColorLerp(Paper, Ink, .30f);
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, .78f));
 
     const float progress = std::clamp(animationTime / 0.4f, 0.0f, 1.0f);
     const float lift = -12 * (1 - progress) * (1 - progress) * uiScale();
     rlPushMatrix();
     rlTranslatef(0, lift, 0);
-    drawResultCard(5 * uiScale(), 7 * uiScale(), Fade(Ink, 0.45f));
-    drawResultCard(0, 0, Paper);
+    drawResultCard(5 * uiScale(), 7 * uiScale(), Fade(BLACK, .40f));
+    drawResultCard(0, 0, card);
+    DrawRectangleRoundedLinesEx(uiRect(330, 224, 340, 312), .06f, 8, std::max(1.0f, uiScale()),
+                                edge);
 
-    const Color quiet = ColorLerp(Ink, Paper, 0.20f);
     if (won) {
-        type.centered("You are so", 500, 240, 29, Ink, true, 284);
-        type.centered("cracked twin", 500, 272, 29, Ink, true, 284);
+        type.centered("You are so", 500, 240, 29, Paper, true, 284);
+        type.centered("cracked twin", 500, 272, 29, Paper, true, 284);
     } else {
-        type.centered(hazard ? "Barrier hit" : "Time's up", 500, 258, 34, Ink, true, 284);
+        type.centered(hazard ? "Barrier hit" : "Time's up", 500, 258, 34, Paper, true, 284);
     }
     type.centered(playerName.c_str(), 500, 311, 17, quiet, true, 276);
     type.centered("Time", 500, 345, 15, quiet, true);
-    type.centered(formatTime(game.timeTaken()), 500, 367, 46, Ink, true, 284);
-    DrawLine(uiX(370), uiY(428), uiX(630), uiY(428), Fade(Ink, 0.25f));
+    type.centered(formatTime(game.timeTaken()), 500, 367, 46, Paper, true, 284);
+    DrawLine(uiX(370), uiY(428), uiX(630), uiY(428), edge);
 
     // A failed save must never be presented as a new record.
     if (bestTimeSaveFailed)
-        type.centered("Time not saved", 500, 447, 18, Ink, true, 260);
+        type.centered("Time not saved", 500, 447, 18, Danger, true, 260);
     else if (won && newBestTime)
-        type.centered("New best", 500, 447, 18, Ink, true, 260);
+        type.centered("New best", 500, 447, 18, brass, true, 260);
     else if (bestTime >= 0)
         type.centered(TextFormat("Best  %s", formatTime(bestTime)), 500, 447, 18, quiet, true, 260);
 
@@ -91,10 +98,13 @@ void EndScreen::draw(const Game& game, const std::string& playerName, float best
     for (int index = 0; index < 2; ++index) {
         const bool active = index == selected;
         const Rectangle button = actionBounds(index);
-        DrawRectangleRounded(button, 0.10f, 6, active ? Paper : Panel);
+        DrawRectangleRounded(button, 0.10f, 6, active ? focus : surface);
         DrawRectangleRoundedLinesEx(button, 0.10f, 6, std::max(1.0f, uiScale()),
-                                    active ? Paper : Border);
+                                    active ? brass : edge);
+        if (active)
+            DrawRectangle((int)button.x, (int)button.y + uiSize(12), std::max(2, uiSize(2)),
+                          uiSize(24), brass);
         type.centered(index == 0 ? "Again" : "Menu", 395 + index * 210, 587, 20,
-                      active ? Ink : Paper, true, 160);
+                      active ? Paper : quiet, true, 160);
     }
 }
