@@ -9,7 +9,8 @@
 #include <utility>
 using namespace storage;
 namespace {
-// Treat the metadata key as a migration marker only after its surrounding transaction commits.
+// Query whether the named migration marker exists and place that answer in exists. A missing row
+// is a successful query with exists false; preparation, binding, or stepping errors return false.
 bool hasMarker(Connection& connection, const char* key, bool& exists) {
     Statement marker;
     if (!marker.prepare(connection, "SELECT 1 FROM storage_metadata WHERE key=?1") ||
@@ -21,7 +22,9 @@ bool hasMarker(Connection& connection, const char* key, bool& exists) {
     exists = status == SQLITE_ROW;
     return true;
 }
-// Import only the player's own legacy files beside this database, with backups as a fallback.
+// Resolve a legacy file only inside the database's own directory, using its .bak file when the
+// primary file is absent. Report existence separately from filesystem errors and never search
+// packaged assets for personal saves.
 bool legacySource(const std::filesystem::path& directory, const char* filename,
                   std::filesystem::path& source, bool& exists) {
     const std::filesystem::path candidates[] = {directory / filename,
@@ -38,7 +41,9 @@ bool legacySource(const std::filesystem::path& directory, const char* filename,
     exists = false;
     return true;
 }
-// Import profile order without rewriting either legacy file, and fail on an unreadable source.
+// Load valid, unique profile names in file order from the selected legacy source, respecting
+// MAX_PLAYERS. Missing files represent an empty import; unreadable files fail migration without
+// rewriting the source.
 bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::string>& players) {
     std::filesystem::path source;
     bool exists = false;
@@ -60,7 +65,9 @@ bool readLegacyPlayers(const std::filesystem::path& directory, std::vector<std::
     }
     return !input.bad();
 }
-// Import only valid records for existing profiles; leave the source and any .bak file untouched.
+// Read legacy score rows for known profiles, rejecting malformed names, sizes, modes, and times.
+// Save only valid improvements through the caller's transaction, preserving the original text
+// file and backup.
 bool importLegacy(Connection& connection, const std::filesystem::path& directory,
                   const std::vector<std::string>& players) {
     std::filesystem::path source;
@@ -100,7 +107,9 @@ bool importLegacy(Connection& connection, const std::filesystem::path& directory
     return !input.bad();
 }
 }
-// Commit schema changes and legacy import markers together; keep this work outside runtime queries.
+// Create the storage schema and import legacy profiles and scores inside one immediate
+// transaction. Publish the profile list and import markers only on commit, so an interrupted or
+// failed migration can be retried.
 bool migrateDatabase(Connection& connection, const std::filesystem::path& directory,
                      std::vector<std::string>& players) {
     Transaction transaction(connection);

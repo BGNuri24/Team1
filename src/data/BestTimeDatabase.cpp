@@ -15,17 +15,33 @@ namespace {
     // Close every connection on scope exit, including one whose open operation only partly succeeded.
     struct Connection {
         sqlite3* handle = nullptr;
+        // Close an owned SQLite connection on scope exit when its handle is nonnull, including a
+        // partially successful open. Statements must finish before their connection owner is
+        // destroyed.
         ~Connection() { if (handle) sqlite3_close(handle); }
+        // Disallow copy construction so a second object cannot duplicate exclusive state or
+        // resource handles. Keep a single owner or use an explicitly supported move constructor
+        // instead.
         Connection(const Connection&) = delete;
+        // Disallow copy assignment so two objects cannot accidentally share exclusive state or
+        // resource ownership. Retain the existing owner or use an explicitly supported move
+        // operation instead.
         Connection& operator=(const Connection&) = delete;
+        // Use the compiler-generated default constructor and the member initializers declared in
+        // this type. No external resources are acquired here; later operations establish the
+        // object's usable state.
         Connection() = default;
 
-        // Use UTF-16 for Windows paths and wait briefly for another game's write transaction.
+        // Open the legacy implementation's fixed database path using SQLite's UTF-16 Windows API
+        // and set a short busy timeout. Return false on setup failure while the owning Connection
+        // retains cleanup responsibility.
         bool open() {
             if (sqlite3_open16(DatabasePath.c_str(), &handle) != SQLITE_OK) return false;
             return sqlite3_busy_timeout(handle, 250) == SQLITE_OK;
         }
-        // Execute fixed SQL without interpolating any profile names or other user-provided values.
+        // Execute fixed SQL without interpolating user-provided values and report whether SQLite
+        // completed successfully. Use prepared Statement bindings for names and other variable
+        // data.
         bool execute(const char* sql) {
             return sqlite3_exec(handle, sql, nullptr, nullptr, nullptr) == SQLITE_OK;
         }
@@ -34,16 +50,31 @@ namespace {
     // Finalize prepared statements before their owning connection is closed.
     struct Statement {
         sqlite3_stmt* handle = nullptr;
+        // Disallow copy construction so a second object cannot duplicate exclusive state or
+        // resource handles. Keep a single owner or use an explicitly supported move constructor
+        // instead.
         Statement(const Statement&) = delete;
+        // Disallow copy assignment so two objects cannot accidentally share exclusive state or
+        // resource ownership. Retain the existing owner or use an explicitly supported move
+        // operation instead.
         Statement& operator=(const Statement&) = delete;
+        // Use the compiler-generated default constructor and the member initializers declared in
+        // this type. No external resources are acquired here; later operations establish the
+        // object's usable state.
         Statement() = default;
+        // Finalize the owned prepared statement when its scope ends, releasing SQLite resources
+        // before the surrounding connection closes. An empty statement needs no cleanup.
         ~Statement() { if (handle) sqlite3_finalize(handle); }
 
-        // Compile a fixed query and retain its handle only for the surrounding operation.
+        // Compile fixed SQL against the supplied open connection and retain the resulting
+        // statement handle. Return false on preparation failure while the statement owner still
+        // handles any allocated cleanup.
         bool prepare(Connection& connection, const char* sql) {
             return sqlite3_prepare_v2(connection.handle, sql, -1, &handle, nullptr) == SQLITE_OK;
         }
-        // Copy text into the statement so caller-owned strings need not outlive query execution.
+        // Bind a string to a one-based prepared-statement parameter using SQLITE_TRANSIENT.
+        // SQLite copies the bytes, so the caller's string does not have to survive until the
+        // statement is stepped.
         bool text(int index, const std::string& value) {
             return sqlite3_bind_text(handle, index, value.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK;
         }
@@ -53,9 +84,17 @@ namespace {
     struct Transaction {
         Connection& connection;
         bool active;
+        // Begin an immediate write transaction on the borrowed connection and record whether
+        // acquisition succeeded. The connection must outlive this guard; uncommitted active work
+        // is rolled back automatically.
         explicit Transaction(Connection& value) : connection(value), active(value.execute("BEGIN IMMEDIATE")) {}
+        // Roll back an active transaction when scope exits before a successful commit. This
+        // protects multi-statement profile and score changes from partial publication after an
+        // error.
         ~Transaction() { if (active) connection.execute("ROLLBACK"); }
-        // Publish the complete write operation; retain rollback responsibility if publication fails.
+        // Commit an active transaction and clear rollback responsibility only when SQLite reports
+        // success. Return false otherwise, leaving the guard active so destruction can roll back
+        // the unfinished operation.
         bool commit() {
             if (!active || !connection.execute("COMMIT")) return false;
             active = false;
@@ -63,14 +102,18 @@ namespace {
         }
     };
 
-    // Store a readable mode key while rejecting enum values that are not supported by the game.
+    // Translate the supported GameMode values into the stable strings stored in SQLite. Return
+    // nullptr for an unsupported enum value so callers can reject it before binding or executing
+    // a query.
     const char* modeKey(GameMode mode) {
         if (mode == GameMode::Normal) return "normal";
         if (mode == GameMode::ZeroGravity) return "zero_gravity";
         return nullptr;
     }
 
-    // Read stable profile order without exposing partial results when a query fails.
+    // Read profiles in sort_order order into a temporary vector, validating names and the
+    // player-count limit. Replace the caller's vector only after the complete query succeeds,
+    // leaving it unchanged on any failure.
     bool readPlayers(Connection& connection, std::vector<std::string>& players) {
         Statement query;
         if (!query.prepare(connection, "SELECT name FROM players ORDER BY sort_order")) return false;
@@ -87,7 +130,9 @@ namespace {
         return true;
     }
 
-    // Treat the metadata key as a migration marker only after its surrounding transaction commits.
+    // Query whether the named migration marker exists and place that answer in exists. A missing
+    // row is a successful query with exists false; preparation, binding, or stepping errors
+    // return false.
     bool hasMarker(Connection& connection, const char* key, bool& exists) {
         Statement marker;
         if (!marker.prepare(connection, "SELECT 1 FROM storage_metadata WHERE key=?1") || !marker.text(1,key)) return false;
@@ -97,7 +142,9 @@ namespace {
         return true;
     }
 
-    // Import profile order without rewriting either legacy file, and fail on an unreadable source.
+    // Read valid, unique names from save_data/players.txt, falling back to its backup when
+    // absent. Respect the player limit and preserve the source; this helper belongs to the older,
+    // inactive storage implementation.
     bool readLegacyPlayers(std::vector<std::string>& players) {
         std::filesystem::path source = "save_data/players.txt";
         std::error_code error;
@@ -121,14 +168,18 @@ namespace {
         return !input.bad();
     }
 
-    // Bind the complete unique key consistently for selects, inserts and improvements.
+    // Bind player name, maze size, and mode to parameters 1, 2, and 3 of a prepared statement.
+    // Return false for an unsupported mode or any binding error; the same ordering is used by
+    // lookups and score writes.
     bool bindKey(Statement& statement, const std::string& player, int size, GameMode mode) {
         const char* key = modeKey(mode);
         return key && statement.text(1, player) &&
             sqlite3_bind_int(statement.handle, 2, size) == SQLITE_OK && statement.text(3, key);
     }
 
-    // Insert a missing key and improve an existing key under the caller's write transaction.
+    // Insert a score when its composite key is missing, then update an existing row only when the
+    // new time is faster. Report SQL success separately from the changed flag; the caller
+    // supplies the surrounding write transaction.
     bool writeBest(Connection& connection, const std::string& player, int size, float seconds,
         GameMode mode, bool& changed) {
         Statement insert;
@@ -146,7 +197,9 @@ namespace {
         return true;
     }
 
-    // Import only valid records for existing profiles; leave the source and any .bak file untouched.
+    // Import well-formed legacy score rows for existing profiles, retaining the fastest result
+    // for each key. Keep the text sources untouched and let the caller commit the import and its
+    // marker together.
     bool importLegacy(Connection& connection, const std::vector<std::string>& players) {
         std::filesystem::path source = "save_data/best_times.txt";
         std::error_code error;
@@ -183,7 +236,9 @@ namespace {
     }
 }
 
-// Commit the schema, imported results and import marker together so an interrupted migration can retry.
+// Initialize the legacy database implementation's schema and import markers inside one
+// transaction. Publish the caller's profiles only after a successful commit; the active game
+// build now uses GameDatabase instead.
 bool BestTimeDatabase::initialize(std::vector<std::string>& players) {
     ready = false;
     failed = true;
@@ -230,7 +285,9 @@ bool BestTimeDatabase::initialize(std::vector<std::string>& players) {
     return true;
 }
 
-// Serialize capacity checks, orphan cleanup and insertion so two store instances cannot exceed the limit.
+// Add a valid unique profile under a write transaction, checking current capacity and cleaning
+// orphaned scores for that name. Refresh the caller's list only on commit; this legacy
+// implementation is not part of the active game target.
 bool BestTimeDatabase::addPlayer(const std::string& player, std::vector<std::string>& players) {
     failed = false;
     if (!isValidPlayerName(player)) return false;
@@ -256,7 +313,9 @@ bool BestTimeDatabase::addPlayer(const std::string& player, std::vector<std::str
     return true;
 }
 
-// Query current persisted state rather than a cached copy that another game instance could invalidate.
+// Query the legacy database for the supplied player, size, and mode, returning -1 for a missing
+// result or unavailable storage. Consult storageFailed to distinguish failure; active gameplay
+// uses GameDatabase's explicit result type.
 float BestTimeDatabase::bestTime(const std::string& player, int size, GameMode mode) const {
     failed = true;
     if (!ready) return -1;
@@ -271,7 +330,9 @@ float BestTimeDatabase::bestTime(const std::string& player, int size, GameMode m
     return result == SQLITE_ROW ? (float)sqlite3_column_double(query.handle, 0) : -1;
 }
 
-// Protect read/modify/write ordering with an immediate transaction so a slower concurrent run cannot win.
+// Insert a first score or improve a slower result while holding an immediate transaction. This
+// legacy API returns false for both unchanged scores and failures, with storageFailed
+// distinguishing the latter.
 bool BestTimeDatabase::record(const std::string& player, int size, float seconds, GameMode mode) {
     failed = false;
     if (!isValidPlayerName(player) || !isValidSize(size) || !std::isfinite(seconds) || seconds < 0 || !modeKey(mode)) return false;
@@ -293,7 +354,8 @@ bool BestTimeDatabase::record(const std::string& player, int size, float seconds
     return changed;
 }
 
-// Roll back both deletions if either statement fails; publish the in-memory profile list only on commit.
+// Delete a profile and every associated score atomically, publishing the refreshed profile list
+// only on commit. Failure rolls the transaction back and leaves the caller's list unchanged.
 bool BestTimeDatabase::removePlayer(const std::string& player, std::vector<std::string>& players) {
     failed = true;
     if (!ready) return false;

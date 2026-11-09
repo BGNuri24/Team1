@@ -2,7 +2,9 @@
 #include "Validation.h"
 #include <utility>
 namespace storage {
-    // Store a readable mode key while rejecting enum values that are not supported by the game.
+    // Translate the supported GameMode values into the stable strings stored in SQLite. Return
+    // nullptr for an unsupported enum value so callers can reject it before binding or executing
+    // a query.
     const char* modeKey(GameMode mode) {
         if (mode == GameMode::Normal)
             return "normal";
@@ -10,7 +12,9 @@ namespace storage {
             return "zero_gravity";
         return nullptr;
     }
-    // Read stable profile order without exposing partial results when a query fails.
+    // Read profiles in sort_order order into a temporary vector, validating names and the
+    // player-count limit. Replace the caller's vector only after the complete query succeeds,
+    // leaving it unchanged on any failure.
     bool readPlayers(Connection& connection, std::vector<std::string>& players) {
         Statement query;
         if (!query.prepare(connection, "SELECT name FROM players ORDER BY sort_order"))
@@ -30,13 +34,17 @@ namespace storage {
         players = std::move(result);
         return true;
     }
-    // Bind the complete unique key consistently for selects, inserts and improvements.
+    // Bind player name, maze size, and mode to parameters 1, 2, and 3 of a prepared statement.
+    // Return false for an unsupported mode or any binding error; the same ordering is used by
+    // lookups and score writes.
     bool bindKey(Statement& statement, const std::string& player, int size, GameMode mode) {
         const char* key = modeKey(mode);
         return key && statement.text(1, player) &&
             sqlite3_bind_int(statement.handle, 2, size) == SQLITE_OK && statement.text(3, key);
     }
-    // Insert a missing key and improve an existing key under the caller's write transaction.
+    // Insert a score when its composite key is missing, then update an existing row only when the
+    // new time is faster. Report SQL success separately from the changed flag; the caller
+    // supplies the surrounding write transaction.
     bool writeBest(Connection& connection, const std::string& player, int size, float seconds,
         GameMode mode, bool& changed) {
         Statement insert;

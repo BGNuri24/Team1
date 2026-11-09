@@ -2,8 +2,8 @@
 #include <algorithm>
 #include <utility>
 
-// Load both profiles and best times from SQLite, with a one-time import handled inside its
-// transaction.
+// Initialize the SQLite database and cache profiles only after initialization succeeds. Retain
+// the startup status for the UI; schema setup and legacy imports are handled by GameDatabase.
 PlayerStore::PlayerStore() {
     auto result = database.initialize();
     initialization = result.status;
@@ -11,23 +11,28 @@ PlayerStore::PlayerStore() {
         names = std::move(result.players);
 }
 
-// Return the number of profiles in the last successfully loaded or committed profile list.
+// Return the number of profiles in the last successfully loaded or committed in-memory list. This
+// accessor does not open SQLite or refresh changes made by another game instance.
 int PlayerStore::count() const {
     return (int)names.size();
 }
 
-// Return a stable empty string for invalid indices rather than exposing an out-of-range reference.
+// Borrow the cached name at index i, returning a stable empty string for an invalid index. Do not
+// retain a reference to a vector entry across profile additions or removals.
 const std::string& PlayerStore::name(int i) const {
     static const std::string empty;
     return i >= 0 && i < count() ? names[i] : empty;
 }
 
-// Check the current in-memory list; database writes also validate the latest persisted state.
+// Check whether the cached profile list contains the supplied name. This is a local lookup;
+// database write operations independently recheck persisted profiles inside their transactions.
 bool PlayerStore::contains(const std::string& name) const {
     return std::find(names.begin(), names.end(), name) != names.end();
 }
 
-// Apply local validation before committing the new profile and publishing its refreshed list.
+// Ask GameDatabase to validate and commit a new profile, then replace the cached list only on
+// success. Return its exact status so duplicate, capacity, validation, and storage failures
+// remain distinguishable.
 StorageStatus PlayerStore::add(const std::string& name) {
     auto result = database.addPlayer(name);
     if (result.status == StorageStatus::Success)
@@ -35,8 +40,9 @@ StorageStatus PlayerStore::add(const std::string& name) {
     return result.status;
 }
 
-// Delete the selected profile and all its scores in one SQLite transaction, leaving memory
-// unchanged on failure.
+// Validate the cached index and copy its name before requesting atomic profile-and-score
+// deletion. Replace the cached list only after a successful commit, leaving current memory intact
+// on failure.
 StorageStatus PlayerStore::remove(int i) {
     if (i < 0 || i >= count())
         return StorageStatus::Invalid;
@@ -47,14 +53,16 @@ StorageStatus PlayerStore::remove(int i) {
     return result.status;
 }
 
-// Read persisted scores directly so improvements made through another store are visible
-// immediately.
+// Query the database directly for the supplied player's size-and-mode record. Returning the
+// storage status with an optional time distinguishes a missing score from failure and observes
+// other instances' committed improvements.
 BestTimeResult PlayerStore::bestTime(const std::string& player, int mazeSize, GameMode mode) const {
     return database.bestTime(player, mazeSize, mode);
 }
 
-// Reject an unknown local profile and let SQLite recheck profile existence and the current best
-// result.
+// Forward the complete score key and elapsed seconds to GameDatabase, which validates the profile
+// and compares against the persisted best time. Return the operation's explicit result without
+// maintaining a separate score cache.
 RecordResult PlayerStore::recordBestTime(const std::string& player, int mazeSize, float seconds,
     GameMode mode) {
     return database.record(player, mazeSize, seconds, mode);

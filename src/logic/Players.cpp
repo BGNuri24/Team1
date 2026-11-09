@@ -1,22 +1,25 @@
 #include "Players.h"
 
-// Load the underlying profile store and initially select its first entry when one exists.
+// Construct the underlying profile store and initialize the active index to zero. An empty or
+// unavailable store is handled by activeName's Guest fallback rather than creating a profile
+// automatically.
 Players::Players() : activeIndex(0) {
 }
 
-// Expose the number of profiles managed by the persistent store.
+// Return the number of cached profiles exposed by PlayerStore. Menu code uses this count to build
+// profile choices; this call does not refresh the database.
 int Players::count() const {
     return store.count();
 }
 
-// Delegate indexed name lookup to the store, including its empty-string fallback for an invalid
-// index.
+// Borrow a profile name by index through PlayerStore, which provides an empty fallback for
+// invalid indices. References to cached entries should not outlive profile-list mutations.
 const std::string& Players::name(int i) const {
     return store.name(i);
 }
 
-// Resolve the current profile name and use Guest when the selected index does not identify a saved
-// profile.
+// Borrow the selected saved profile's name, or return a stable Guest fallback when the index is
+// invalid. Score persistence still requires an actual stored profile.
 const std::string& Players::activeName() const {
     static const std::string guest = "Guest";
     if (activeIndex < 0 || activeIndex >= store.count())
@@ -24,14 +27,16 @@ const std::string& Players::activeName() const {
     return store.name(activeIndex);
 }
 
-// Change the active profile only when the requested index is inside the saved profile list.
+// Select the requested profile only when its index is within the cached list. Invalid requests
+// leave the current selection unchanged rather than producing an out-of-range active index.
 void Players::setActive(int i) {
     if (i >= 0 && i < store.count())
         activeIndex = i;
 }
 
-// Check name validity, capacity and uniqueness in that order, then report whether saving the new
-// profile succeeded.
+// Validate the supplied name and ask PlayerStore to add it, translating its explicit storage
+// status into the menu's AddResult. Keep validation, duplicates, capacity, and failed saves
+// distinguishable to the player.
 Players::AddResult Players::add(std::string_view name) {
     if (!isValidPlayerName(name))
         return INVALID;
@@ -50,8 +55,9 @@ Players::AddResult Players::add(std::string_view name) {
     }
 }
 
-// Delete a profile and adjust the active index so an earlier deletion does not change which
-// remaining player is selected.
+// Remove the indexed profile through persistent storage and adjust activeIndex only after
+// success. Deleting an earlier entry preserves the selected remaining player; an exhausted index
+// falls back to zero.
 bool Players::remove(int i) {
     if (i < 0 || i >= store.count())
         return false;
@@ -64,13 +70,14 @@ bool Players::remove(int i) {
     return true;
 }
 
-// Look up the active player's best result for the requested maze size and game mode.
+// Request the active profile's record for a maze size and mode and return both its storage status
+// and optional seconds. A missing score remains distinct from database failure.
 BestTimeResult Players::bestTime(int mazeSize, GameMode mode) const {
     return store.bestTime(activeName(), mazeSize, mode);
 }
 
-// Submit the active player's completed run to the store, which accepts only a first or improved
-// valid result.
+// Submit the active profile's completed time for its size and mode. The storage layer accepts
+// only a valid first or faster result and returns the exact outcome for the results screen.
 RecordResult Players::recordWin(int mazeSize, float seconds, GameMode mode) {
     return store.recordBestTime(activeName(), mazeSize, seconds, mode);
 }

@@ -8,11 +8,15 @@
 
 using namespace storage;
 
-// Permit isolated test databases without changing the application's working directory.
+// Retain the requested database path without opening a connection yet. The default points to
+// save_data/maze_game.db; an explicit path lets tests use isolated databases without changing the
+// process working directory.
 GameDatabase::GameDatabase(std::filesystem::path value) : path(std::move(value)) {
 }
 
-// Publish initialized state only after the schema and legacy imports have committed successfully.
+// Create the parent directory when needed, open SQLite, and migrate the schema and legacy saves.
+// Mark this instance ready only after migration commits; return the committed profiles or an
+// unavailable result on failure.
 ProfileResult GameDatabase::initialize() {
     ready = false;
     std::error_code error;
@@ -30,8 +34,9 @@ ProfileResult GameDatabase::initialize() {
     return result;
 }
 
-// Check uniqueness and capacity against current persisted state while holding the write
-// transaction.
+// Validate the proposed name, then check capacity and duplicates against persisted profiles while
+// holding an immediate write transaction. Insert the profile and return the refreshed list only
+// after commit; report validation and storage failures separately.
 ProfileResult GameDatabase::addPlayer(const std::string& player) {
     if (!isValidPlayerName(player))
         return {StorageStatus::Invalid, {}};
@@ -60,8 +65,9 @@ ProfileResult GameDatabase::addPlayer(const std::string& player) {
     return result;
 }
 
-// Keep profile and score deletion atomic and distinguish a missing profile from unavailable
-// storage.
+// Delete the named profile and all of its scores within one transaction. Return NotFound for a
+// missing profile, preserve both tables if any operation fails, and expose the refreshed profile
+// list only after commit.
 ProfileResult GameDatabase::removePlayer(const std::string& player) {
     if (!isValidPlayerName(player))
         return {StorageStatus::Invalid, {}};
@@ -86,8 +92,9 @@ ProfileResult GameDatabase::removePlayer(const std::string& player) {
     return result;
 }
 
-// A successful lookup with an empty optional means no result; storage failure has a separate
-// status.
+// Look up a score by player, maze size, and mode after validating the key. Success with an empty
+// seconds optional means no score exists; Invalid and Unavailable distinguish bad input from a
+// storage failure.
 BestTimeResult GameDatabase::bestTime(const std::string& player, int size, GameMode mode) const {
     if (!isValidPlayerName(player) || !isValidSize(size) || !modeKey(mode))
         return {StorageStatus::Invalid, {}};
@@ -109,8 +116,9 @@ BestTimeResult GameDatabase::bestTime(const std::string& player, int size, GameM
     return {StorageStatus::Success, (float)sqlite3_column_double(query.handle, 0)};
 }
 
-// Return the outcome of this save directly, retaining atomic comparisons across simultaneous
-// connections.
+// Validate the completed run and confirm its profile still exists, then compare and write its
+// time under an immediate transaction. Return Updated, Unchanged, Invalid, or StorageError
+// directly so the UI can report the correct outcome.
 RecordResult GameDatabase::record(const std::string& player, int size, float seconds,
                                   GameMode mode) {
     if (!isValidPlayerName(player) || !isValidSize(size) || !std::isfinite(seconds) ||
