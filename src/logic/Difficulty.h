@@ -12,14 +12,15 @@ struct Difficulty {
 
 const int DIFFICULTY_COUNT = 3;
 
-// Return the dedicated Zero Gravity preset with its own maze size and time limit.
+// Borrow the dedicated Zero Gravity preset, including its name, maze size, and time limit. The
+// function-local static keeps the returned reference valid for the lifetime of the program.
 inline const Difficulty& getZeroGravityLevel() {
     static const Difficulty level = { "Zero Gravity", 25, 180.0f };
     return level;
 }
 
-// Return a Normal preset by index; callers must supply an index from zero through DIFFICULTY_COUNT
-// minus one.
+// Borrow one of the Normal presets by zero-based index. The caller must supply an index below
+// DIFFICULTY_COUNT; this accessor performs no bounds checking or difficulty selection.
 inline const Difficulty& getDifficulty(int index) {
     static const Difficulty levels[DIFFICULTY_COUNT] = {
         {"Easy",   15, 180.0f},
@@ -29,7 +30,8 @@ inline const Difficulty& getDifficulty(int index) {
     return levels[index];
 }
 
-// Assign five seconds per side-length cell when calculating a custom maze's time limit.
+// Calculate a custom level's time allowance as five seconds per side-length cell. Callers
+// validate the size separately; this formula does not construct or inspect the maze.
 inline float customSeconds(int size) {
     return size * 5.0f;
 }

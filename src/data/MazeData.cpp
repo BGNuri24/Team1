@@ -4,8 +4,9 @@
 #include <utility>
 
 namespace {
-// Prefer decision points and turns along the actual exit route. Penalize excessive detours so
-// making navigation harder does not just consume the existing level timers with longer walks.
+// Find the exit route with breadth-first search and score its branches, turns, and length.
+// Penalize routes longer than six times the side-length distance so difficulty does not come
+// mainly from consuming the level timer.
 int routeDifficulty(const MazeData& maze) {
     const int n = maze.size();
     const int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
@@ -42,8 +43,9 @@ int routeDifficulty(const MazeData& maze) {
 }
 } // namespace
 
-// Try a small, fixed number of seeded layouts and retain the more challenging exit route together
-// with its own carving animation. All candidates keep the same dimensions, spawn and exit.
+// Generate a square maze from the supplied size and random seed, retaining the strongest of six
+// scored layouts and its matching carving history. Callers supply a supported size; identical
+// size and seed reproduce the layout.
 MazeData::MazeData(int size, std::uint32_t seed) : n(size), grid(size * size, '#') {
     std::mt19937 random(seed);
     int bestScore = std::numeric_limits<int>::min();
@@ -73,8 +75,9 @@ MazeData::MazeData(int size, std::uint32_t seed) : n(size), grid(size * size, '#
     steps = std::move(bestSteps);
 }
 
-// Grow mostly from the newest passage, occasionally returning to an older frontier to form more
-// branches. Only connect unvisited cells, keeping every passage reachable without creating loops.
+// Carve a connected layout using a growing collection of frontier cells and the supplied
+// generator. Move two cells at a time, opening the intervening wall and recording both openings;
+// occasional older-frontier choices create more branches.
 void MazeData::carve(std::mt19937& random) {
     const int dr[] = {-2, 2, 0, 0}, dc[] = {0, 0, -2, 2};
     std::vector<int> active{0};
@@ -109,17 +112,21 @@ void MazeData::carve(std::mt19937& random) {
     }
 }
 
-// Return the number of rows and columns in the square maze.
+// Return the number of rows and columns in this square maze. This reads the stored dimension
+// without generating cells or copying the grid.
 int MazeData::size() const {
     return n;
 }
-// Expose the recorded carving order by reference so the generation screen can animate it without
-// copying the steps.
+// Borrow the recorded cell-opening sequence for the selected layout so the loading screen can
+// animate generation without regenerating the maze. The reference remains valid only while this
+// MazeData object exists.
 const std::vector<MazeStep>& MazeData::generationSteps() const {
     return steps;
 }
 
-// Look up a row/column cell and treat coordinates outside the grid as solid walls.
+// Read a cell using row-major indexing: row * size + column. Return '#' for walls and
+// out-of-bounds positions, '.' for passages, and 'E' for the exit, allowing callers to treat the
+// maze boundary as solid.
 char MazeData::cell(int r, int c) const {
     if (r < 0 || r >= n || c < 0 || c >= n)
         return '#';

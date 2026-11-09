@@ -12,9 +12,11 @@ inline constexpr float SurfaceOffset = 0.22f;
 // Ordinary floor and ceiling walking; bunny-hop tuning is independent in JumpMovement.
 inline constexpr float MovementSpeed = 3.24f;
 
-// Convert a row or column index to its cell-center coordinate in world units.
+// Convert a row or column index into its world-space center using CellSize. Cell zero is centered
+// at coordinate zero; rendering, spawning, and collision share this conversion.
 inline constexpr float cellCenter(int index) { return index * CellSize; }
-// Map a world coordinate to the cell centered nearest it, including negative coordinates near the maze
-// boundary.
+// Convert a world-space X or Z coordinate into the index of the nearest cell center. The
+// half-cell offset and floor operation keep negative positions near the outer boundary consistent
+// with collision checks.
 inline int cellIndex(float position) { return (int)std::floor(position / CellSize + 0.5f); }
 }
