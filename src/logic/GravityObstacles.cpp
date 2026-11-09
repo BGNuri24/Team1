@@ -7,8 +7,9 @@
 
 using namespace MazeGeometry;
 
-// Identify the exit route with breadth-first search, then select seeded, separated straight
-// passages. Every barrier blocks just one surface, leaving the opposite surface traversable.
+// Find the exit route with breadth-first search and select seeded, spaced barriers in straight
+// passages away from spawn, exit, and turns. Alternate their blocked surfaces so the opposite
+// surface remains available as a bypass.
 std::vector<GravityObstacle> generateGravityObstacles(const MazeData& maze, std::uint32_t seed) {
     const int size = maze.size();
     std::vector<int> previous(size * size, -1);
@@ -50,12 +51,17 @@ std::vector<GravityObstacle> generateGravityObstacles(const MazeData& maze, std:
     }
     std::mt19937 random(seed ^ 0xa3817c25u);
     std::shuffle(candidates.begin(), candidates.end(), random);
+    // Prioritize candidate barriers that lie on the computed exit route while preserving order
+    // within both groups. The predicate reads the route mask and leaves candidate geometry
+    // unchanged.
     std::stable_partition(candidates.begin(), candidates.end(), [&](const GravityObstacle& item) {
         return route[item.row * size + item.col];
     });
     std::vector<GravityObstacle> result;
     const int target = std::clamp(size * size / 60, 3, 24);
     for (GravityObstacle candidate : candidates) {
+        // Reject a candidate when an accepted barrier is fewer than four Manhattan cells away.
+        // This preserves enough corridor space between hazards for a floor-to-ceiling transfer.
         const bool crowded = std::any_of(result.begin(), result.end(), [&](const GravityObstacle& other) {
             return std::abs(candidate.row - other.row) + std::abs(candidate.col - other.col) < 4;
         });
@@ -67,7 +73,9 @@ std::vector<GravityObstacle> generateGravityObstacles(const MazeData& maze, std:
     return result;
 }
 
-// Span the entire corridor width so the intended bypass is the opposite gravity surface.
+// Build the exact lethal world-space box from an obstacle's cell, orientation, and blocked
+// surface. The box spans the corridor width; collision and rendering share it to keep visible
+// hazards aligned.
 BoundingBox gravityObstacleBounds(const GravityObstacle& obstacle) {
     const float x = cellCenter(obstacle.col), z = cellCenter(obstacle.row);
     const float halfX = obstacle.acrossX ? HalfCell : GravityBarrierDepth * 0.5f;
@@ -77,8 +85,9 @@ BoundingBox gravityObstacleBounds(const GravityObstacle& obstacle) {
             {x + halfX, bottom + GravityBarrierHeight, z + halfZ}};
 }
 
-// Intersect a movement segment with the barrier expanded by the player's half-extents. This
-// catches crossing an entire obstacle in one frame, even when neither endpoint overlaps it.
+// Intersect a movement segment with an axis-aligned box using overlapping entry and exit
+// intervals on all three axes. Parallel segments are rejected only outside the corresponding
+// slab, catching fast crossings between clear endpoints.
 static bool segmentHitsBox(Vector3 from, Vector3 to, BoundingBox box) {
     float enter = 0.0f, leave = 1.0f;
     const float origin[] = {from.x, from.y, from.z};
@@ -100,7 +109,9 @@ static bool segmentHitsBox(Vector3 from, Vector3 to, BoundingBox box) {
     return true;
 }
 
-// Model a standing body from the feet to just above the eye; mirror that body on the ceiling.
+// Convert eye positions into body centers using each endpoint's floor or ceiling orientation.
+// Expand barrier boxes by player half-extents and test the movement segment, detecting jumping,
+// fast walking, and gravity transfers.
 bool hitsGravityObstacle(const std::vector<GravityObstacle>& obstacles, Vector3 fromEye,
                          bool fromCeiling, Vector3 toEye, bool toCeiling) {
     const float offset = (StandingEyeHeight - PlayerRadius) * 0.5f;

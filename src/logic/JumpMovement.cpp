@@ -12,25 +12,31 @@ namespace {
     constexpr float AirWishSpeed = 0.8f;
 }
 
-// Clear horizontal and vertical velocity, jump height and buffered input, returning movement to the
-// initial grounded state.
+// Restore the initial grounded movement state, clearing horizontal momentum, vertical speed, jump
+// height, and buffered input. Gravity transfers use this to prevent a previous jump from carrying
+// into a new surface.
 void JumpMovement::reset() { *this = JumpMovement{}; }
-// Refresh the short jump buffer so a press shortly before landing can trigger the next takeoff.
+// Refresh the jump-request buffer for JumpBuffer seconds. A request made shortly before landing
+// can trigger the next takeoff when step observes ground contact.
 void JumpMovement::requestJump() { bufferedJump = JumpBuffer; }
-// Discard X-axis momentum after collision while preserving motion along the other horizontal axis.
+// Discard horizontal velocity along X after a wall prevents that component of movement. Keep Z
+// velocity and vertical jump state so the player can continue sliding along the free axis.
 void JumpMovement::blockX() { vx = 0; }
-// Discard Z-axis momentum after collision while preserving motion along the other horizontal axis.
+// Discard horizontal velocity along Z after a wall prevents that component of movement. Keep X
+// velocity and vertical jump state so the player can continue sliding along the free axis.
 void JumpMovement::blockZ() { vz = 0; }
 
-// Advance one movement interval in seconds: consume a grounded jump, apply ground or air acceleration,
-// integrate height, and cap horizontal speed.
+// Advance movement for a positive finite duration: normalize wish input, consume buffered
+// takeoff, apply ground friction or air acceleration, and integrate jump height. Respect ceiling
+// headroom, landing, and MaxSpeed while preserving chained-hop momentum.
 void JumpMovement::step(float wishX, float wishZ, float dt) {
     if (!std::isfinite(dt) || dt <= 0) return;
     const float length = std::hypot(wishX, wishZ);
     if (length > 1) { wishX /= length; wishZ /= length; }
 
-    // Project existing velocity onto the requested direction and add only the remaining allowed speed
-    // along that direction.
+    // Project current momentum onto the normalized wish direction and add only the remaining
+    // allowed speed along it. Ground and air branches share this acceleration rule with different
+    // limits.
     auto accelerate = [&](float wishSpeed, float acceleration) {
         const float remaining = wishSpeed - (vx * wishX + vz * wishZ);
         if (remaining <= 0)

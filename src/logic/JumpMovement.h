@@ -10,24 +10,34 @@ public:
     static constexpr float TakeoffSpeed = 4.0f;
     static constexpr float MaxSpeed = 7.0f;
     static constexpr float JumpBuffer = 0.08f;
-    // Buffer a fresh jump request for up to JumpBuffer seconds while waiting for floor contact.
+    // Refresh the jump-request buffer for JumpBuffer seconds. A request made shortly before
+    // landing can trigger the next takeoff when step observes ground contact.
     void requestJump();
-    // Advance floor-relative movement from horizontal wish input and a positive duration in seconds;
-    // input longer than one is normalized.
+    // Advance movement for a positive finite duration: normalize wish input, consume buffered
+    // takeoff, apply ground friction or air acceleration, and integrate jump height. Respect
+    // ceiling headroom, landing, and MaxSpeed while preserving chained-hop momentum.
     void step(float wishX, float wishZ, float dt);
-    // Restore the grounded state and remove all momentum and queued jump input.
+    // Restore the initial grounded movement state, clearing horizontal momentum, vertical speed,
+    // jump height, and buffered input. Gravity transfers use this to prevent a previous jump from
+    // carrying into a new surface.
     void reset();
-    // Clear the horizontal velocity component blocked by an X-axis collision.
+    // Discard horizontal velocity along X after a wall prevents that component of movement. Keep
+    // Z velocity and vertical jump state so the player can continue sliding along the free axis.
     void blockX();
-    // Clear the horizontal velocity component blocked by a Z-axis collision.
+    // Discard horizontal velocity along Z after a wall prevents that component of movement. Keep
+    // X velocity and vertical jump state so the player can continue sliding along the free axis.
     void blockZ();
-    // Return horizontal X velocity in world units per second.
+    // Return horizontal X velocity in world units per second. Game converts it into a substep
+    // displacement and can clear it with blockX when collision prevents that motion.
     float velocityX() const { return vx; }
-    // Return horizontal Z velocity in world units per second.
+    // Return horizontal Z velocity in world units per second. Game converts it into a substep
+    // displacement and can clear it with blockZ when collision prevents that motion.
     float velocityZ() const { return vz; }
-    // Return the vertical eye-position offset above the normal standing height, in world units.
+    // Return the current jump offset above normal standing eye height in world units. Game adds
+    // this offset to StandingEyeHeight; zero represents a grounded player.
     float height() const { return offset; }
-    // Report whether the jump arc has reached the floor and another buffered takeoff is allowed.
+    // Report whether the jump arc has returned to the floor. step uses this state to apply ground
+    // movement and consume buffered takeoff requests.
     bool grounded() const { return onGround; }
 private:
     float vx = 0, vz = 0, verticalSpeed = 0, offset = 0;

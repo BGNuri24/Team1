@@ -5,18 +5,21 @@
 
 using namespace MazeGeometry;
 
-// Compute the scalar product used to project movement, measure alignment and recover rotation
-// angles.
+// Compute the scalar product of two vectors for projections, alignment tests, and rotation
+// calculations. Unit vectors produce the cosine of their angle; this helper does not normalize
+// its inputs.
 static float dot(const Vector3& a, const Vector3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-// Compute a right-handed perpendicular vector for camera axes and surface-transition rotation axes.
+// Compute the right-handed vector perpendicular to the two inputs. Camera-right directions and
+// surface-rotation axes use this result, which callers normalize when they need a unit vector.
 static Vector3 cross(const Vector3& a, const Vector3& b) {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
-// Return a unit-length direction, or a zero vector when the input is too short to normalize safely.
+// Return a vector with unit length while preserving its direction. Treat a near-zero magnitude as
+// a zero vector to avoid division by a very small value during camera and movement calculations.
 static Vector3 normalized(const Vector3& value) {
     float length = std::sqrt(dot(value, value));
     if (length < 0.0001f)
@@ -24,18 +27,21 @@ static Vector3 normalized(const Vector3& value) {
     return {value.x / length, value.y / length, value.z / length};
 }
 
-// Multiply every vector component by the same scalar without changing its direction for a positive
-// factor.
+// Multiply all three vector components by amount and return the result without changing the
+// input. Positive factors preserve direction; negative factors reverse it.
 static Vector3 scaled(const Vector3& value, float amount) {
     return {value.x * amount, value.y * amount, value.z * amount};
 }
 
-// Add vector components to combine offsets, movement directions and interpolation contributions.
+// Add the corresponding components of two vectors without modifying either input. Movement
+// offsets and rotation interpolation combine their vector contributions through this helper.
 static Vector3 added(const Vector3& a, const Vector3& b) {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
 }
 
-// Rotate a vector around a unit axis by an angle in radians using Rodrigues' rotation formula.
+// Apply Rodrigues' rotation formula to rotate a vector about a unit axis by angle radians.
+// Callers supply the normalized axis; the helper preserves the input vector's length within
+// floating-point precision.
 static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float angle) {
     float cosine = std::cos(angle);
     float sine = std::sin(angle);
@@ -43,8 +49,9 @@ static Vector3 rotateAround(const Vector3& value, const Vector3& axis, float ang
                  scaled(axis, dot(axis, value) * (1.0f - cosine)));
 }
 
-// Generate the maze, initialize floor gravity and timers, and reveal the starting area with the
-// camera facing its open passage.
+// Create a seeded maze run with its selected mode, palette, timer, floor orientation, and
+// starting visibility. Generate hazards only for Zero Gravity and face the camera toward an open
+// starting passage.
 Game::Game(int mazeSize, float seconds, GameMode mode, std::optional<std::uint32_t> seed,
            std::optional<MazeTheme> theme)
     : gameMode(mode), runSeed(seed ? *seed : randomSeed()),
@@ -62,23 +69,26 @@ Game::Game(int mazeSize, float seconds, GameMode mode, std::optional<std::uint32
     reveal();
 }
 
-// Convert world X/Z coordinates to a maze cell and treat both wall cells and out-of-bounds cells as
-// solid.
+// Convert world-space X/Z coordinates to a maze column and row and test for '#'. MazeData treats
+// out-of-range cells as walls, so the same test enforces the outer boundary.
 bool Game::isWall(float x, float z) const {
     int c = cellIndex(x);
     int r = cellIndex(z);
     return mazeData.cell(r, c) == '#';
 }
 
-// Test all four corners of the player's horizontal clearance square against maze walls.
+// Test the four corners of the player's horizontal clearance square against maze walls. This
+// checks a proposed X/Z position without committing movement or evaluating lethal obstacle
+// volumes.
 bool Game::canMove(float x, float z) const {
     const float m = PlayerRadius;
     return !isWall(x - m, z - m) && !isWall(x + m, z - m) && !isWall(x - m, z + m) &&
            !isWall(x + m, z + m);
 }
 
-// Reset jump momentum, capture the displayed pose, and set the logical destination and rotation
-// used by the smooth surface transition.
+// Reset jump momentum, capture the displayed pose, and set the logical destination and new
+// gravity orientation. Rendering interpolates from the captured pose over the quarter-second
+// transition.
 void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPosition,
                                   bool attached) {
     jumpMovement.reset();
@@ -103,8 +113,9 @@ void Game::beginSurfaceTransition(const Vector3& newUp, const Vector3& targetPos
     attachedToSurface = attached;
 }
 
-// Switch directly between floor and ceiling without aiming or changing the player's X/Z position.
-// Sweep the whole transfer first so flipping through a nearby barrier is still lethal.
+// Request a floor-to-ceiling or ceiling-to-floor transfer while preserving X/Z position and
+// corridor heading. Sweep the player's body through the transfer first so a barrier can cause
+// failure before the new surface is accepted.
 void Game::toggleGravity() {
     const bool ceiling = !attachedToSurface;
     const Vector3 target = {px, ceiling ? CeilingHeight - StandingEyeHeight : StandingEyeHeight,
@@ -114,8 +125,9 @@ void Game::toggleGravity() {
     beginSurfaceTransition(ceiling ? Vector3{0, -1, 0} : Vector3{0, 1, 0}, target, ceiling);
 }
 
-// Reveal the current cell and its surrounding 3-by-3 neighborhood, marking the current cell as
-// visited.
+// Mark the logical current cell as visited and expose its surrounding 3-by-3 neighborhood.
+// Preserve previously visited cells and leave out-of-bounds coordinates outside the exploration
+// vector.
 void Game::reveal() {
     int n = mazeData.size();
     int r = row(), c = col();
@@ -128,8 +140,9 @@ void Game::reveal() {
     seen[r * n + c] = 2;
 }
 
-// Advance an unfinished run's timers, camera orientation and movement, respecting gravity
-// transitions and recording an exit-cell win.
+// Advance one unfinished run from a frame's InputState: validate timing, update timers, handle
+// gravity, rotate the view, resolve movement, and reveal cells. Terminal results freeze later
+// updates, and timeout takes priority before movement.
 void Game::update(const InputState& in) {
     // Ignore further input and timer updates after the run has been won or lost.
     if (hasWon || hasLost)
@@ -199,8 +212,9 @@ void Game::update(const InputState& in) {
         hasWon = true;
 }
 
-// Resolve horizontal clearance without ever attaching to a side wall. Test each accepted segment
-// against hazards before committing the destination, so the player stops at the failed approach.
+// Try one X- or Z-axis displacement after checking wall clearance, sweeping the accepted segment
+// against hazards before committing it. Return true for lethal obstacle contact so the caller
+// stops further movement immediately.
 bool Game::moveHorizontal(float movement, float step, bool alongX) {
     const float nextX = alongX ? px + movement * step : px;
     const float nextZ = alongX ? pz : pz + movement * step;
@@ -214,7 +228,9 @@ bool Game::moveHorizontal(float movement, float step, bool alongX) {
     return false;
 }
 
-// Freeze an obstacle loss through the same finished-run state used by the existing end-screen flow.
+// Sweep the player's body from the previous pose to the proposed pose with each endpoint's
+// surface orientation. On contact, set the terminal loss and ObstacleHit reason; return whether
+// this movement caused failure.
 bool Game::checkObstacleCollision(Vector3 from, Vector3 to, bool fromCeiling, bool toCeiling) {
     if (!hitsGravityObstacle(gravityObstacles, from, fromCeiling, to, toCeiling))
         return false;
@@ -223,73 +239,85 @@ bool Game::checkObstacleCollision(Vector3 from, Vector3 to, bool fromCeiling, bo
     return true;
 }
 
-// Return the clamped interpolation fraction for the quarter-second surface transition.
+// Return a fraction from zero to one for the current quarter-second surface transfer. The clamped
+// result is shared by displayed position and camera rotation interpolation.
 float Game::transitionBlend() const {
     return std::clamp(rollTime / 0.25f, 0.0f, 1.0f);
 }
 
-// Return the displayed world-space position interpolated from the previous pose to the logical
-// transition destination.
+// Return the displayed eye position by interpolating from the captured transition pose to the
+// logical player position. During an ordinary run this matches the current position; reading it
+// does not advance simulation.
 Vector3 Game::position() const {
     float blend = transitionBlend();
     return added(scaled(transitionFromPosition, 1.0f - blend), scaled({px, py, pz}, blend));
 }
-// Return the displayed X coordinate, including any active surface-transition interpolation.
+// Return the X component of the displayed position, including active surface-transition
+// interpolation. Use col() when a logical maze column is needed instead of a rendered coordinate.
 float Game::x() const {
     return position().x;
 }
-// Return the displayed eye height, including jump height or an active surface transition.
+// Return the displayed eye height in world units, including floor-relative jump height or a
+// surface transition. This is a camera coordinate rather than the player's foot position.
 float Game::y() const {
     return position().y;
 }
-// Return the displayed Z coordinate, including any active surface-transition interpolation.
+// Return the Z component of the displayed position, including active surface-transition
+// interpolation. Use row() when a logical maze row is needed instead of a rendered coordinate.
 float Game::z() const {
     return position().z;
 }
-// Return the look direction's horizontal angle in radians, measured from +X toward +Z.
+// Measure the logical look direction's horizontal angle in radians using atan2, from positive X
+// toward positive Z. This read-only value is useful for map markers and movement-facing checks.
 float Game::yaw() const {
     return std::atan2(lookDirection.z, lookDirection.x);
 }
-// Normalize the interpolated look direction so rendering remains smooth during a surface
-// transition.
+// Normalize the interpolated look vector used by the renderer during a gravity transfer. The
+// logical direction remains separate from the displayed transition so the camera can rotate
+// smoothly.
 Vector3 Game::cameraDirection() const {
     float blend = transitionBlend();
     return normalized(
         added(scaled(transitionFromDirection, 1.0f - blend), scaled(lookDirection, blend)));
 }
-// Rotate the previous up vector through the current transition angle and return the camera's
-// normalized up direction.
+// Rotate the previous up vector through the current surface-transition angle and normalize it.
+// The renderer uses this orientation to roll between floor and ceiling views.
 Vector3 Game::cameraUp() const {
     return normalized(rotateAround(rollFrom, rollAxis, rollAngle * transitionBlend()));
 }
-// Report whether the player is walking on the ceiling rather than the floor.
+// Report whether the logical player is attached to the ceiling. Side-wall collisions never set
+// this flag; an active camera transition may still be interpolating toward that surface.
 bool Game::surfaceAttached() const {
     return attachedToSurface;
 }
-// Return the mode selected when this run was created.
+// Return the game mode selected at construction without changing it. Input handling and rendering
+// use this value to distinguish ordinary runs from Zero Gravity.
 GameMode Game::mode() const {
     return gameMode;
 }
-// Expose the run's immutable theme without rerolling it during rendering, pausing or results.
+// Return the palette selected when this run was constructed. The value stays stable while
+// playing, pausing, and showing results, so rendering cannot reroll the run's appearance.
 MazeTheme Game::theme() const {
     return mazeTheme;
 }
-// Expose the stored seed rather than relying on process-wide random-generator state for
-// reproduction.
+// Return the stored maze-generation seed. Supply this seed, theme, size, and mode when
+// constructing a run to reproduce its layout and visual selection for debugging.
 std::uint32_t Game::seed() const {
     return runSeed;
 }
-// Convert the logical Z position to a maze row, independently of camera-transition interpolation.
+// Convert the logical Z coordinate into a maze row with MazeGeometry::cellIndex. Collision and
+// exit tests use this value independently of the camera's displayed transition position.
 int Game::row() const {
     return cellIndex(pz);
 }
-// Convert the logical X position to a maze column, independently of camera-transition
-// interpolation.
+// Convert the logical X coordinate into a maze column with MazeGeometry::cellIndex. Collision and
+// exit tests use this value independently of the camera's displayed transition position.
 int Game::col() const {
     return cellIndex(px);
 }
 
-// Read a cell's exploration state, returning unrevealed for coordinates outside the maze.
+// Read a cell's exploration state: 0 is unrevealed, 1 is revealed, and 2 is visited.
+// Out-of-bounds coordinates return 0 instead of indexing outside the visibility vector.
 int Game::seenState(int r, int c) const {
     int n = mazeData.size();
     if (r < 0 || r >= n || c < 0 || c >= n)
@@ -297,37 +325,45 @@ int Game::seenState(int r, int c) const {
     return seen[r * n + c];
 }
 
-// Return the run's remaining countdown in seconds.
+// Return the remaining countdown in seconds; expiry clamps it to zero. This getter never advances
+// time, so drawing a paused or completed run leaves the timer unchanged.
 float Game::timeLeft() const {
     return timeLeftSec;
 }
-// Return the accumulated simulation seconds used for completed-run results and best-time records.
+// Return the simulation seconds accumulated during active updates for this run. Pausing and
+// terminal results stop accumulation; completed wins use this value for best-time comparisons.
 float Game::timeTaken() const {
     return elapsedSec;
 }
-// Report whether the logical player position has reached the exit before the countdown expires.
+// Report whether movement reached the exit before the run failed. This reads the terminal result
+// and does not recheck collision, update timers, or write a best-time record.
 bool Game::won() const {
     return hasWon;
 }
-// Report whether the run ended because of a timeout or an obstacle collision.
+// Report whether the run ended because its timer expired or an obstacle was hit. Call
+// failureReason() when the end screen needs the specific cause.
 bool Game::lost() const {
     return hasLost;
 }
-// Expose the failure cause so the report never describes a barrier collision as a timeout.
+// Return the stored loss cause so results can distinguish a timeout from lethal obstacle contact.
+// FailureReason::None represents a run without a recorded failure.
 FailureReason Game::failureReason() const {
     return failure;
 }
 
-// Expose the immutable run layout to rendering and route validation.
+// Borrow the run's immutable hazard layout for rendering and route checks. Normal mode leaves
+// this vector empty; callers must not retain the reference after the Game is destroyed.
 const std::vector<GravityObstacle>& Game::obstacles() const {
     return gravityObstacles;
 }
 
-// Report whether either terminal result has frozen further gameplay updates.
+// Report whether either win or loss has become terminal. The application uses this to open
+// results, while Game::update stops accepting further simulation changes.
 bool Game::finished() const {
     return hasWon || hasLost;
 }
-// Expose the run's maze as a read-only reference for rendering, animation and route checks.
+// Borrow the run's maze for rendering, generation preview, and route validation without copying
+// its grid. The reference remains valid only while this Game exists.
 const MazeData& Game::maze() const {
     return mazeData;
 }

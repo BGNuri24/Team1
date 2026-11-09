@@ -2,10 +2,9 @@
 #include <algorithm>
 #include <cmath>
 
-// Update jumping and horizontal momentum while floor gravity is active, including the airborne part of a
-// jump.
-// Movement while attached to the ceiling is handled by the surface-movement branch in
-// Game::update.
+// Advance floor-relative jump and horizontal momentum in intervals no larger than 1/120 second,
+// checking vertical and horizontal hazard motion each time. Clear velocity blocked by walls;
+// return true when a lethal collision stops the update.
 bool Game::moveJumping(const InputState& input, const Vector3& wish) {
     if (input.jumpPressed) jumpMovement.requestJump();
     if (!std::isfinite(input.dt) || input.dt <= 0) return false;
