@@ -12,10 +12,18 @@
 #include <vector>
 
 using namespace MazeGeometry;
+// Run the standalone JumpMovement cases and their integration through Game from the shared
+// gameplay executable. Fail through descriptive exceptions while leaving user input and
+// persistent saves untouched.
 void runJumpTests();
+// Generate deterministic hazards across many mazes and verify dimensions, safe spawn and exit
+// areas, spacing, and usable flip zones. Then test body sweeps against floor and ceiling
+// barriers, including fast and vertical crossings.
 void runObstacleTests();
 
-// Turn a failed gameplay expectation into an exception carrying the test's explanatory message.
+// Throw the supplied explanatory message when a gameplay invariant fails. The test executable's
+// main catches the exception and returns failure rather than continuing with misleading later
+// checks.
 static void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
@@ -86,8 +94,8 @@ static void testNormalGravity() {
     }
 }
 
-// Side-wall contact must remain ordinary collision on both surfaces, even when G is pressed
-// while facing that wall. A gravity flip preserves corridor heading and horizontal position.
+// Side-wall contact must remain ordinary collision on both surfaces, even when G is pressed while
+// facing that wall. A gravity flip preserves corridor heading and horizontal position.
 static void testZeroGravityWallCollision() {
     constexpr float pi = 3.14159265358979323846f;
     for (bool ceiling : {false, true}) {
@@ -116,7 +124,9 @@ static void testZeroGravityWallCollision() {
     }
 }
 
-// Check that ordinary walking still uses the full widened corridor.
+// Move through a deterministic maze using ordinary walking and verify the widened passage remains
+// usable. This guards the shared geometry and player-clearance rules against narrowing or
+// collision regressions.
 static void testWideCorridorClearance() {
     Game game(15, 1000, GameMode::Normal, 1234);
     constexpr float pi = 3.14159265358979323846f;
@@ -132,8 +142,8 @@ static void testWideCorridorClearance() {
     require(game.y() == StandingEyeHeight, "widening must preserve normal standing height");
 }
 
-// Use breadth-first search to return a reachable passage path from the player's current cell to the
-// target cell index.
+// Use breadth-first search to return a reachable passage path from the player's current cell to
+// the target cell index.
 static std::vector<int> pathTo(const Game& game, int target) {
     const int size = game.maze().size();
     const int start = game.row() * size + game.col();
@@ -245,7 +255,9 @@ static void testNoWallTunneling() {
             "a slow frame must not jump through an entire wall into another corridor");
 }
 
-// Follow a computed route to the exit and verify victory plus frozen timers after completion.
+// Construct a reproducible run for the requested size and mode, compute an exit route, and follow
+// it through public input. Verify victory and confirm later updates cannot change the finished
+// timers.
 static void testReachableExit(int size, GameMode mode = GameMode::Normal, unsigned seed = 1234) {
     Game game(size, 10000.0f, mode, seed);
     followPath(game, pathTo(game, size * size - 1));
@@ -275,13 +287,16 @@ static void testPresetCompletion() {
     }
 }
 
-// Deliberately cross each barrier type on its blocked surface and verify immediate failure,
-// a frozen result, and the correct failure reason.
+// Deliberately cross each barrier type on its blocked surface and verify immediate failure, a
+// frozen result, and the correct failure reason.
 static void testObstacleFailure() {
     for (bool ceiling : {false, true}) {
         Game game(25, 10000, GameMode::ZeroGravity, 1234);
         auto target = std::find_if(
             game.obstacles().begin(), game.obstacles().end(),
+            // Find a generated barrier on the surface this failure case intends to cross. The
+            // test follows that target through public movement input instead of assigning a loss
+            // flag directly.
             [&](const GravityObstacle& obstacle) { return obstacle.ceiling == ceiling; });
         require(target != game.obstacles().end(), "fixture needs both barrier types");
         const int cell = target->row * game.maze().size() + target->col;
@@ -305,6 +320,9 @@ static void testVerticalObstacleCollision() {
         Game game(25, 10000, GameMode::ZeroGravity, 1234);
         auto target =
             std::find_if(game.obstacles().begin(), game.obstacles().end(),
+                         // Select a ceiling barrier for vertical-collision regression checks. The
+                         // case verifies that walking below it is safe but jumping or
+                         // transferring into it is lethal.
                          [](const GravityObstacle& obstacle) { return obstacle.ceiling; });
         require(target != game.obstacles().end(), "fixture needs a ceiling barrier");
         followPath(game, pathTo(game, target->row * game.maze().size() + target->col));
@@ -383,6 +401,8 @@ static void testRunThemes() {
     }
 }
 
+// Run movement, jump, obstacle, gravity, theme, timer, and reachable-exit regression checks.
+// Catch the first descriptive failure and return a nonzero process status for the test runner.
 int main() {
     try {
         testRunThemes();

@@ -9,6 +9,8 @@
 #include <stdexcept>
 
 namespace {
+// Throw a descriptive runtime_error when a GPU-output expectation fails. The caller's UI-suite
+// graphics context remains responsible for rendering setup and cleanup.
 void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
@@ -19,6 +21,8 @@ void require(bool condition, const char* message) {
 void checkWallShadows() {
     Shader shader = LoadShaderFromMemory(MazeShaders::Vertex, MazeShaders::Fragment);
     require(shader.id && shader.id != rlGetShaderIdDefault(), "lamp shader did not compile");
+    // Find a named lighting uniform and upload the supplied test value with its declared shader
+    // type. This keeps fixture setup concise while exercising the production shader.
     auto set = [&](const char* name, const void* value, int type) {
         const int location = GetShaderLocation(shader, name);
         require(location >= 0, "lamp shader is missing a required uniform");
@@ -47,6 +51,9 @@ void checkWallShadows() {
         set("lightPositions", &source, SHADER_UNIFORM_VEC4);
         set("lightDirections", &direction, SHADER_UNIFORM_VEC4);
         set("lightExtents", &extent, SHADER_UNIFORM_VEC4);
+        // Render a controlled floor sample with optional lighting and an optional wall barrier,
+        // then read its pixel color. Comparing these cases verifies actual GPU shadow visibility
+        // rather than duplicating shader formulas.
         auto sample = [&](bool enabled, bool barrier) {
             int rows[MazeShaders::MaxMazeRows * 2]{};
             if (barrier)
@@ -100,6 +107,9 @@ void checkBatchTransforms() {
                    SHADER_UNIFORM_INT);
     const Camera3D camera{eye, {40, .5f, 0}, {0, 1, 0}, 45, CAMERA_PERSPECTIVE};
     RenderTexture2D canvas = LoadRenderTexture(96, 96);
+    // Render the same probe after a chosen number of filler primitives force rlgl batch
+    // submission. The sampled result detects accidental repeated model transforms across batch
+    // boundaries.
     auto sample = [&](int fillers) {
         BeginDrawing();
         BeginTextureMode(canvas);
@@ -179,6 +189,8 @@ void checkHdrComposition() {
     constexpr const char* source = R"glsl(#version 330
 uniform vec3 radiance;
 out vec4 finalColor;
+// Emit the supplied HDR radiance directly into the test target. Known values above one let the
+// test detect premature clipping before final display conversion.
 void main() { finalColor = vec4(radiance, 1.0); }
 )glsl";
     Shader lamp = LoadShaderFromMemory(nullptr, source);
@@ -231,11 +243,13 @@ void main() { finalColor = vec4(radiance, 1.0); }
     UnloadShader(lamp);
 }
 
-// A polished dielectric must have a stronger aligned source reflection than a rough surface,
-// and the highlight must respond to a moving camera instead of being painted into the material.
+// A polished dielectric must have a stronger aligned source reflection than a rough surface, and
+// the highlight must respond to a moving camera instead of being painted into the material.
 void checkMaterialHighlights() {
     Shader shader = LoadShaderFromMemory(MazeShaders::Vertex, MazeShaders::Fragment);
     require(shader.id && shader.id != rlGetShaderIdDefault(), "material shader did not compile");
+    // Upload one named material-lighting uniform for the controlled highlight fixture. Camera and
+    // roughness variants then exercise the same compiled production shader.
     auto set = [&](const char* name, const void* value, int type) {
         const int location = GetShaderLocation(shader, name);
         require(location >= 0, "material fixture uniform is unavailable");
@@ -258,6 +272,9 @@ void checkMaterialHighlights() {
     set("lightDirections", &facing, SHADER_UNIFORM_VEC4);
     set("lightExtents", &extent, SHADER_UNIFORM_VEC4);
     RenderTexture2D canvas = LoadRenderTexture(96, 96);
+    // Render and sample a material at the requested roughness and lateral camera position.
+    // Comparing outputs checks that polished highlights are stronger and respond to viewpoint
+    // changes.
     auto sample = [&](float roughness, float across) {
         const Vector4 material{roughness, 0, 0, 0};
         const Camera3D camera{{9 + across, .8f, 11}, point, {0, 1, 0}, 35, CAMERA_PERSPECTIVE};
@@ -295,6 +312,9 @@ uniform vec3 eyePosition;
 uniform float roughness;
 layout(location = 0) out vec4 finalColor;
 layout(location = 1) out vec4 surfaceData;
+// Write controlled normal, roughness, and reflectance data plus a known scene color for
+// surface-effect tests. This isolates post-processing behavior from the production lighting
+// model.
 void main() {
     vec3 n = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
     if (dot(n, eyePosition - worldPosition) < 0.0) n = -n;
@@ -320,6 +340,9 @@ void main() {
             BeginDrawing();
             EndDrawing();
             RenderTexture2D canvas = LoadRenderTexture(width, 480);
+            // Render the controlled reflection fixture at the requested roughness with surface
+            // effects enabled or bypassed. Compare GPU pixels to isolate reflected scene color
+            // from ordinary direct rendering.
             auto render = [&](float roughness, bool effects) {
                 BeginDrawing();
                 BeginTextureMode(canvas);
@@ -391,7 +414,9 @@ void main() {
 }
 } // namespace
 
-// Called inside the UI suite's hidden graphics context; gameplay and saved data are untouched.
+// Run lighting, batching, HDR, bloom, material, and surface-effect checks inside the UI suite's
+// hidden graphics context. Inspect rendered results without updating gameplay or writing player
+// saves.
 void runLightingTests() {
     checkWallShadows();
     checkBatchTransforms();

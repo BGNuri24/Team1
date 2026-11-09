@@ -4,13 +4,17 @@
 #include <stdexcept>
 
 namespace {
+// Throw a descriptive exception when map timing violates its expected contract. The input-suite
+// entry point reports the failure without relying on disabled release assertions.
 void requireMap(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
 } // namespace
 
-// Check the player-facing timing contract, including repeated presses, slow frames and resets.
+// Check map duration, cooldown, repeated presses, large frame intervals, and new-run resets for
+// supported sizes and modes. Drive pure state directly so the results are independent of
+// rendering speed.
 void runMapPeekTests() {
     MapPeek peek;
     requireMap(peek.ready() && !peek.visible(), "a new run must start hidden and ready to peek");

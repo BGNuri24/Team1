@@ -7,8 +7,9 @@ static_assert(!std::is_copy_constructible_v<Textures> && !std::is_copy_assignabl
 static_assert(std::is_nothrow_move_constructible_v<Textures> &&
               std::is_nothrow_move_assignable_v<Textures>);
 
-// Exercise ownership transfer in the UI suite's live graphics context, including replacement of a
-// loaded set.
+// Exercise exclusive texture ownership, move construction, move assignment, and replacement of an
+// already loaded set inside a live graphics context. Verify moved-from objects become empty and
+// cleanup does not double-unload handles.
 void runResourceTests() {
     Textures original = createTextures(mazePalette(MazeTheme::Teal));
     if (!original.valid())

@@ -11,21 +11,33 @@ namespace {
 int menuSelection = -1;
 bool menuConfirm = false, menuClick = false;
 Vector2 menuPosition{-100, -100}, menuMovement{};
+// Supply a fixed animation time for main-menu rendering under test. Stable timing keeps
+// screenshots and hover checks independent of real wall-clock time.
 double menuTime() {
     return 4;
 }
+// Return the fixture's synthetic pointer position for main-menu hit testing. Tests place it at
+// option centers without moving the user's physical cursor.
 Vector2 menuMousePosition() {
     return menuPosition;
 }
+// Return the synthetic pointer movement used to distinguish active hovering from a stationary
+// cursor. This verifies that keyboard navigation keeps selection when the mouse has not moved.
 Vector2 menuMouseDelta() {
     return menuMovement;
 }
+// Return the fixture's click flag instead of reading a mouse button. The menu's left-click path
+// is exercised without sending input to a real window.
 bool menuMousePressed(int) {
     return menuClick;
 }
+// Return the fixture's confirmation event for menu actions. Tests can trigger keyboard
+// confirmation independently of pointer clicks.
 bool menuConfirmation() {
     return menuConfirm;
 }
+// Apply a requested synthetic option index only when the fixture provides one, clamping it to the
+// current option range. This substitutes deterministic navigation for real keyboard events.
 void menuChoose(int& selected, int count) {
     if (menuSelection >= 0)
         selected = std::clamp(menuSelection, 0, count - 1);
@@ -47,17 +59,25 @@ void menuChoose(int& selected, int count) {
 #undef updateMenuSelection
 
 namespace {
+// Throw a descriptive exception when a menu or journey expectation fails. The UI test executable
+// catches it and reports a failing process status.
 void expectMenu(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
 
+// Calculate the pixel center of a main-menu option using the same reference layout and uniform
+// scale as the screen. Synthetic clicks then exercise the rendered target at different window
+// sizes.
 Vector2 centeredOption(int index) {
     const float factor = std::min(GetScreenWidth() / 1280.0f, GetScreenHeight() / 720.0f);
     return {GetScreenWidth() * .5f,
             (GetScreenHeight() - 720 * factor) * .5f + (366 + index * 76) * factor};
 }
 
+// Exercise route requests, invalid durations, completion, detail motion, fades, and backward
+// navigation in pure MenuJourney state. Verify an active trip cannot be replaced by a second
+// request midway through travel.
 void checkJourney() {
     MenuJourney path;
     expectMenu(path.goTo(MenuPlace::Players), "Play must start a trip to player selection");
@@ -121,8 +141,9 @@ void checkJourney() {
 }
 }
 
-// Called in the UI suite's hidden graphics context. Check the changed navigation behavior, the
-// centered click targets and the packaged artwork rather than synthesizing real desktop input.
+// Check journey behavior, scaled option targets, keyboard-pointer interaction, and packaged menu
+// artwork in the hidden UI graphics context. Synthetic input avoids changing desktop focus or
+// sending real clicks.
 void runMainMenuTests() {
     checkJourney();
     MainMenu menu;

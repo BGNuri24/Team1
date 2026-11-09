@@ -3,8 +3,9 @@ param([Parameter(Mandatory = $true)][string]$Destination)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# Check required source files and the declared raylib version before reusing or publishing a dependency
-# directory.
+# Validate that a candidate directory contains every required raylib source file and declares
+# version 5.5. Return a boolean without changing the directory so both cached and downloaded
+# dependencies use the same acceptance check.
 function Test-RaylibSource([string]$Path) {
     $requiredFiles = @(
         'LICENSE', 'src\raylib.h', 'src\config.h', 'src\raymath.h', 'src\rlgl.h',
@@ -19,8 +20,9 @@ function Test-RaylibSource([string]$Path) {
     return [bool](Select-String -LiteralPath (Join-Path $Path 'src\raylib.h') -Pattern '^#define RAYLIB_VERSION\s+"5\.5"' -Quiet)
 }
 
-# Remove a temporary restore directory only after verifying its absolute parent and the expected
-# generated-name prefix.
+# Remove only a temporary restore directory whose resolved parent and generated-name prefix match
+# the expected location. Reject unexpected paths before recursive cleanup so failed dependency
+# setup cannot delete unrelated files.
 function Remove-RestoreDirectory([string]$Path, [string]$Parent) {
     if (!$Path -or !(Test-Path -LiteralPath $Path)) { return }
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)

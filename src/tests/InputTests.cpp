@@ -5,6 +5,9 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+// Check map duration, cooldown, repeated presses, large frame intervals, and new-run resets for
+// supported sizes and modes. Drive pure state directly so the results are independent of
+// rendering speed.
 void runMapPeekTests();
 
 // Supply deterministic keyboard, text, mouse and timing events through raylib stubs without opening a
@@ -13,36 +16,48 @@ static std::array<bool, 512> pressed{}, repeated{}, held{};
 static std::deque<int> characters;
 static float wheel = 0;
 static bool focused = true, minimized = false;
-// Supply window-state events without changing the real desktop's focus.
+// Return the fixture's synthetic focus flag instead of observing the actual desktop window. Tests
+// can request pause behavior deterministically without moving focus away from the user's
+// applications.
 bool IsWindowFocused() { return focused; }
+// Return the fixture's synthetic minimized state without minimizing a real window. Together with
+// IsWindowFocused, this controls whether gameplay input is considered active.
 bool IsWindowMinimized() { return minimized; }
-// Return the synthetic initial-press state for one key instead of reading the real keyboard.
+// Read the synthetic initial-press flag for a key rather than querying the keyboard. This lets
+// assertions distinguish one-frame action requests from held movement input.
 bool IsKeyPressed(int key) { return pressed.at(key); }
-// Return the synthetic repeat state used to test held-key behavior.
+// Read the fixture's synthetic repeat flag for a key. Settings and text-entry checks can exercise
+// held-key repetition without depending on operating-system key timing.
 bool IsKeyPressedRepeat(int key) { return repeated.at(key); }
-// Return the synthetic held-key state used by movement mappings.
+// Return the fixture's synthetic held-key state for movement mappings. Tests can combine opposing
+// directions and verify InputState without requiring real key presses.
 bool IsKeyDown(int key) { return held.at(key); }
-// Consume the next queued character, or return zero when the synthetic text-input queue is empty.
+// Pop one queued synthetic character and return zero when the queue is empty. Text-entry tests
+// supply accepted and rejected code points through the same interface used by real input.
 int GetCharPressed() {
     if (characters.empty()) return 0;
     int ch = characters.front();
     characters.pop_front();
     return ch;
 }
-// Supply a fixed frame duration in seconds so input timing assertions are reproducible.
+// Return a fixed frame duration in seconds for deterministic input assertions. Gameplay timing
+// tests therefore do not depend on the machine's rendering speed.
 float GetFrameTime() { return 0.125f; }
-// Supply a fixed two-axis mouse delta for checking sensitivity scaling.
+// Return the fixture's fixed two-axis mouse displacement. Sensitivity tests compare this source
+// delta with the scaled InputState values without moving the physical pointer.
 Vector2 GetMouseDelta() { return {12, -8}; }
-// Return the synthetic wheel event used to verify scroll-based jump requests.
+// Return the fixture's synthetic wheel event for scroll-based jump checks. The test can
+// independently control wheel input and Space presses without consuming real device events.
 float GetMouseWheelMove() { return wheel; }
 
-// Stop the input suite with a descriptive exception when an assertion fails.
+// Throw a descriptive exception when an input expectation fails, keeping assertions active in
+// every build configuration. main turns that exception into a failing process result.
 static void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
 }
 
-// Exercise menu navigation, filtered text editing, movement mapping, sensitivity bounds and fresh jump
-// input using synthetic events.
+// Run synthetic menu, editing, movement, sensitivity, focus, jump, and map-timing checks. Report
+// the first failure through a nonzero exit code without requiring real desktop input.
 int main() {
     try {
         runMapPeekTests();
@@ -86,6 +101,8 @@ int main() {
         require(!editText(text, 3, isNameCharacter), "backspace on empty entry should be harmless");
         pressed.fill(false);
         characters = {'a', '5', '0', '9'};
+        // Filter synthetic custom-size input to decimal digits only. The test verifies rejected
+        // characters do not occupy the limited text buffer.
         editText(text, 2, [](int ch) { return ch >= '0' && ch <= '9'; });
         require(text == "50", "maze-size entry should accept only two digits");
 
@@ -96,6 +113,9 @@ int main() {
                 input.mouseDX == 12 && input.mouseDY == -8 && input.dt == 0.125f,
                 "movement, mouse and gravity input must retain their mappings");
 
+        // Read synthetic mouse input with the supplied sensitivity and compare both resulting
+        // axes against expected values. Reuse this assertion for normal, clamped, and non-finite
+        // multipliers.
         auto requireSensitivity = [&](float multiplier, float expectedX, float expectedY) {
             InputState scaled = readInput(multiplier);
             require(scaled.mouseDX == expectedX && scaled.mouseDY == expectedY,

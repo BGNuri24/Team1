@@ -4,12 +4,16 @@
 #include <vector>
 
 namespace {
+// Throw the supplied explanation when a generated layout or preview violates an invariant. The
+// core suite catches this exception and reports which generation property regressed.
 void requireMaze(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
 
-// Inspect the playable graph independently of the generator's candidate scoring.
+// Inspect passage connectivity, graph structure, exit reachability, and route decisions
+// independently of the generator's scoring helper. Return the measured route characteristic for
+// broader difficulty checks.
 int checkLayout(const MazeData& maze) {
     const int n = maze.size();
     const int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
@@ -57,8 +61,9 @@ int checkLayout(const MazeData& maze) {
     return choices;
 }
 
-// The preview must reveal only the chosen layout, with each new cell connected to an already
-// visible passage, even when carving resumes from an older branch.
+// Replay recorded carving steps and require each new passage to belong to the selected layout and
+// connect to an already visible passage. This catches mismatched candidate histories and
+// disconnected preview jumps.
 void checkAnimation(const MazeData& maze) {
     const int n = maze.size();
     std::vector<bool> shown(n * n, false);
@@ -87,6 +92,9 @@ void checkAnimation(const MazeData& maze) {
                 "generation animation must still end at the exit");
 }
 
+// Regenerate a maze with the same dimensions and seed and compare both its final cells and
+// recorded carving sequence. Reproducibility must cover the visible preview as well as the
+// playable layout.
 void checkReproduction(const MazeData& maze, unsigned seed) {
     MazeData repeated(maze.size(), seed);
     for (int row = 0; row < maze.size(); ++row)
@@ -102,8 +110,9 @@ void checkReproduction(const MazeData& maze, unsigned seed) {
 }
 } // namespace
 
-// Cover every allowed dimension, including even-size exit connectors, then guard against layouts
-// regressing to long corridors with very few decisions on the route to the exit.
+// Check every supported dimension, including even-size exit connectors, and verify deterministic
+// layouts and previews. Also guard against difficulty regressing into long routes with too few
+// decisions.
 void runMazeGenerationTests() {
     for (int size = MIN_SIZE; size <= MAX_SIZE; ++size) {
         for (unsigned seed : {0u, 1u, 1234u, 9917u}) {

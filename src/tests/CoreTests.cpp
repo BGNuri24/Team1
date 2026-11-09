@@ -14,17 +14,27 @@
 #include <string>
 #include <utility>
 #include <vector>
+// Run migration, concurrency, deletion, upgrade, validation, and recovery cases inside a separate
+// fixture directory. Restore the caller's working directory and leave the player's real profiles
+// and scores untouched.
 void runDatabaseTests();
+// Create the hidden graphics context and run font-fitting, palette, resource, menu, and lighting
+// checks. Export the small-window preview within the test output while keeping real gameplay and
+// saves untouched.
 void runUiTests();
+// Check every supported dimension, including even-size exit connectors, and verify deterministic
+// layouts and previews. Also guard against difficulty regressing into long routes with too few
+// decisions.
 void runMazeGenerationTests();
 
-// Fail the current test by throwing its explanatory message when an expected invariant is false.
+// Throw a descriptive runtime_error when an invariant is false so checks remain active in Debug
+// and Release. The suite's main catches the exception and returns a failing process status.
 static void require(bool condition, const std::string& message) {
     if (!condition) throw std::runtime_error(message);
 }
 
-// Verify maze dimensions, boundary handling, the exit, generation-step coverage and connectivity of
-// every passage cell.
+// Verify maze dimensions, boundary handling, the exit, generation-step coverage and connectivity
+// of every passage cell.
 static void testMaze(int size) {
     MazeData maze(size, 1234);
     require(maze.size() == size, "maze size does not match requested size");
@@ -72,8 +82,9 @@ static void testMaze(int size) {
     }
 }
 
-// Clear profile and best-time fixture files within this suite's isolated working directory before a
-// persistence test.
+// Remove profile, score, and database fixture files inside this suite's isolated working
+// directory. Resetting fixtures prevents a previous test's persisted state from affecting later
+// assertions.
 static void clearTestData() {
     std::error_code directoryError;
     std::filesystem::create_directories("save_data", directoryError);
@@ -90,8 +101,8 @@ static void clearTestData() {
     }
 }
 
-// Check profile validation, capacity, record improvement, reload behavior and persisted removal of a
-// player's records.
+// Check profile validation, capacity, record improvement, reload behavior and persisted removal
+// of a player's records.
 static void testPlayerStore() {
     clearTestData();
     {
@@ -177,8 +188,8 @@ static void testProfilesAndValidation() {
     require(!reloaded.bestTime("missing", 10).seconds, "unknown player record should be ignored");
 }
 
-// Verify that legacy Normal records and Zero Gravity records load, improve and disappear independently
-// for the same player and size.
+// Verify that legacy Normal records and Zero Gravity records load, improve and disappear
+// independently for the same player and size.
 static void testSeparateModeRecords() {
     clearTestData();
     std::ofstream("save_data/players.txt") << "Alex\n";
@@ -217,15 +228,17 @@ static void testSeparateModeRecords() {
         "removing a player must clear records from both modes");
 }
 
-// Read a fixture file's binary contents so tests can compare saved bytes before and after an
-// operation.
+// Read a fixture file as exact binary bytes so tests can compare contents before and after
+// storage operations. The caller chooses an isolated fixture path rather than the player's real
+// save files.
 static std::string readFile(const char* path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
-// Remove settings fixture files and blocker paths while allowing an ordinary file to occupy a tested
-// directory path.
+// Remove settings fixtures, backups, temporary files, and intentional blocker paths in the
+// isolated test directory. Restore a clean starting point before exercising malformed input and
+// failed-save recovery.
 static void clearSettingsTestData() {
     std::error_code error;
     std::filesystem::create_directories("save_data", error);
@@ -244,8 +257,8 @@ static void clearSettingsTestData() {
     }
 }
 
-// Exercise defaults, clamping, persistence, malformed content, backup recovery and failed-save retries
-// without changing profile data.
+// Exercise defaults, clamping, persistence, malformed content, backup recovery and failed-save
+// retries without changing profile data.
 static void testMouseSensitivitySettings() {
     clearSettingsTestData();
     const std::string playersBefore = readFile("save_data/players.txt");
@@ -331,8 +344,9 @@ static void testMouseSensitivitySettings() {
         "settings changes must not modify profiles or best-time records");
 }
 
-// Run deterministic maze, profile and settings checks, returning a failing process status with the
-// first assertion message.
+// Run the core maze, profile, settings, database, and UI checks, reporting the first thrown
+// failure. Return a nonzero process exit code when a check fails so RunTests.ps1 can stop the
+// overall validation.
 int main() {
     try {
         testMaze(10);

@@ -3,22 +3,37 @@
 #include <cmath>
 #include <filesystem>
 #include <stdexcept>
+// Exercise exclusive texture ownership, move construction, move assignment, and replacement of an
+// already loaded set inside a live graphics context. Verify moved-from objects become empty and
+// cleanup does not double-unload handles.
 void runResourceTests();
+// Run lighting, batching, HDR, bloom, material, and surface-effect checks inside the UI suite's
+// hidden graphics context. Inspect rendered results without updating gameplay or writing player
+// saves.
 void runLightingTests();
+// Check journey behavior, scaled option targets, keyboard-pointer interaction, and packaged menu
+// artwork in the hidden UI graphics context. Synthetic input avoids changing desktop focus or
+// sending real clicks.
 void runMainMenuTests();
 
 namespace {
 // Use a hidden graphics context so measurements match the default font used by real menu drawing.
 struct Window {
+    // Create a hidden 640-by-480 raylib window and graphics context with warning-level logging.
+    // GPU, typography, and resource tests can run without taking desktop focus.
     Window() {
         SetTraceLogLevel(LOG_WARNING);
         SetConfigFlags(FLAG_WINDOW_HIDDEN);
         InitWindow(640, 480, "Menu text checks");
     }
+    // Close the hidden test window after scoped graphics resources have been released. This ends
+    // the UI suite's graphics context without affecting the user's game window.
     ~Window() { CloseWindow(); }
 };
 
-// Assert actual rendered-font metrics, including widths that require a font size below ten pixels.
+// Measure text using the actual drawing font and assert its fitted size respects the available
+// pixel width. Include very narrow labels to cover sizes below the usual ten-pixel drawing
+// baseline.
 void checkFit(const char* text, float maximum, float width) {
     const float size = fittedMenuFontSize(text, maximum, width);
     if (!(size > 0 && size <= maximum))
@@ -28,11 +43,17 @@ void checkFit(const char* text, float maximum, float width) {
         throw std::runtime_error("fitted glyphs overflow their available width");
 }
 
+// Compare all four byte channels of two colors exactly. Palette tests use this for values that
+// should remain identical rather than relying on approximate brightness comparisons.
 bool sameColor(Color a, Color b) {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
 }
 
+// Convert sRGB color channels into linear light and combine them with standard luminance weights.
+// Contrast checks use this perceptual brightness estimate instead of averaging encoded RGB bytes.
 float luminance(Color color) {
+    // Decode an sRGB byte into linear-light intensity using the piecewise transfer curve.
+    // Luminance comparisons must combine linear channels rather than encoded display values.
     auto channel = [](unsigned char value) {
         const float x = value / 255.0f;
         return x <= .04045f ? x / 12.92f : std::pow((x + .055f) / 1.055f, 2.4f);
@@ -41,7 +62,8 @@ float luminance(Color color) {
 }
 
 // Exercise a single live UI across theme switches, checking rendered panels, default text colors
-// and readable normal/selected states rather than reconstructing the palette formulas in the test.
+// and readable normal/selected states rather than reconstructing the palette formulas in the
+// test.
 void checkRunPalettes() {
     const MazeTheme saved = MenuTheme::current();
     const Color& livePanel = MenuTheme::Panel;
@@ -94,7 +116,9 @@ void checkRunPalettes() {
 }
 }
 
-// Verify proportional font fitting and export a small-window preview without taking desktop focus.
+// Create the hidden graphics context and run font-fitting, palette, resource, menu, and lighting
+// checks. Export the small-window preview within the test output while keeping real gameplay and
+// saves untouched.
 void runUiTests() {
     Window window;
     if (!IsWindowReady())

@@ -6,17 +6,21 @@
 
 namespace {
     constexpr float Tick = 1.0f / 120;
-    // Stop the jump test with a descriptive exception when a movement invariant is violated.
+    // Throw the supplied message when the movement model violates a jump expectation. The shared
+    // gameplay executable catches the exception and reports which invariant failed.
     void requireJump(bool value, const char* message) {
         if (!value) throw std::runtime_error(message);
     }
-    // Measure horizontal momentum as the magnitude of the movement model's X/Z velocity.
+    // Measure horizontal momentum with the magnitude of the model's X/Z velocity. This read-only
+    // helper lets friction and air-strafe tests compare speed independently of movement
+    // direction.
     float speed(const JumpMovement& movement) {
         return std::hypot(movement.velocityX(), movement.velocityZ());
     }
 
-    // Verify walking speed, jump height, landing, expired midair input and a correctly buffered
-    // follow-up hop.
+    // Exercise takeoff, apex, landing, expired midair requests, and a jump buffered shortly
+    // before ground contact. Verify ordinary walking and a correctly timed follow-up hop follow
+    // their separate movement rules.
     void testJumpArcAndBuffer() {
         JumpMovement movement;
         movement.step(1, 0, Tick);
@@ -53,8 +57,8 @@ namespace {
         requireJump(hopped, "a jump pressed just before landing must chain into the next hop");
     }
 
-    // Check that timed hops retain strafe gains, the speed cap is enforced, landing friction stops
-    // motion, and collisions can clear an axis.
+    // Check that timed hops retain strafe gains, the speed cap is enforced, landing friction
+    // stops motion, and collisions can clear an axis.
     void testAirStrafeAndFriction() {
         JumpMovement movement;
         movement.requestJump();
@@ -101,7 +105,9 @@ namespace {
             "reset must clear buffered jumps, height and momentum");
     }
 
-    // Walking slows down without changing takeoff, the air-strafe gain curve or chained-hop speed.
+    // Verify the slower ordinary walking speed remains independent of takeoff speed and the
+    // air-strafe acceleration curve. Also check that chained hops retain their momentum instead
+    // of being rescaled to walking speed.
     void testSeparateWalkingSpeed() {
         for (Vector2 wish : {Vector2{1, 0}, {0, -1}, {1, 1}}) {
             JumpMovement movement;
@@ -168,8 +174,8 @@ namespace {
         }
     }
 
-    // Exercise the actual camera-height integration, slow-frame wall collision, gravity-transition
-    // resets and ignored input after timeout.
+    // Exercise the actual camera-height integration, slow-frame wall collision,
+    // gravity-transition resets and ignored input after timeout.
     void testJumpInGame() {
         using namespace MazeGeometry;
         for (GameMode mode : {GameMode::Normal, GameMode::ZeroGravity}) {
@@ -220,7 +226,9 @@ namespace {
             "finished games must ignore jump input");
     }
 
-    // Compare the jump apex and final standing height at 30, 60 and 144 frames per second.
+    // Simulate jump arcs at 30, 60, and 144 frames per second and compare their apex and final
+    // grounded height. This catches integration changes that make jumping strongly dependent on
+    // frame rate.
     void testFrameRates() {
         for (float rate : {30.0f, 60.0f, 144.0f}) {
             Game game(15, 100);
@@ -236,8 +244,9 @@ namespace {
     }
 }
 
-// Run the independent movement-model and integrated-game jump checks from the shared gameplay test
-// executable.
+// Run the standalone JumpMovement cases and their integration through Game from the shared
+// gameplay executable. Fail through descriptive exceptions while leaving user input and
+// persistent saves untouched.
 void runJumpTests() {
     testJumpArcAndBuffer();
     testAirStrafeAndFriction();

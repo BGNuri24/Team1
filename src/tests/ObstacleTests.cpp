@@ -5,13 +5,15 @@
 
 using namespace MazeGeometry;
 
-// Stop the gameplay suite at the first unsafe layout or missed collision.
+// Throw a descriptive failure at the first unsafe obstacle layout or missed swept collision. The
+// shared gameplay suite catches it and reports the failing barrier invariant.
 static void requireObstacle(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
 }
 
-// Validate deterministic layout, safe spawn/exit zones, consistent dimensions and separated flip
-// opportunities across many mazes, then test swept collisions on both gravity surfaces.
+// Generate deterministic hazards across many mazes and verify dimensions, safe spawn and exit
+// areas, spacing, and usable flip zones. Then test body sweeps against floor and ceiling
+// barriers, including fast and vertical crossings.
 void runObstacleTests() {
     for (int size : {10, 11, 15, 25, 40, 50}) {
         for (unsigned seed = 0; seed < 20; ++seed) {

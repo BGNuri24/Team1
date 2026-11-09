@@ -7,7 +7,8 @@
 #include <winsqlite/winsqlite3.h>
 
 namespace {
-// Fail the storage suite with a descriptive message instead of relying on disabled release asserts.
+// Throw a runtime_error with the supplied explanation when a storage expectation is false. This
+// preserves database regression checks even when compiler settings disable ordinary assert.
 void check(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
@@ -16,14 +17,22 @@ void check(bool condition, const char* message) {
 // Restore the parent test directory even when a database assertion throws.
 struct Fixture {
     std::filesystem::path previous = std::filesystem::current_path();
+    // Create and enter a separate database-cases fixture directory while retaining the caller's
+    // previous working directory. Database helpers can then use normal relative save paths
+    // without touching real player progress.
     Fixture() {
         std::filesystem::create_directories("database-cases/save_data");
         std::filesystem::current_path("database-cases");
     }
+    // Restore the working directory captured by the fixture before leaving its scope. Scoped
+    // database connections have already closed, so subsequent suites resume in their own expected
+    // location.
     ~Fixture() { std::filesystem::current_path(previous); }
 };
 
-// Remove only fixture-owned files; all database connections are scoped to individual operations.
+// Delete only this fixture's database, journal, legacy, and blocker files after operation-scoped
+// connections have closed. Each storage scenario starts from a known state without removing
+// unrelated project data.
 void clear() {
     for (const char* path :
          {"save_data/players.txt", "save_data/players.txt.bak", "save_data/players.txt.tmp",
@@ -34,13 +43,16 @@ void clear() {
         std::filesystem::remove(path);
 }
 
-// Read exact bytes so migration can prove it never rewrites a user's legacy score file.
+// Read exact binary contents from a fixture file for before-and-after comparisons. Migration
+// tests use this to prove that importing legacy progress does not rewrite its source bytes.
 std::string contents(const char* path) {
     std::ifstream input(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
-// Import valid rows once, retain the fastest duplicate per key, and never resurrect deleted scores.
+// Import valid legacy rows once while preserving the fastest duplicate for each player, size, and
+// mode. Delete or change imported records afterward and verify a later initialization does not
+// resurrect stale text data.
 void migration() {
     clear();
     std::ofstream("save_data/players.txt") << "Alex\nBo\n";
@@ -76,8 +88,9 @@ void migration() {
         "deleted profiles must not recover obsolete legacy times or remove another player's rows");
 }
 
-// Verify independent connections always compare against the latest stored result and recover after
-// a lock.
+// Use independent store instances to verify score comparisons see the latest committed value.
+// Hold a database write lock to exercise explicit failure, then release it and verify subsequent
+// operations recover.
 void updatesAndLocks() {
     clear();
     std::ofstream("save_data/players.txt") << "Alex\n";
@@ -111,8 +124,8 @@ void updatesAndLocks() {
           "a stale profile list must not recreate scores for a deleted database profile");
 }
 
-// Force the score deletion to fail after profile deletion and verify that the transaction restores
-// both.
+// Force score deletion to fail after profile deletion has begun, then verify the transaction
+// restores both tables. The cached profile list must also remain unchanged on this failed write.
 void atomicProfileDeletion() {
     clear();
     std::ofstream("save_data/players.txt") << "Alex\nBo\n";
@@ -156,8 +169,8 @@ void atomicProfileDeletion() {
           "reusing a deleted name must not resurrect its old scores");
 }
 
-// Upgrade an existing scores-only database without replacing its results or reimporting stale
-// scores.
+// Start from an existing score-only schema and upgrade it without losing results or reimporting
+// stale scores. Verify profile migration and later score updates use the retained database.
 void scoreDatabaseUpgrade() {
     clear();
     std::ofstream("save_data/players.txt") << "Bo\nAlex\n";
@@ -187,8 +200,9 @@ void scoreDatabaseUpgrade() {
           "database upgrade must not rewrite either legacy backup");
 }
 
-// Preserve corrupt databases and allow an incomplete import to retry without a partial import
-// marker.
+// Exercise a corrupt database and an incomplete legacy import, preserving the damaged source and
+// preventing partial migration markers. Verify a repaired import can retry successfully on a
+// later initialization.
 void failuresAndRecovery() {
     clear();
     std::ofstream("save_data/players.txt") << "Alex\n";
@@ -282,8 +296,8 @@ void bundledLegacyIgnored() {
     clear();
 }
 
-// Keep absent scores, invalid runs and unavailable storage distinguishable after later calls
-// execute.
+// Distinguish absent scores, invalid submissions, unchanged records, and unavailable storage
+// through explicit returned values. Later operations must not mutate an earlier result's meaning.
 void typedResults() {
     std::filesystem::create_directories("isolated");
     std::filesystem::remove("isolated/test.db");
@@ -314,8 +328,9 @@ void typedResults() {
 }
 }
 
-// Run database cases under a separate fixture directory so real scores and other suites remain
-// untouched.
+// Run migration, concurrency, deletion, upgrade, validation, and recovery cases inside a separate
+// fixture directory. Restore the caller's working directory and leave the player's real profiles
+// and scores untouched.
 void runDatabaseTests() {
     Fixture fixture;
     migration();
