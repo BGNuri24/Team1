@@ -2,50 +2,63 @@
 #include "Input.h"
 #include "raylib.h"
 
-// Wrap a screen's drawing callback in the BeginDrawing/EndDrawing pair required for one raylib
-// frame.
+// Wrap a drawing callback in raylib's BeginDrawing and EndDrawing pair for one frame. The
+// callback supplies the screen contents while this helper owns the required frame boundaries.
 template <typename Draw> static void drawFrame(Draw draw) {
     BeginDrawing();
     draw();
     EndDrawing();
 }
 
-// Process one menu input frame, draw that menu, and return the requested destination screen.
+// Update a menu once, draw its resulting state, and return the requested destination screen. The
+// template shares this sequence across menus with compatible update and draw interfaces.
 template <typename Menu> static Screen updateMenu(Menu& menu) {
     Screen next = menu.update();
+    // Draw the updated menu inside the frame boundaries owned by drawFrame. The callback captures
+    // this frame's menu by reference and is invoked immediately.
     drawFrame([&] { menu.draw(); });
     return next;
 }
 
-// Update and render the main menu through the shared menu-frame helper.
+// Update and draw the main menu through the shared menu-frame helper. Return its requested screen
+// so the application can coordinate any corridor transition.
 Screen Application::updateMainMenu() {
     return updateMenu(mainMenu);
 }
-// Update and render the controls guide through the shared menu-frame helper.
+// Update and draw the controls page through the shared menu-frame helper. Its return value
+// identifies whether the user remains on the guide or returns to another screen.
 Screen Application::updateControls() {
     return updateMenu(controls);
 }
-// Update and render profile selection while retaining its access to the application's shared player
-// store.
+// Update and draw profile selection against the application's shared Players instance. Return
+// navigation requests while the menu itself handles profile actions and validation messages.
 Screen Application::updatePlayerSelect() {
     return updateMenu(playerSelect);
 }
 
-// Keep input and generation timing frozen until the current trip finishes. The first frame drops
-// the previous screen's delta, which may include texture preparation when a level was selected.
+// Advance the shared corridor animation while keeping normal menu input and generation timing
+// frozen. Ignore the first frame's stale delta, choose the visible overlay at the midpoint, and
+// publish pendingMenu only when travel ends.
 Screen Application::updateMenuTravel() {
     if (travelFirstFrame)
         travelFirstFrame = false;
     else
         menuBackdrop.update(GetFrameTime());
     const Screen displayed = menuBackdrop.destinationVisible() ? pendingMenu : screen;
+    // Render the corridor and its foreground together while normal page input remains frozen. The
+    // journey chooses which page is visible without advancing gameplay.
     drawFrame([&] {
         menuBackdrop.draw((float)GetTime());
+        // Capture only the selected page's foreground into the corridor overlay. The shared
+        // backdrop remains outside that capture so its turn animation is independent.
         menuBackdrop.drawOverlay([&] { drawMenuScreen(displayed); });
     });
     return menuBackdrop.moving() ? screen : pendingMenu;
 }
 
+// Draw only the foreground for the requested menu or generation page without processing its
+// input. Corridor travel uses this to change the visible overlay while navigation and generation
+// remain frozen.
 void Application::drawMenuScreen(Screen requested) {
     switch (requested) {
     case Screen::MAIN_MENU:
@@ -69,8 +82,9 @@ void Application::drawMenuScreen(Screen requested) {
     }
 }
 
-// Create a fresh run from the selected parameters and initialize its generation preview before
-// allowing gameplay.
+// Create a new owned Game from the selected size, timer, mode, and active palette. Reset map
+// timing, prepare renderer materials, and initialize the recorded-generation preview before
+// returning GENERATING.
 Screen Application::startGame() {
     const MazeTheme selected = ActiveMazeTheme;
     MenuTheme::apply(selected);
@@ -81,8 +95,9 @@ Screen Application::startGame() {
     return Screen::GENERATING;
 }
 
-// Capture a confirmed size, duration and mode, then start the generation preview while drawing the
-// selection screen's final frame.
+// Read level-selection input and capture confirmed size, duration, and mode before starting a
+// fresh run. Draw the selection page's final frame and route confirmed play through the
+// generation screen.
 Screen Application::updateLevelSelect() {
     Screen next = levelSelect.update();
     if (next == Screen::PLAYING) {
@@ -92,14 +107,19 @@ Screen Application::updateLevelSelect() {
         next = startGame();
     }
 
+    // Draw the level-selection page's final state before the requested generation transition is
+    // published. The callback reads the menu state already updated this frame.
     drawFrame([&] { levelSelect.draw(); });
     return next;
 }
 
-// Advance and draw the generation preview, capture the cursor when it completes, and transition
-// into gameplay.
+// Advance and draw the maze's recorded generation preview, entering gameplay only after it
+// completes. Capture the cursor for active play, or enter pause immediately if the window lacks
+// focus.
 Screen Application::updateGenerating() {
     bool complete = generationScreen.update(*game);
+    // Draw the current recorded-generation progress inside one raylib frame. This presentation
+    // does not update the Game's gameplay timer.
     drawFrame([&] { generationScreen.draw(*game); });
     if (complete) {
         if (!gameplayWindowActive()) {
@@ -113,13 +133,16 @@ Screen Application::updateGenerating() {
     return Screen::GENERATING;
 }
 
-// Apply sensitivity-adjusted input and render the run, then handle completion records or open the
-// pause menu.
+// Give pause requests priority, then read sensitivity-adjusted input, update the run and map
+// peek, and draw the frame. On completion, restore the cursor, save eligible wins, and prepare
+// explicit record and save-failure status for results.
 Screen Application::updatePlaying() {
     // Freeze immediately, including on the frame that focus is lost or Escape is pressed.
     if (gameplayPauseRequested()) {
         EnableCursor();
         pauseMenu.reset();
+        // Draw the frozen world and freshly reset pause overlay on the exact pause-request frame.
+        // No movement or countdown update occurs before this callback.
         drawFrame([&] {
             renderer.draw(*game);
             pauseMenu.draw();
@@ -129,6 +152,8 @@ Screen Application::updatePlaying() {
     const InputState input = readInput(settings.sensitivityMultiplier());
     game->update(input);
     mapPeek.update(input.dt, input.mapPressed);
+    // Render the updated run with its current map-peek state after simulation. The callback
+    // borrows both objects only for this frame.
     drawFrame([&] { renderer.draw(*game, &mapPeek); });
 
     if (game->finished()) {
@@ -148,11 +173,14 @@ Screen Application::updatePlaying() {
     return Screen::PLAYING;
 }
 
-// Render the frozen run behind the pause overlay and route its action to resume, restart, profile
-// selection or the main menu.
+// Draw the unchanged game behind the pause menu and handle resume, retry, profile change, or
+// main-menu navigation. Ignore actions while the window is inactive and release the current Game
+// when leaving the run.
 Screen Application::updatePaused() {
     // Returning focus leaves the run paused until the user explicitly chooses Resume.
     PauseAction action = gameplayWindowActive() ? pauseMenu.update() : PauseAction::NONE;
+    // Draw the unchanged run beneath the pause menu while awaiting a permitted pause action.
+    // Rendering does not resume gameplay or consume its timer.
     drawFrame([&] {
         renderer.draw(*game);
         pauseMenu.draw();
@@ -176,10 +204,13 @@ Screen Application::updatePaused() {
     return Screen::PAUSED;
 }
 
-// Draw the completed run and result report, releasing the run when navigation leaves the end
-// screen.
+// Draw the frozen final corridor and result report, then handle its navigation request. Retrying
+// creates a fresh run; leaving results destroys the old run so its state cannot leak into later
+// play.
 Screen Application::updateEnd() {
     Screen next = endScreen.update(GetFrameTime());
+    // Draw only the frozen world and results report, omitting the gameplay HUD. Pass previously
+    // computed score and save-failure status without writing storage during rendering.
     drawFrame([&] {
         renderer.drawWorld(*game);
         endScreen.draw(*game, players.activeName(), bestTime, newBestTime, bestTimeSaveFailed);
