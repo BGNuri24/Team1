@@ -6,6 +6,9 @@
 #include <limits>
 
 namespace MenuTheme {
+// Derive interface, map, and maze-preview color roles from one material palette. Return a
+// complete value without allocating graphics resources, changing the active theme, or consuming
+// random state.
 Colors colorsFor(const MazePalette& palette) {
     Colors colors{};
     colors.panel = ColorLerp(palette.trim, palette.wall, .14f);
@@ -65,20 +68,25 @@ constinit const Color& MazeFloor = activeColors.mazeFloor;
 constinit const Color& MapWall = activeColors.mapWall;
 constinit const Color& MapVisited = activeColors.mapVisited;
 
-// Apply between frames. References remain bound to these fields as their values change.
+// Replace the active menu palette and its derived color-role values between frames. Exported
+// const references remain bound to the same fields, so existing drawing helpers observe updated
+// colors.
 void apply(MazeTheme theme) {
     const int index = static_cast<int>(theme);
     activeTheme = index >= 0 && index < MazeThemeCount ? theme : ActiveMazeTheme;
     activeColors = colorsFor(mazePalette(activeTheme));
 }
 
+// Return the currently applied menu theme identifier without modifying it. Application compares
+// this with ActiveMazeTheme before requesting a palette update.
 MazeTheme current() {
     return activeTheme;
 }
 }
 
 namespace {
-// System fonts are optional; the built-in font remains available on other platforms.
+// Try available native font files at the requested pixel size and weight, using raylib's built-in
+// font when unavailable. Custom font ownership passes to the typography cache.
 Font nativeMenuFont(int pixels, bool bold) {
 #if defined(_WIN32)
     char* directory = nullptr;
@@ -99,10 +107,14 @@ Font nativeMenuFont(int pixels, bool bold) {
 }
 }
 
+// Release cached custom font atlases through clear while the graphics context is still valid. The
+// shared raylib default font is borrowed and is never unloaded by this owner.
 MenuTypography::~MenuTypography() {
     clear();
 }
 
+// Flush queued UI geometry before unloading cached custom font textures, then empty the cache.
+// Keep the shared default font alive and allow later drawing to lazily rebuild required faces.
 void MenuTypography::clear() const {
     if (!faces.empty())
         rlDrawRenderBatchActive();
@@ -112,6 +124,9 @@ void MenuTypography::clear() const {
     faces.clear();
 }
 
+// Find or load a cached font for the requested pixel size and weight, clearing obsolete faces
+// when UI scale changes. Flush pending drawing before texture upload so new atlases cannot
+// disturb queued geometry.
 Font MenuTypography::fontFor(int pixels, bool bold) const {
     if (cachedScale != uiScale()) {
         clear();
@@ -127,7 +142,9 @@ Font MenuTypography::fontFor(int pixels, bool bold) const {
     return font;
 }
 
-// Measure and rasterize fitted text at its final pixel size, then align it to the pixel grid.
+// Fit text to its available width, select an atlas at the final pixel size, and align the
+// baseline position to the pixel grid. The center flag changes horizontal anchoring while the
+// shared typography cache owns custom fonts.
 void MenuTypography::drawText(const char* value, int x, int y, int size, Color color, bool bold,
                               int width, bool center) const {
     if (!value || !*value)
@@ -146,17 +163,23 @@ void MenuTypography::drawText(const char* value, int x, int y, int size, Color c
     DrawTextEx(font, label.c_str(), position, (float)pixels, 0, color);
 }
 
+// Draw left-anchored text at reference UI coordinates using optional weight and width fitting.
+// Delegate measurement and font caching to drawText so all menu labels share the same
+// rasterization rules.
 void MenuTypography::draw(const char* text, int x, int y, int size, Color color, bool bold,
                           int width) const {
     drawText(text, x, y, size, color, bold, width, false);
 }
 
+// Draw text around a reference center X using the same fitting and cached fonts as left-anchored
+// text. The Y coordinate and nominal size use the shared reference UI scale.
 void MenuTypography::centered(const char* text, int x, int y, int size, Color color, bool bold,
                               int width) const {
     drawText(text, x, y, size, color, bold, width, true);
 }
 
-// Use the ink bounds rather than the font's ascent/line box so short initials sit at true center.
+// Center the visible glyph ink inside a pixel-space badge or keycap instead of centering only the
+// font's line box. This keeps short initials and key labels visually aligned in both axes.
 void MenuTypography::centeredIn(const char* value, Rectangle bounds, int size, Color color,
                                 bool bold) const {
     if (!value || !*value || bounds.width <= 0 || bounds.height <= 0)
@@ -196,32 +219,36 @@ void MenuTypography::centeredIn(const char* value, Rectangle bounds, int size, C
     DrawTextEx(font, label.c_str(), position, (float)pixels, 0, color);
 }
 
-// Choose the uniform scale that fits the 1000-by-700 reference layout inside the current window.
+// Choose the uniform factor that fits the 1000-by-700 reference UI inside the current window.
+// Coordinate helpers center unused space rather than stretching the layout independently on each
+// axis.
 float uiScale() {
     return std::min(GetScreenWidth() / 1000.0f, GetScreenHeight() / 700.0f);
 }
 
-// Convert a reference-layout X coordinate to window pixels, including the horizontal centering
-// offset.
+// Convert a reference-layout X coordinate into window pixels and include the horizontal centering
+// margin. Use uiSize for lengths, which must not receive a position offset.
 int uiX(int x) {
     float scale = uiScale();
     return (int)((GetScreenWidth() - 1000.0f * scale) / 2.0f + x * scale);
 }
 
-// Convert a reference-layout Y coordinate to window pixels, including the vertical centering
-// offset.
+// Convert a reference-layout Y coordinate into window pixels and include the vertical centering
+// margin. Use uiSize for lengths, which must not receive a position offset.
 int uiY(int y) {
     float scale = uiScale();
     return (int)((GetScreenHeight() - 700.0f * scale) / 2.0f + y * scale);
 }
 
-// Scale a reference length or font size to integer pixels without adding a position offset.
+// Scale a reference length or font size into integer pixels without adding either centering
+// margin. This keeps dimensions separate from the uiX and uiY position conversions.
 int uiSize(int size) {
     return (int)(size * uiScale());
 }
 
-// Scale the actual glyph measurement rather than asking DrawText for unsupported sub-ten-pixel
-// sizes.
+// Measure the label with its actual font metrics and reduce its size only as needed to fit the
+// supplied pixel width. Preserve proportional spacing, including widths that require very small
+// text.
 float fittedMenuFontSize(const char* text, float maximumSize, float width) {
     if (!text || !*text || width <= 0 || maximumSize <= 0)
         return 0;
@@ -229,19 +256,21 @@ float fittedMenuFontSize(const char* text, float maximumSize, float width) {
     return measured > width ? maximumSize * width / measured : maximumSize;
 }
 
-// Scale a reference Y coordinate and font size, then draw text horizontally centered in the window.
+// Convert the reference Y coordinate and font size to pixels, then center the label across the
+// current window. Call drawCenteredAt when those values have already been scaled.
 void drawCentered(const char* text, int y, int size, Color color) {
     drawCenteredAt(text, uiY(y), uiSize(size), color);
 }
 
-// Draw horizontally centered text using a Y coordinate and font size already expressed in window
-// pixels.
+// Draw a label horizontally centered using a Y coordinate and font size already expressed in
+// window pixels. Avoid applying reference scaling a second time to callers' calculated positions.
 void drawCenteredAt(const char* text, int y, int size, Color color) {
     DrawText(text, (GetScreenWidth() - MeasureText(text, size)) / 2, y, size, color);
 }
 
-// Draw a vertical option list in reference coordinates, adding a marker and highlight to the
-// selected entry.
+// Draw a vertically spaced option list in reference coordinates, distinguishing the selected
+// entry with its marker and theme colors. This rendering helper does not change the selected
+// index.
 void drawOptions(const char* const* labels, int count, int selected, int startY) {
     for (int i = 0; i < count; i++) {
         const char* line = TextFormat("%s%s", i == selected ? "> " : "  ", labels[i]);
@@ -250,7 +279,8 @@ void drawOptions(const char* const* labels, int count, int selected, int startY)
     }
 }
 
-// Dim the current frame, draw a centered scaled popup, and return its bounds in window pixels.
+// Dim the current frame and draw a centered popup with scaled dimensions, border, and fill.
+// Return its pixel-space rectangle so callers can align content and controls to the actual panel.
 Rectangle drawPopup(int width, int height, Color border, Color fill, float dim) {
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(MenuTheme::Ink, dim));
     int w = uiSize(width), h = uiSize(height);
@@ -263,7 +293,8 @@ Rectangle drawPopup(int width, int height, Color border, Color fill, float dim) 
     return {(float)x, (float)y, (float)w, (float)h};
 }
 
-// Draw a centered input string at pixel coordinates and append a time-based blinking caret.
+// Draw the current input string at a centered pixel-space position and append a time-based
+// blinking caret. Text editing and validation occur in the caller's update path.
 void drawTextEntry(const std::string& text, int y, int size) {
     int width = MeasureText(text.c_str(), size);
     int x = (GetScreenWidth() - width) / 2;
@@ -272,18 +303,20 @@ void drawTextEntry(const std::string& text, int y, int size) {
         DrawText("_", x + width + uiSize(4), y, size, MenuTheme::Accent);
 }
 
-// Convert a complete reference-layout rectangle to centered, scaled window-pixel bounds.
+// Convert a complete reference-layout rectangle into centered window-pixel coordinates. Scale
+// dimensions without position offsets and transform the origin with the shared UI margins.
 Rectangle uiRect(int x, int y, int width, int height) {
     return {(float)uiX(x), (float)uiY(y), (float)uiSize(width), (float)uiSize(height)};
 }
 
-// Draw themed text after converting its reference position and font size to window pixels.
+// Draw themed text after scaling its reference position and font size into window pixels. This
+// low-level helper leaves input handling and layout decisions to the caller.
 void drawMenuText(const char* text, int x, int y, int size, Color color) {
     DrawText(text, uiX(x), uiY(y), std::max(1, uiSize(size)), color);
 }
 
-// Convert reference dimensions to pixels and reduce the pixel font size while the measured label
-// exceeds the available width.
+// Convert reference bounds to pixels and reduce the label size until it fits the available width.
+// Use the same measurement and drawing scale so long labels do not overflow their controls.
 void drawMenuTextFit(const char* text, int x, int y, int width, int size, Color color) {
     const float pixels = fittedMenuFontSize(text, (float)uiSize(size), (float)uiSize(width));
     if (pixels > 0)
@@ -291,8 +324,9 @@ void drawMenuTextFit(const char* text, int x, int y, int width, int size, Color 
                    color);
 }
 
-// Render the shared gradient, architectural grid and animated corridor signal, offset by the chosen
-// menu variation.
+// Draw the shared themed backdrop treatment with the supplied menu variation. It supplies
+// background decoration only; foreground navigation and the shared corridor journey are managed
+// separately.
 void drawMenuBackdrop(int variation) {
     using namespace MenuTheme;
     ClearBackground(Ink);
@@ -336,7 +370,8 @@ void drawMenuBackdrop(int variation) {
     }
 }
 
-// Draw the section marker, title and subtitle at the common reference-layout heading positions.
+// Draw a page's section marker, title, and subtitle in the shared heading layout. The typography
+// overload uses the caller's cached font owner while preserving the same reference positions.
 void drawMenuHeading(const char* section, const char* title, const char* subtitle) {
     using namespace MenuTheme;
     DrawRectangle(uiX(64), uiY(57), uiSize(24), std::max(2, uiSize(3)), Accent);
@@ -345,6 +380,8 @@ void drawMenuHeading(const char* section, const char* title, const char* subtitl
     drawMenuText(subtitle, 64, 154, 18, Muted);
 }
 
+// Draw a page's section marker, title, and subtitle in the shared heading layout. The typography
+// overload uses the caller's cached font owner while preserving the same reference positions.
 void drawMenuHeading(const MenuTypography& type, const char* section, const char* title,
                      const char* subtitle) {
     DrawRectangle(uiX(64), uiY(57), uiSize(24), std::max(2, uiSize(3)), MenuTheme::Accent);
@@ -353,25 +390,30 @@ void drawMenuHeading(const MenuTypography& type, const char* section, const char
     type.draw(subtitle, 64, 150, 17, MenuTheme::Muted, false, 800);
 }
 
-// Draw the shared footer divider and its navigation or gameplay hint.
+// Draw the shared footer divider and its navigation hint in reference coordinates. The typography
+// overload uses the supplied font cache without changing screen state.
 void drawMenuFooter(const char* hint) {
     DrawLine(uiX(64), uiY(624), uiX(936), uiY(624), MenuTheme::Border);
     drawMenuText(hint, 64, 646, 15, MenuTheme::Muted);
 }
 
+// Draw the shared footer divider and its navigation hint in reference coordinates. The typography
+// overload uses the supplied font cache without changing screen state.
 void drawMenuFooter(const MenuTypography& type, const char* hint) {
     DrawLine(uiX(64), uiY(624), uiX(936), uiY(624), MenuTheme::Border);
     type.draw(hint, 64, 643, 14, MenuTheme::Muted, false, 872);
 }
 
-// Draw a rounded theme panel and border using bounds that are already expressed in window pixels.
+// Draw a rounded themed panel and border using bounds already expressed in window pixels. The
+// caller owns layout and must not pass unscaled reference coordinates.
 void drawMenuPanel(Rectangle bounds, Color border) {
     DrawRectangleRounded(bounds, 0.05f, 8, MenuTheme::Panel);
     DrawRectangleRoundedLinesEx(bounds, 0.05f, 8, std::max(1.0f, uiScale()), border);
 }
 
-// Render a selectable themed button with an optional detail line, fitted label and accent indicator
-// inside pixel-space bounds.
+// Render a selected or ordinary button inside pixel-space bounds, with a fitted label, optional
+// detail line, and accent marker. Input and selection changes remain in the menu's update
+// function.
 void drawMenuButton(Rectangle bounds, const char* label, bool selected, const char* detail,
                     Color accent) {
     using namespace MenuTheme;
@@ -397,8 +439,8 @@ void drawMenuButton(Rectangle bounds, const char* label, bool selected, const ch
              selected ? accent : Border);
 }
 
-// Set the hover cursor for a pixel-space rectangle and return true only for a fresh left click
-// inside it.
+// Set the pointer cursor when hovering a pixel-space rectangle and report only a fresh left click
+// inside it. Merely hovering or holding the button does not repeatedly activate the control.
 bool menuClicked(Rectangle bounds) {
     const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
     if (over)
@@ -406,8 +448,9 @@ bool menuClicked(Rectangle bounds) {
     return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 
-// Select the hovered option only when the pointer moves or clicks, preserving keyboard focus
-// beneath a stationary cursor.
+// Select a hovered option only when the pointer moves or clicks inside its pixel-space bounds. A
+// stationary pointer leaves keyboard navigation intact instead of stealing the selection every
+// frame.
 bool menuPointer(Rectangle bounds, int index, int& selected) {
     const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
     const Vector2 delta = GetMouseDelta();
@@ -417,11 +460,13 @@ bool menuPointer(Rectangle bounds, int index, int& selected) {
     return click;
 }
 
-// Return the common back button's reference rectangle converted to window pixels.
+// Return the shared back button's reference rectangle transformed into window pixels. Menus reuse
+// these bounds for both its rendering and pointer hit test.
 Rectangle menuBackBounds() {
     return uiRect(810, 45, 126, 36);
 }
-// Render the common back button using its live hover state.
+// Draw the common back control using its current hover appearance. The typography-compatible
+// overload delegates to the same rendering path; callers handle the navigation action separately.
 void drawMenuBack() {
     const Rectangle bounds = menuBackBounds();
     const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
@@ -438,19 +483,24 @@ void drawMenuBack() {
     DrawLineEx(tip, {tip.x + head, cy + head}, stroke, color);
 }
 
+// Draw the common back control using its current hover appearance. The typography-compatible
+// overload delegates to the same rendering path; callers handle the navigation action separately.
 void drawMenuBack(const MenuTypography&) {
     drawMenuBack();
 }
-// Return the shared entry dialog's confirmation-button hit rectangle in window pixels.
+// Return the common entry dialog's confirmation rectangle in window pixels. Shared drawing and
+// hit testing use this same reference-scaled geometry.
 Rectangle entryConfirmBounds() {
     return uiRect(318, 408, 174, 42);
 }
-// Return the shared entry dialog's cancel-button hit rectangle in window pixels.
+// Return the common entry dialog's cancellation rectangle in window pixels. Shared drawing and
+// hit testing use this same reference-scaled geometry.
 Rectangle entryCancelBounds() {
     return uiRect(508, 408, 174, 42);
 }
-// Render the shared confirmation and cancellation buttons with confirmation highlighted as the
-// default action.
+// Draw the common entry dialog's confirmation and cancellation controls, emphasizing confirmation
+// as the default action. The caller handles editing, validation, and the resulting button
+// actions.
 void drawEntryActions() {
     drawMenuButton(entryConfirmBounds(), "Confirm", true);
     drawMenuButton(entryCancelBounds(), "Cancel", false);

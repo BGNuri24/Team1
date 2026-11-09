@@ -6,15 +6,22 @@
 #include <cmath>
 
 namespace {
+// Return the scaled rectangle for one result-screen action using fixed reference spacing.
+// Keyboard selection and pointer hit testing share the same action ordering.
 Rectangle actionBounds(int index) {
     return uiRect(302 + index * 210, 576, 186, 48);
 }
 
+// Format nonnegative elapsed seconds as minutes, seconds, and tenths using raylib's temporary
+// TextFormat buffer. Consume the returned text promptly rather than retaining it across later
+// formatting calls.
 const char* formatTime(float value) {
     const int tenths = (int)(std::max(0.0f, value) * 10);
     return TextFormat("%02d:%02d.%d", tenths / 600, tenths / 10 % 60, tenths % 10);
 }
 
+// Draw the main rounded result card at a reference-layout position plus the supplied pixel
+// offsets. The same shape is reused for the card and its displaced shadow.
 void drawResultCard(float offsetX, float offsetY, Color color) {
     Rectangle body = uiRect(330, 224, 340, 312);
     body.x += offsetX;
@@ -23,12 +30,15 @@ void drawResultCard(float offsetX, float offsetY, Color color) {
 }
 } // namespace
 
+// Restart the result-card entrance animation and select its first action. Application calls this
+// once when a run finishes so a previous result's animation and selection do not carry over.
 void EndScreen::reset() {
     animationTime = 0;
     selected = 0;
 }
 
-// Replay with the same settings, or leave the finished run.
+// Advance result-screen animation and handle keyboard or pointer actions for retry and
+// navigation. Return the requested Screen while the finished Game itself remains frozen.
 Screen EndScreen::update(float deltaSeconds) {
     if (std::isfinite(deltaSeconds) && deltaSeconds > 0)
         animationTime += std::min(deltaSeconds, 0.1f);
@@ -47,6 +57,9 @@ Screen EndScreen::update(float deltaSeconds) {
     return Screen::END;
 }
 
+// Render the frozen run's outcome, distinguishing victory, timeout, and obstacle contact. Show
+// the player's time, best-time status, save failures, and selected navigation action without
+// attempting persistence.
 void EndScreen::draw(const Game& game, const std::string& playerName, float bestTime,
                      bool newBestTime, bool bestTimeSaveFailed) const {
     using namespace MenuTheme;

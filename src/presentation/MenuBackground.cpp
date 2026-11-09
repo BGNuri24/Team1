@@ -19,6 +19,9 @@ uniform float aspect;
 uniform float clock;
 uniform int mirror;
 out vec4 finalColor;
+// Warp corridor artwork for the current yaw and mirror state, tint wall fabric to the active
+// palette, and add subtle lamp warmth and a vignette. Preserve the carpet pigments while applying
+// the menu transition's vertex tint.
 void main() {
     vec3 ray = vec3((fragTexCoord - 0.5) * vec2(2.0 * aspect, 2.0), 1.5);
     ray.xz = mat2(cos(yaw), -sin(yaw), sin(yaw), cos(yaw)) * ray.xz;
@@ -46,6 +49,9 @@ void main() {
 }
 )glsl";
 
+// Resolve menu artwork beside the executable first, falling back to src/assets for development
+// runs. Return a path only; the caller checks availability and owns any subsequently loaded
+// texture.
 std::string artworkPath(const char* filename) {
     const std::string packaged = std::string(GetApplicationDirectory()) + "assets/" + filename;
     if (FileExists(packaged.c_str()))
@@ -53,6 +59,8 @@ std::string artworkPath(const char* filename) {
     return std::string("src/assets/") + filename;
 }
 
+// Map menu stops to the four shared corridor artwork slots. Controls reuses the player view with
+// mirroring, while entrance and fallback stops use the first image.
 int viewIndex(MenuPlace place) {
     switch (place) {
     case MenuPlace::Players:
@@ -78,6 +86,9 @@ struct MenuBackground::Scene {
     RenderTexture2D overlay{};
     bool suppressBackdrop = false;
 
+    // Load corridor artwork with mipmaps and compile the grading shader, caching uniform
+    // locations only for a valid custom shader. The shared scene owns these resources and the
+    // journey state used by every menu.
     Scene() {
         const char* filenames[] = {"menu-corridor.png", "menu-players.png", "menu-levels.png",
                                    "menu-preparing.png"};
@@ -103,6 +114,9 @@ struct MenuBackground::Scene {
             grade = {};
     }
 
+    // Release the shared grading shader, overlay render target, and all successfully loaded
+    // artwork textures. Destruction occurs when the last MenuBackground owner releases the scene,
+    // before the graphics context closes.
     ~Scene() {
         if (grade.id)
             UnloadShader(grade);
@@ -113,6 +127,9 @@ struct MenuBackground::Scene {
                 UnloadTexture(texture);
     }
 
+    // Draw the selected corridor image with cover sizing, zoom, yaw, and gentle time-based
+    // panning. Fall back to the entrance image when needed, skip missing or transparent views,
+    // and apply the grading shader when available.
     void drawView(MenuPlace place, float zoom, float yaw, float alpha, float time) const {
         const Texture2D image =
             artwork[viewIndex(place)].id ? artwork[viewIndex(place)] : artwork[0];
@@ -146,6 +163,9 @@ struct MenuBackground::Scene {
     }
 };
 
+// Reuse the existing scene through a weak shared cache, creating it only when no menu currently
+// owns one. Each backdrop keeps a shared_ptr so textures and journey state survive until the
+// final owner is destroyed.
 MenuBackground::MenuBackground() {
     static std::weak_ptr<Scene> shared;
     scene = shared.lock();
@@ -155,8 +175,9 @@ MenuBackground::MenuBackground() {
     }
 }
 
-// Each stop has a distinct connected view. Perspective yaw, dolly and phased overlap carry the
-// camera around its corners; reversing a choice reverses the turn and travel direction.
+// Render the shared corridor at its current journey position, blending source and destination
+// artwork and applying the route's zoom and turn. Drawing reads animation state; update is
+// responsible for advancing time.
 void MenuBackground::draw(float time) const {
     if (scene->suppressBackdrop)
         return;
@@ -168,6 +189,8 @@ void MenuBackground::draw(float time) const {
     const float base = 1.12f + .014f * std::sin(clock * .22f) + .06f * path.detailAmount();
     const float idleYaw = -.010f * std::sin(clock * .23f);
     const float t = path.progress(), eased = MenuJourney::smooth(t);
+    // Derive a small depth offset from the corridor artwork index for route zooming. This
+    // deterministic presentation value does not change the journey's destination or timing.
     auto depth = [](MenuPlace place) { return viewIndex(place) * .025f; };
     if (!path.moving() || path.detailMove()) {
         scene->drawView(path.to(), base + depth(path.to()), path.detailAmount() * .025f + idleYaw,
@@ -191,27 +214,40 @@ void MenuBackground::draw(float time) const {
                       Fade(MenuTheme::Ink, MenuJourney::smooth((t - .45f) / .55f)));
 }
 
+// Request a route to a destination through the shared MenuJourney. Return whether the trip was
+// accepted so Application can defer publishing its pending screen until travel finishes.
 bool MenuBackground::navigate(MenuPlace destination) {
     return scene->journey.goTo(destination);
 }
+// Request an opening or closing detail animation on the shared journey. Existing active travel
+// and redundant requests are ignored by MenuJourney to keep navigation deterministic.
 void MenuBackground::detail(bool open) {
     scene->journey.showDetail(open);
 }
+// Immediately select a corridor stop through the shared journey, clearing its detail and travel
+// state. Use this when returning from a run so the backdrop agrees with the visible menu.
 void MenuBackground::snap(MenuPlace place) {
     scene->journey.snap(place);
 }
+// Advance the shared journey using a frame duration in seconds. Invalid or nonpositive durations
+// are ignored by MenuJourney, and screen code controls when animation time is allowed to pass.
 void MenuBackground::update(float delta) {
     scene->journey.update(delta);
 }
+// Expose whether the shared journey is active without modifying it. Application uses this to keep
+// page input frozen during route or detail animations.
 bool MenuBackground::moving() const {
     return scene->journey.moving();
 }
+// Expose the journey's midpoint decision for choosing which foreground menu to draw. This does
+// not finish navigation or advance animation timing.
 bool MenuBackground::destinationVisible() const {
     return scene->journey.destinationVisible();
 }
 
-// Preserve the destination framebuffer and its matrices, including full-window preview targets.
-// Capturing only UI lets the corridor keep moving with crisp, stable foreground typography.
+// Capture foreground UI into a reusable render target and composite it with the journey's
+// opacity. Keep corridor artwork outside that capture so its turn and grade continue
+// independently behind text.
 void MenuBackground::drawOverlay(const std::function<void()>& drawUi) const {
     const float opacity = scene->journey.uiOpacity();
     if (opacity <= 0)

@@ -11,33 +11,39 @@ const char* const LABELS[ACTION_COUNT] = {"Resume", "Restart", "Change player", 
 constexpr PauseAction ACTIONS[ACTION_COUNT] = {PauseAction::RESUME, PauseAction::RESTART,
                                                PauseAction::CHANGE_PLAYER, PauseAction::MAIN_MENU};
 
-// Return the scaled hit rectangle for a pause action at the supplied row index.
+// Return the reference-scaled hit rectangle for a pause action at a zero-based row. Keyboard
+// selection and pointer interaction use the same ordering as the rendered action list.
 Rectangle actionBounds(int index) {
     return uiRect(270, 202 + index * 60, 460, 49);
 }
-// Return the full sensitivity-panel rectangle used to select its keyboard-adjustable option.
+// Return the complete reference-scaled sensitivity-panel rectangle. The panel acts as a
+// selectable keyboard-adjustment row as well as containing pointer controls.
 Rectangle sensitivityBounds() {
     return uiRect(270, 457, 460, 104);
 }
-// Return the slider's enlarged hit area, which also defines the horizontal sensitivity mapping.
+// Return the enlarged slider hit area in window pixels. The same horizontal span maps pointer
+// position to the supported sensitivity range during dragging.
 Rectangle sliderBounds() {
     return uiRect(344, 508, 296, 34);
 }
-// Return the scaled hit rectangle for decreasing sensitivity by one configured step.
+// Return the scaled rectangle for decreasing sensitivity by one configured step. Drawing and
+// pointer activation share this geometry to keep the compact control aligned.
 Rectangle minusBounds() {
     return uiRect(292, 508, 34, 34);
 }
-// Return the scaled hit rectangle for increasing sensitivity by one configured step.
+// Return the scaled rectangle for increasing sensitivity by one configured step. Drawing and
+// pointer activation share this geometry to keep the compact control aligned.
 Rectangle plusBounds() {
     return uiRect(674, 508, 34, 34);
 }
-// Return the scaled hit rectangle for restoring the default sensitivity.
+// Return the scaled rectangle for the default-sensitivity action. The hit region matches the
+// reset control rendered inside the pause settings panel.
 Rectangle resetBounds() {
     return uiRect(598, 572, 132, 30);
 }
 
-// Accept both an initial key press and repeat events so held adjustment keys continue changing
-// sensitivity.
+// Accept an initial press or a repeat event for the supplied key. Adjustment controls use this so
+// holding a key keeps changing sensitivity without requiring repeated taps.
 bool repeatedKey(int key) {
     return IsKeyPressed(key) || IsKeyPressedRepeat(key);
 }
@@ -46,7 +52,8 @@ struct PauseColors {
     Color body, surface, selected, border, brass, text, muted;
 };
 
-// Keep the pause surfaces near black while retaining the hotel's warm brass and ivory lettering.
+// Derive near-black pause surfaces and warm brass-and-ivory control colors from the shared hotel
+// theme. Return local drawing roles without modifying the underlying maze or active palette.
 PauseColors pauseColors() {
     using namespace MenuTheme;
     const Color surface = ColorLerp(Ink, Panel, .12f);
@@ -56,6 +63,8 @@ PauseColors pauseColors() {
             ColorLerp(Paper, Ink, .30f)};
 }
 
+// Draw one pause action using selected or ordinary surface colors, a border, an accent marker,
+// and centered text. Bounds are already in pixels while font sizing follows shared typography.
 void pauseButton(Rectangle bounds, const char* label, bool active, const PauseColors& colors,
                  const MenuTypography& type, int fontSize = 21) {
     DrawRectangleRounded(bounds, .08f, 6, active ? colors.selected : colors.surface);
@@ -67,7 +76,8 @@ void pauseButton(Rectangle bounds, const char* label, bool active, const PauseCo
     type.centeredIn(label, bounds, fontSize, active ? colors.text : colors.muted);
 }
 
-// Draw a compact sensitivity-adjustment button with hover feedback and a centered label.
+// Draw a compact sensitivity-control button with current hover feedback and a centered label.
+// This helper renders state only; update decides whether the control changes settings.
 void smallButton(Rectangle bounds, const char* label, const PauseColors& colors,
                  const MenuTypography& type) {
     const bool over = CheckCollisionPointRec(GetMousePosition(), bounds);
@@ -78,24 +88,26 @@ void smallButton(Rectangle bounds, const char* label, const PauseColors& colors,
 }
 } // namespace
 
-// Bind the pause menu to the application's live settings and initially select Resume.
+// Borrow the application's live GameSettings object and initialize the selection to Resume. The
+// menu does not own settings and applies adjustments through their validated setter.
 PauseMenu::PauseMenu(GameSettings& settings) : settings(settings), selected(0) {}
 
-// Return selection to Resume and cancel slider dragging without changing the saved or live
-// sensitivity.
+// Select Resume and cancel any in-progress slider drag when the pause screen opens. Preserve the
+// live sensitivity and persistence state rather than resetting the player's preference.
 void PauseMenu::reset() {
     selected = 0;
     dragging = false;
 }
 
-// Attempt to save pending preferences and retain the outcome for the inline persistence-error
-// message.
+// Ask GameSettings to save any pending preference and retain whether the attempt failed. The
+// drawing path uses that outcome for inline feedback without falsely reporting success.
 void PauseMenu::persistSensitivity() {
     saveFailed = !settings.save();
 }
 
-// Process pause navigation, slider dragging and discrete sensitivity changes, saving at interaction
-// boundaries and returning any chosen pause action.
+// Handle action navigation, pointer controls, slider dragging, and repeated sensitivity
+// adjustments. Save at interaction boundaries and return a PauseAction for Application to
+// perform.
 PauseAction PauseMenu::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     updateMenuSelection(selected, ACTION_COUNT + 1);
@@ -182,7 +194,9 @@ PauseAction PauseMenu::update() {
     return PauseAction::NONE;
 }
 
-// Render the dark hotel overlay with opaque controls and a clear keyboard-selection state.
+// Draw the dark hotel pause overlay, action selection, and opaque sensitivity controls over the
+// frozen world. Show persistence feedback from update without saving or changing gameplay during
+// rendering.
 void PauseMenu::draw() const {
     using namespace MenuTheme;
     const PauseColors colors = pauseColors();
