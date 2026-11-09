@@ -8,19 +8,30 @@ public:
     static constexpr int DefaultSensitivity = 100;
     static constexpr int SensitivityStep = 5;
 
-    // Load a valid saved preference or retain the default without requesting a disk write.
+    // Load the saved mouse-sensitivity percentage when it is inside the supported range.
+    // Otherwise retain the default, leaving the dirty flag clear because no live user change has
+    // occurred.
     GameSettings();
-    // Return the live sensitivity percentage within the supported minimum and maximum.
+    // Return the current live sensitivity as an integer percentage within the supported limits.
+    // The pause menu uses this display value; input uses sensitivityMultiplier instead.
     int sensitivityPercent() const;
-    // Return the mouse-input scale, with 1.0 representing 100 percent sensitivity.
+    // Convert the live percentage into the floating-point mouse-delta scale consumed by
+    // readInput. A stored value of 100 produces multiplier 1.0 and preserves the baseline look
+    // speed.
     float sensitivityMultiplier() const;
-    // Clamp and apply a live preference, marking it for persistence only when its value changes.
+    // Clamp the requested percentage to the supported range and update the live preference only
+    // when the effective value changes. Mark changed preferences dirty so save can persist them
+    // later.
     void setSensitivityPercent(int percent);
-    // Restore the default preference while retaining the normal change-tracking behavior.
+    // Restore DefaultSensitivity through the normal setter. This retains clamping and dirty
+    // tracking, allowing the pause menu to save the reset using the same path as any adjustment.
     void resetSensitivity();
-    // Save pending changes; report failure without discarding the live preference or its retry flag.
+    // Skip disk work when nothing changed; otherwise ask SettingsStore to persist the live
+    // percentage. Clear the dirty flag only on success so a failed write can be retried without
+    // losing the chosen value.
     bool save();
-    // Report whether a preference change is still pending a successful save.
+    // Report whether the live sensitivity still differs from its last successfully saved state. A
+    // failed save keeps this flag set so the UI can warn and retry.
     bool hasUnsavedChanges() const;
 
 private:

@@ -8,8 +8,9 @@ const std::filesystem::path FILE_NAME = "save_data/settings.txt";
 const std::filesystem::path TEMPORARY = "save_data/settings.txt.tmp";
 const std::filesystem::path BACKUP = "save_data/settings.txt.bak";
 
-// Parse exactly one mouse_sensitivity integer record, allowing surrounding whitespace and rejecting
-// unexpected content.
+// Parse one mouse_sensitivity integer record from the requested file, permitting surrounding
+// whitespace and rejecting extra content or malformed values. Return an empty optional when the
+// file cannot supply a valid record.
 std::optional<int> readSensitivity(const std::filesystem::path& path) {
     std::ifstream input(path);
     std::string key;
@@ -20,15 +21,17 @@ std::optional<int> readSensitivity(const std::filesystem::path& path) {
     return value;
 }
 
-// Attempt to delete the temporary settings file without throwing while cleaning up a failed save.
+// Best-effort removal of a failed save's temporary file using error_code rather than exceptions.
+// Cleanup must not replace the original save failure with a second filesystem exception.
 void removeTemporary() {
     std::error_code ignored;
     std::filesystem::remove(TEMPORARY, ignored);
 }
 }
 
-// Read the preference without side effects, falling back to the backup only when the primary file is
-// missing.
+// Read the primary settings file, consulting its backup only when the primary is absent. Return
+// an empty optional for unavailable or malformed data without creating files or changing
+// preferences.
 std::optional<int> SettingsStore::loadMouseSensitivity() const {
     // Read the main file, or its backup if the main file is absent, without changing either file.
     std::error_code error;
@@ -37,8 +40,9 @@ std::optional<int> SettingsStore::loadMouseSensitivity() const {
     return readSensitivity(exists ? FILE_NAME : BACKUP);
 }
 
-// Write the preference through a checked temporary file and backup replacement, returning false when
-// the save cannot complete.
+// Write the supplied percentage to a checked temporary file, then replace the settings file using
+// a backup for recovery. Return false if saving fails; profiles and scores are never changed by
+// this operation.
 bool SettingsStore::saveMouseSensitivity(int percent) const {
     std::error_code error;
     std::filesystem::create_directories(FILE_NAME.parent_path(), error);

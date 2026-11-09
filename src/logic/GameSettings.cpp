@@ -1,20 +1,22 @@
 #include "GameSettings.h"
 #include <algorithm>
 
-// Load a sensitivity inside the supported range, otherwise keep the default without marking settings
-// as changed.
+// Load the saved mouse-sensitivity percentage when it is inside the supported range. Otherwise
+// retain the default, leaving the dirty flag clear because no live user change has occurred.
 GameSettings::GameSettings() {
     const auto saved = store.loadMouseSensitivity();
     if (saved && *saved >= MinSensitivity && *saved <= MaxSensitivity) percent = *saved;
 }
 
-// Return the current sensitivity as an integer percentage, where 100 represents the original camera
-// speed.
+// Return the current live sensitivity as an integer percentage within the supported limits. The
+// pause menu uses this display value; input uses sensitivityMultiplier instead.
 int GameSettings::sensitivityPercent() const { return percent; }
-// Convert the stored percentage to the floating-point multiplier consumed by mouse input.
+// Convert the live percentage into the floating-point mouse-delta scale consumed by readInput. A
+// stored value of 100 produces multiplier 1.0 and preserves the baseline look speed.
 float GameSettings::sensitivityMultiplier() const { return percent / 100.0f; }
 
-// Clamp the requested sensitivity and mark it unsaved only when the effective value changes.
+// Clamp the requested percentage to the supported range and update the live preference only when
+// the effective value changes. Mark changed preferences dirty so save can persist them later.
 void GameSettings::setSensitivityPercent(int value) {
     value = std::clamp(value, MinSensitivity, MaxSensitivity);
     if (value == percent) return;
@@ -22,12 +24,13 @@ void GameSettings::setSensitivityPercent(int value) {
     dirty = true;
 }
 
-// Restore the default percentage through the normal setter so change tracking and range rules remain
-// consistent.
+// Restore DefaultSensitivity through the normal setter. This retains clamping and dirty tracking,
+// allowing the pause menu to save the reset using the same path as any adjustment.
 void GameSettings::resetSensitivity() { setSensitivityPercent(DefaultSensitivity); }
 
-// Persist only changed settings and clear the dirty flag on success; retain the live value and flag
-// when saving fails.
+// Skip disk work when nothing changed; otherwise ask SettingsStore to persist the live
+// percentage. Clear the dirty flag only on success so a failed write can be retried without
+// losing the chosen value.
 bool GameSettings::save() {
     if (!dirty) return true;
     if (!store.saveMouseSensitivity(percent)) return false;
@@ -35,5 +38,6 @@ bool GameSettings::save() {
     return true;
 }
 
-// Report whether the live preference still needs to be written to disk.
+// Report whether the live sensitivity still differs from its last successfully saved state. A
+// failed save keeps this flag set so the UI can warn and retry.
 bool GameSettings::hasUnsavedChanges() const { return dirty; }

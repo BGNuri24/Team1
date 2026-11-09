@@ -5,10 +5,12 @@
 // scores.
 class SettingsStore {
 public:
-    // Read the stored percentage, returning no value when the selected settings file is unavailable or
-    // malformed.
+    // Read the primary settings file, consulting its backup only when the primary is absent.
+    // Return an empty optional for unavailable or malformed data without creating files or
+    // changing preferences.
     std::optional<int> loadMouseSensitivity() const;
-    // Persist the supplied percentage without changing profile records, returning whether the file
-    // replacement succeeded.
+    // Write the supplied percentage to a checked temporary file, then replace the settings file
+    // using a backup for recovery. Return false if saving fails; profiles and scores are never
+    // changed by this operation.
     bool saveMouseSensitivity(int percent) const;
 };
