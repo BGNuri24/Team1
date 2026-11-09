@@ -7,12 +7,16 @@ struct ExitSpace {
     int last;
     bool north;
 
+    // Convert exit-local across, height, and depth coordinates into world space according to the
+    // final passage's orientation. This lets one authored doorway fit either approach direction.
     Vector3 point(float across, float height, float depth) const {
         return {(last + (north ? -across : .34f + depth)) * MazeGeometry::CellSize,
                 height * MazeGeometry::CeilingHeight,
                 (last + (north ? .34f + depth : across)) * MazeGeometry::CellSize};
     }
 
+    // Draw an exit detail box using its local frame, swapping width and depth for the alternate
+    // wall orientation. Scale horizontal dimensions by CellSize and height by CeilingHeight.
     void box(float across, float height, float depth, float width, float tall, float thick,
              Color color) const {
         DrawCube(point(across, height, depth), (north ? width : thick) * MazeGeometry::CellSize,
@@ -22,8 +26,9 @@ struct ExitSpace {
 };
 }
 
-// Keep the same paneled exit in every run, with its materials and lights derived from that maze's
-// palette. Only the sign and slim light strips are emissive.
+// Draw the final corridor's exit architecture and its lit details using the run's theme and
+// geometry. The glow flag selects its emissive contribution while the logical exit remains a maze
+// cell.
 void Renderer::drawExit(const Game& game, bool glow) {
     const int last = game.maze().size() - 1;
     const float dx = last - game.x() / MazeGeometry::CellSize;

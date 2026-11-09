@@ -7,6 +7,8 @@ struct CorridorStyle {
     Color ceiling, ceilingInset;
 };
 
+// Derive plaster, panel, trim, brass, and ceiling material roles from the supplied maze palette.
+// This pure color conversion allocates no graphics resources and consumes no randomness.
 inline CorridorStyle corridorStyle(const MazePalette& palette) {
     CorridorStyle style{};
     style.plaster = ColorLerp(palette.wall, palette.paper, .10f);

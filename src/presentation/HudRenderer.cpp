@@ -8,8 +8,9 @@ struct HudTheme {
     Color unknown, walls, visible, visited, marker;
 };
 
-// HUD elements follow the loaded run's palette, independently of the menu theme. Derive
-// readable material roles without consuming randomness or retaining colors from an earlier run.
+// Derive readable HUD material roles from the loaded run's palette independently of the current
+// menu theme. This pure conversion avoids retaining colors from a previous run or consuming
+// random state.
 HudTheme hudTheme(const MazePalette& palette) {
     const MenuTheme::Colors colors = MenuTheme::colorsFor(palette);
     return {colors.panel,   colors.border,     colors.paper,      colors.muted,
@@ -17,7 +18,8 @@ HudTheme hudTheme(const MazePalette& palette) {
             colors.mapWall, colors.mapVisible, colors.mapVisited, colors.marker};
 }
 
-// Tint only the frame, leaving the map canvas to draw one translucent layer over the world.
+// Draw the map's panel frame while leaving its canvas responsible for the translucent world
+// overlay. Keeping the tint in one layer avoids unintentionally darkening the scene twice.
 void hudPanel(Rectangle bounds, Rectangle canvas, const HudTheme& colors) {
     const Rectangle strips[] = {{bounds.x, bounds.y, bounds.width, canvas.y - bounds.y},
                                 {bounds.x, canvas.y + canvas.height, bounds.width,
@@ -33,7 +35,8 @@ void hudPanel(Rectangle bounds, Rectangle canvas, const HudTheme& colors) {
     DrawRectangleRoundedLinesEx(bounds, 0.10f, 8, std::max(1.0f, uiScale()), colors.border);
 }
 
-// Keep a small key hint in the corner while the map is hidden. The ring refills during cooldown.
+// Draw a compact map-key hint while the map is hidden, with a ring indicating cooldown progress.
+// Read MapPeek timing without advancing it so rendering cannot recharge the ability.
 void mapKey(const MapPeek& peek, const HudTheme& colors) {
     const int margin = uiSize(22), radius = std::max(12, uiSize(15));
     const Vector2 center = {(float)(GetScreenWidth() - margin - radius), (float)(margin + radius)};
@@ -52,7 +55,8 @@ void mapKey(const MapPeek& peek, const HudTheme& colors) {
              Fade(colors.text, peek.ready() ? .8f : .35f));
 }
 } // namespace
-// Keep HUD composition in one screen-space pass after world rendering has ended.
+// Compose the timer and optional map UI in screen space after world rendering has finished. The
+// caller controls whether gameplay supplies an active peek state or an ordinary hidden-map hint.
 void HudRenderer::draw(const Game& game, const MazePalette& palette, const MapPeek* mapPeek) const {
     drawHud(game, palette, !mapPeek || !mapPeek->visible());
     if (mapPeek) {
@@ -62,11 +66,14 @@ void HudRenderer::draw(const Game& game, const MazePalette& palette, const MapPe
             mapKey(*mapPeek, hudTheme(palette));
     }
 }
-// Center translucent timer digits over the scene, without a panel or compass.
+// Draw the centered translucent countdown digits over the world without an opaque panel or
+// compass. Read the Game timer only; paused and finished frames must not advance it.
 void HudRenderer::drawHud(const Game& game, const MazePalette& palette, bool showReticle) const {
     using namespace MenuTheme;
     const HudTheme colors = hudTheme(palette);
     const int margin = uiSize(22);
+    // Measure the label and draw it using the HUD's requested reference position, size, and
+    // color. This local callback keeps repeated HUD text aligned with the same scaling rules.
     auto text = [&](const char* label, int x, int y, int size, Color color) {
         DrawText(label, x, y, std::max(1, uiSize(size)), color);
     };
@@ -101,8 +108,9 @@ void HudRenderer::drawHud(const Game& game, const MazePalette& palette, bool sho
     DrawLine(cx, cy + uiSize(2), cx, cy + uiSize(5), aim);
 }
 
-// Enlarge the peek into a centered map while keeping the timer and screen edges clear. Only
-// explored cells are shown, so increasing its size does not disclose the route to the exit.
+// Draw a centered enlarged peek using only the run's revealed cells, keeping the timer and window
+// edges clear. Showing a larger map never discloses unexplored passages or changes exploration
+// state.
 void HudRenderer::drawMinimap(const Game& game, const MazePalette& palette) const {
     const HudTheme colors = hudTheme(palette);
     const int size = game.maze().size();

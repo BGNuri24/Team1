@@ -28,15 +28,16 @@ struct Wall {
     int row, col, side;
 };
 
-// Convert authored decoration coordinates to world space: scale X/Z by cell width and Y by ceiling
-// height.
+// Convert authored decoration coordinates into world space by scaling X/Z with cell width and Y
+// with ceiling height. Detail helpers share this mapping with the maze's physical dimensions.
 Vector3 world(Vector3 point) {
     return {point.x * MazeGeometry::CellSize, point.y * MazeGeometry::CeilingHeight,
             point.z * MazeGeometry::CellSize};
 }
 
-// Draw a decoration cube after scaling its center and dimensions from authored cell coordinates
-// into world space.
+// Draw a decoration cube after converting its center and dimensions from authored cell
+// coordinates into world units. The helper affects visible geometry only and does not add
+// collision volumes.
 void detailCube(Vector3 point, float width, float height, float depth, Color color) {
     const Vector3 center = world(point);
     const float x0 = center.x - width * MazeGeometry::CellSize * .5f;
@@ -58,8 +59,9 @@ void detailCube(Vector3 point, float width, float height, float depth, Color col
     rlEnd();
 }
 
-// The wall texture supplies distant ornament. Keep its shallow relief only near the camera's
-// view, while lighting still considers nearby sources in all directions.
+// Cull shallow architectural relief outside the camera's nearby view, leaving distant ornament to
+// the wall texture. Lighting still considers nearby sources in all directions so turning does not
+// remove illumination.
 bool detailVisible(const Camera3D& camera, Vector3 position) {
     const float dx = position.x - camera.position.x, dy = position.y - camera.position.y,
                 dz = position.z - camera.position.z;
@@ -71,7 +73,9 @@ bool detailVisible(const Camera3D& camera, Vector3 position) {
     return dx * forward.x + dy * forward.y + dz * forward.z + 1.8f >= std::sqrt(distance2) * .45f;
 }
 
-// Submit one vertex with its color and UV coordinates after converting its position to world units.
+// Submit a corner's color, texture coordinates, and world-space position to the active rlgl
+// batch. The caller establishes its primitive, texture, and shader state before emitting
+// vertices.
 void emit(const Corner& point, Color color) {
     rlColor4ub(color.r, color.g, color.b, color.a);
     rlTexCoord2f(point.u, point.v);
@@ -79,7 +83,8 @@ void emit(const Corner& point, Color color) {
     rlVertex3f(position.x, position.y, position.z);
 }
 
-// Submit four ordered corners to the currently active quad batch using a shared vertex color.
+// Submit four ordered corners with a shared color to the active quad batch. Corner ordering and
+// UVs come from the caller so floors, ceilings, and wall faces keep their intended orientation.
 void quad(const Corner& a, const Corner& b, const Corner& c, const Corner& d, Color color) {
     emit(a, color);
     emit(b, color);
@@ -87,8 +92,9 @@ void quad(const Corner& a, const Corner& b, const Corner& c, const Corner& d, Co
     emit(d, color);
 }
 
-// Map wall-local horizontal and vertical bounds onto an exposed face, offsetting the strip to avoid
-// depth overlap.
+// Map normalized horizontal bounds and authored heights onto an exposed wall face and submit its
+// textured strip. Offset the geometry slightly from the wall to avoid depth overlap with the base
+// surface.
 void wallStrip(const Wall& wall, float left, float right, float bottom, float top, Color color,
                float inset = 0.004f) {
     float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
@@ -100,12 +106,16 @@ void wallStrip(const Wall& wall, float left, float right, float bottom, float to
          {x1, top, z1, right, 1 - top}, {x0, top, z0, left, 1 - top}, color);
 }
 
+// Convert a wall-local across, height, and depth position into world coordinates using the face's
+// directed edge. The perpendicular depth offset keeps details consistently oriented on all wall
+// sides.
 Vector3 wallPoint(const Wall& wall, float across, float height, float depth) {
     const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
     return world({wall.lx + dx * across - dz * depth, height, wall.lz + dz * across + dx * depth});
 }
 
-// Raised architectural pieces stay shallow enough to leave the playable corridor clear.
+// Draw a shallow architectural block in an exposed wall's local frame. Keep the raised detail
+// close to the surface so its visible ornament does not narrow the playable corridor.
 void wallBlock(const Wall& wall, float left, float right, float bottom, float top, float depth,
                Color color) {
     const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
@@ -115,10 +125,14 @@ void wallBlock(const Wall& wall, float left, float right, float bottom, float to
     detailCube(center, dx ? right - left : depth, top - bottom, dx ? depth : right - left, color);
 }
 
-// Map marble in world proportions across the front and returns of a shallow pilaster. Its caps
-// are covered by the gilded molding pass; texture density stays stable on narrow column faces.
+// Map stone texture coordinates over a shallow pilaster's front and returns using stable world
+// proportions. Gilded molding covers its caps while narrow faces retain consistent material
+// density.
 void marbleBlock(const Wall& wall, float left, float right, float bottom, float top, float depth) {
     const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
+    // Map one pilaster-local corner into its wall frame and attach the requested stone UV
+    // coordinate. The enclosing marble detail uses these corners to keep front and return texture
+    // density consistent.
     auto point = [&](float across, float height, float offset, float u) {
         return Corner{wall.lx + dx * across - dz * offset, height,
                       wall.lz + dz * across + dx * offset, u * MazeGeometry::CellSize / .8f,
@@ -132,8 +146,11 @@ void marbleBlock(const Wall& wall, float left, float right, float bottom, float 
          point(right, top, 0, right + depth), point(right, top, depth, right), MarbleMaterialTint);
 }
 
-// Curved gilt arms support the two upright glass cups seen in the loading-screen corridor.
+// Draw curved gilt support geometry for the paired upright glass cups. These visual fixture parts
+// match the corridor artwork and do not participate in gameplay collision.
 void sconceArm(const Wall& wall, int side, Color metal) {
+    // Evaluate a point along the authored curved sconce arm. Reusing this local curve keeps the
+    // connected support segments aligned with the fixture's wall frame.
     auto point = [&](float t) {
         const float u = 1 - t;
         const float across =
@@ -151,8 +168,9 @@ void sconceArm(const Wall& wall, int side, Color metal) {
     }
 }
 
-// Visit open cells within the renderer's bounded neighborhood and distance cutoff before issuing
-// their draw callbacks.
+// Visit open maze cells inside the renderer's bounded neighborhood and distance cutoff, invoking
+// the supplied drawing callback. Limiting work to nearby cells keeps large mazes from submitting
+// their full geometry every frame.
 template <typename Draw> void nearbyCells(const Game& game, Draw draw) {
     int reach = (int)VIEW_DISTANCE + 1;
     int size = game.maze().size();
@@ -170,9 +188,11 @@ template <typename Draw> void nearbyCells(const Game& game, Draw draw) {
         }
 }
 
-// Enumerate passage edges adjacent to solid cells, supplying consistently oriented wall-face
-// coordinates to the draw callback.
+// Enumerate passage-cell edges adjacent to walls and pass each consistently oriented face to the
+// supplied callback. Shared face coordinates keep wallpaper, trim, and light placement aligned.
 template <typename Draw> void exposedWalls(const Game& game, Draw draw) {
+    // Enumerate solid neighbors of this visible passage and provide consistently directed wall
+    // faces to the caller. The outer nearby-cell iterator has already limited rendering distance.
     nearbyCells(game, [&](int row, int col) {
         float x = (float)col, z = (float)row;
         if (game.maze().cell(row - 1, col) == '#')
@@ -186,14 +206,16 @@ template <typename Draw> void exposedWalls(const Game& game, Draw draw) {
     });
 }
 
-// Submit a horizontal decorative quad with authored half-width and half-depth at the requested
-// height.
+// Submit a horizontal decorative quad around an authored center with the requested half-width,
+// half-depth, height, and UV region. Convert its points to world units before adding them to the
+// batch.
 void floorPatch(float x, float z, float y, float halfWidth, float halfDepth, Color color) {
     quad({x - halfWidth, y, z - halfDepth, 0, 0}, {x - halfWidth, y, z + halfDepth, 0, 1},
          {x + halfWidth, y, z + halfDepth, 1, 1}, {x + halfWidth, y, z - halfDepth, 1, 0}, color);
 }
 
-// Join two border runs around the outside corner of a solid cell, using matching woven miters.
+// Join two woven border runs around an outside wall corner with matching miters. This completes
+// the continuous carpet runner without laying a transverse stripe at every cell boundary.
 void carpetCorner(float x, float z, float inwardX, float inwardZ) {
     using namespace CarpetLayout;
     const Corner corner{x, 0, z, BorderStartU, 0};
@@ -212,8 +234,8 @@ void carpetCorner(float x, float z, float inwardX, float inwardZ) {
     }
 }
 
-// Crop the center field to the inner edge of each wall border. The patches share their edges;
-// they never overlap, avoiding both coplanar flicker and shading the same floor pixels twice.
+// Crop the carpet's center field to the inner edge of neighboring wall borders. Adjacent field
+// patches share edges without overlap, preventing coplanar flicker and redundant floor shading.
 void carpetField(const Game& game, int row, int col) {
     using namespace CarpetLayout;
     const float left = game.maze().cell(row, col - 1) == '#' ? BorderWidth : 0;
@@ -224,6 +246,8 @@ void carpetField(const Game& game, int row, int col) {
     const bool ne = !right && !top && game.maze().cell(row - 1, col + 1) == '#';
     const bool sw = !left && !bottom && game.maze().cell(row + 1, col - 1) == '#';
     const bool se = !right && !bottom && game.maze().cell(row + 1, col + 1) == '#';
+    // Submit one carpet-border region with wall-local UV bounds and matching geometry. Splitting
+    // the runner into these patches lets corner miters share exact edges.
     auto patch = [&](float u0, float v0, float u1, float v1) {
         quad({col - .5f + u0, 0, row - .5f + v0, u0 * FieldU, v0},
              {col - .5f + u0, 0, row - .5f + v1, u0 * FieldU, v1},
@@ -254,8 +278,8 @@ void carpetField(const Game& game, int row, int col) {
         carpetCorner(col + .5f, row + .5f, -1, -1);
 }
 
-// Lay the woven border beside real walls, trimming its inner ends into a shared miter at corners.
-// No transverse border is drawn at cell boundaries, so straight corridors read as one runner.
+// Place the woven border beside exposed maze walls and trim its ends into shared corner miters.
+// Avoid borders at open cell boundaries so straight passages read as one continuous runner.
 void carpetBorder(const Game& game, const Wall& wall) {
     using namespace CarpetLayout;
     const float dx = wall.rx - wall.lx, dz = wall.rz - wall.lz;
@@ -271,8 +295,9 @@ void carpetBorder(const Game& game, const Wall& wall) {
          {innerBX, y, innerBZ, BorderU, 1 - end}, {wall.rx, y, wall.rz, BorderStartU, 1}, WHITE);
 }
 
-// Choose fixture cells deterministically from the row/column pattern and intersections with at
-// least three open neighbors.
+// Choose ceiling-lamp cells deterministically from their coordinates and nearby passage
+// connectivity. The same layout predicate supports visible fixtures and the light list without
+// consuming random state.
 bool ceilingFixture(const Game& game, int row, int col) {
     int neighbours =
         (game.maze().cell(row - 1, col) != '#') + (game.maze().cell(row + 1, col) != '#') +
@@ -280,14 +305,17 @@ bool ceilingFixture(const Game& game, int row, int col) {
     return (row + col) % 3 == 0 || neighbours >= 3;
 }
 
+// Choose exposed wall faces for sconces with a repeatable row, column, and side pattern. Keeping
+// this predicate deterministic aligns visible lamp geometry with uploaded light sources.
 bool wallFixture(const Wall& wall) {
     return (wall.row * 13 + wall.col * 7 + wall.side * 3) % 5 <= 1;
 }
 
 }
 
-// Initialize the perspective camera, upload procedural textures and load shader uniform locations,
-// falling back when the custom shader is unavailable.
+// Initialize the perspective camera and custom lighting shader, caching its uniform locations
+// when compilation succeeds. Keep valid fallback state when a custom shader is unavailable;
+// material preparation is coordinated separately.
 Renderer::Renderer() {
     cam = Camera3D{};
     cam.up = {0, 1, 0};
@@ -317,15 +345,17 @@ Renderer::Renderer() {
     }
 }
 
-// Unload owned textures and the custom shader while the application's graphics context still
-// exists.
+// Release the renderer's owned lighting shader while member resource owners clean up their
+// textures and post-processing targets. Application destroys this object before closing the
+// graphics context.
 Renderer::~Renderer() {
     if (atmosphere.id)
         UnloadShader(atmosphere);
 }
 
-// Build replacement textures before releasing the previous run's resources, and avoid uploads
-// during normal frames.
+// Reuse already prepared materials when the requested theme is unchanged. Build a complete
+// replacement first and publish it only when valid, preserving the old resources if material
+// creation fails.
 void Renderer::prepareMazeTheme(MazeTheme theme) {
     if (texturesReady && activeTheme == theme)
         return;
@@ -340,13 +370,16 @@ void Renderer::prepareMazeTheme(MazeTheme theme) {
     texturesReady = true;
 }
 
-// Draw gameplay information over the lit world only when the caller requests the gameplay view.
+// Render the world first, then draw the gameplay HUD in screen space with optional map-peek
+// state. Paused and result views can use drawWorld when gameplay overlays should be omitted.
 void Renderer::draw(const Game& game, const MapPeek* mapPeek) {
     drawWorld(game);
     hud.draw(game, palette, mapPeek);
 }
 
-// Copy the displayed camera pose and render lit geometry, emissive details and atmosphere.
+// Build the camera from the game's displayed position, direction, and up vector, then draw lit
+// maze surfaces, details, hazards, and exit. Use post-processing when available and keep the
+// fallback world render functional.
 void Renderer::drawWorld(const Game& game) {
     prepareMazeTheme(game.theme());
     cam.position = game.position();
@@ -410,7 +443,9 @@ void Renderer::drawWorld(const Game& game) {
                            Fade(palette.fog, .63f));
 }
 
-// Flush a material's vertices before changing the uniforms used by the next geometry group.
+// Flush queued vertices before changing the material uniforms for following geometry. Roughness,
+// metalness, relief, clear coat, and wall-surface flags must not retroactively affect a previous
+// batch.
 void Renderer::material(float roughness, float metalness, float relief, float clearCoat,
                         bool wallSurface) {
     if (!atmosphere.id)
@@ -422,13 +457,16 @@ void Renderer::material(float roughness, float metalness, float relief, float cl
     SetShaderValue(atmosphere, wallSurfaceLocation, &wall, SHADER_UNIFORM_INT);
 }
 
-// Batch nearby floor, ceiling and exposed wall surfaces, followed by shallow wall trim, with
-// textures and culling state managed explicitly.
+// Batch nearby floor, ceiling, and exposed wall surfaces using their textures, followed by
+// shallow architectural pieces. Manage texture and culling state explicitly so each surface uses
+// the intended material.
 void Renderer::drawMaze(const Game& game) {
     rlDisableBackfaceCulling();
     material(.84f, 0, .0012f, 0, true);
     rlSetTexture(tex.wall().id);
     rlBegin(RL_QUADS);
+    // Draw the base wallpaper strip for each exposed wall face using the active wall texture.
+    // Geometry follows the shared face coordinates before later relief and trim passes.
     exposedWalls(game, [](const Wall& wall) {
         unsigned char brightness = wall.side < 2 ? 255 : 235;
         wallStrip(wall, 0, 1, 0, 1,
@@ -439,7 +477,11 @@ void Renderer::drawMaze(const Game& game) {
     material(.96f, 0, .0008f);
     rlSetTexture(tex.floor().id);
     rlBegin(RL_QUADS);
+    // Draw the carpet's center field for every nearby open cell. Each patch is cropped against
+    // neighboring borders so adjacent surfaces do not overlap.
     nearbyCells(game, [&](int row, int col) { carpetField(game, row, col); });
+    // Draw a woven carpet border along each exposed wall. Open passage boundaries receive no
+    // transverse stripe, keeping the floor runner visually continuous.
     exposedWalls(game, [&](const Wall& wall) { carpetBorder(game, wall); });
     rlEnd();
 
@@ -447,6 +489,8 @@ void Renderer::drawMaze(const Game& game) {
     rlSetTexture(tex.ceiling().id);
     rlBegin(RL_QUADS);
     nearbyCells(game,
+                // Draw one ceiling patch for each nearby passage cell using the active ceiling
+                // material. Authored height one maps to MazeGeometry::CeilingHeight.
                 [](int row, int col) { floorPatch((float)col, (float)row, 1, .5f, .5f, WHITE); });
     rlEnd();
 
@@ -457,8 +501,9 @@ void Renderer::drawMaze(const Game& game) {
     rlEnableBackfaceCulling();
 }
 
-// Upload the maze's wall masks once per layout, then select nearby ceiling panels and wall lamps.
-// A bounded light list keeps the fragment shader's cost independent of the overall maze size.
+// Upload wall occupancy masks when the run layout changes, then select a bounded list of nearby
+// ceiling and wall sources. Cache layout identity by size and seed so per-frame lighting cost
+// stays bounded.
 void Renderer::updateLights(const Game& game) {
     using namespace MazeShaders;
     const int size = game.maze().size();
@@ -478,6 +523,9 @@ void Renderer::updateLights(const Game& game) {
     Vector4 positions[MaxLights]{}, directions[MaxLights]{}, extents[MaxLights]{};
     float distances[MaxLights]{};
     int count = 0;
+    // Insert a nearby light into the bounded source list, replacing a farther entry when capacity
+    // is full. Keep position, direction, extent, and distance data synchronized for shader
+    // upload.
     auto add = [&](Vector3 position, Vector3 facing, Vector3 halfAxis, float halfWidth,
                    float radius, float strength) {
         const float dx = position.x - cam.position.x, dy = position.y - cam.position.y,
@@ -502,6 +550,8 @@ void Renderer::updateLights(const Game& game) {
         distances[index] = rank;
         count = std::min(count + 1, MaxLights);
     };
+    // Add a ceiling source for an eligible nearby fixture cell using its shared placement rule.
+    // Uploaded source geometry must agree with the visible panel drawn later.
     nearbyCells(game, [&](int row, int col) {
         if (!ceilingFixture(game, row, col))
             return;
@@ -509,6 +559,8 @@ void Renderer::updateLights(const Game& game) {
         add(world({(float)col, .932f, (float)row}), {0, -1, 0},
             {.12f * MazeGeometry::CellSize, 0, 0}, .11f * MazeGeometry::CellSize, 3.8f, 1.85f);
     });
+    // Add wall-lamp sources for exposed faces selected by wallFixture. Their positions and finite
+    // emitter extents match the corresponding sconce geometry.
     exposedWalls(game, [&](const Wall& wall) {
         if (!wallFixture(wall))
             return;
@@ -529,13 +581,17 @@ void Renderer::updateLights(const Game& game) {
     }
 }
 
-// Layer classical skirting, cornices, a chair rail and fine panel frames over the wall material.
+// Layer skirting, cornices, chair rails, stone pieces, and panel frames over the base wall
+// material. Nearby visibility limits the fine geometry while distant texture detail preserves the
+// room's appearance.
 void Renderer::drawDetails(const Game& game) {
     const CorridorStyle style = corridorStyle(palette);
     rlDisableBackfaceCulling();
     material(.27f, 0, .00015f, .40f);
     rlSetTexture(tex.marble().id);
     rlBegin(RL_QUADS);
+    // Draw the stone architectural pass for nearby exposed faces using the current material
+    // state. This separates pilaster surfaces from wallpaper and later gilded trim.
     exposedWalls(game, [&](const Wall& wall) {
         if (!detailVisible(cam, world({(wall.lx + wall.rx) * .5f, .5f, (wall.lz + wall.rz) * .5f})))
             return;
@@ -547,6 +603,8 @@ void Renderer::drawDetails(const Game& game) {
     rlEnd();
     material(.28f, .78f, 0, .05f);
     rlSetTexture(rlGetTextureIdDefault());
+    // Draw the fine frame and molding pass in each exposed wall's local coordinates. Shared face
+    // bounds keep the shallow relief aligned with the underlying material.
     exposedWalls(game, [&](const Wall& wall) {
         if (!detailVisible(cam, world({(wall.lx + wall.rx) * .5f, .5f, (wall.lz + wall.rz) * .5f})))
             return;
@@ -589,6 +647,8 @@ void Renderer::drawDetails(const Game& game) {
             }
         }
     });
+    // Draw ceiling details for nearby passage cells after the wall ornament passes. Use shared
+    // geometry scaling so coffer pieces follow the room's actual height.
     nearbyCells(game, [&](int row, int col) {
         const float x = (float)col, z = (float)row;
         if (!detailVisible(cam, world({x, .96f, z})))
@@ -609,9 +669,12 @@ void Renderer::drawDetails(const Game& game) {
     rlEnableBackfaceCulling();
 }
 
-// Twin flared opal-glass sconce cups match the loading-screen artwork's warm practical lighting.
-// The bowls remain above the ceiling-walking camera and do not change collision or gameplay.
+// Draw the paired opal-glass sconce cups and other fixture geometry with their emissive
+// treatment. Placement stays clear of ceiling-walking eye positions and never changes gameplay
+// collision.
 void Renderer::drawLights(const Game& game) {
+    // Draw paired wall-sconce cups on faces accepted by wallFixture. These visible fixtures use
+    // the same deterministic placement as their lighting sources.
     exposedWalls(game, [&](const Wall& wall) {
         if (!wallFixture(wall))
             return;
@@ -629,6 +692,8 @@ void Renderer::drawLights(const Game& game) {
                            ColorLerp(glass, palette.paper, .18f));
         }
     });
+    // Draw ceiling fixtures only in cells accepted by ceilingFixture. This keeps the visible
+    // practical lights consistent with the bounded light list.
     nearbyCells(game, [&](int row, int col) {
         if (!ceilingFixture(game, row, col))
             return;

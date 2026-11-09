@@ -11,5 +11,6 @@ struct MazePalette {
     Color wall, pattern, accent, trim, floor, ceiling, lamp, fog, paper;
 };
 
-// Return the immutable palette for a supported theme, using the active palette as a fallback.
+// Return the curated material palette for a MazeTheme identifier. Palette lookup is deterministic
+// and does not reroll a run, upload textures, or alter the currently applied menu colors.
 const MazePalette& mazePalette(MazeTheme theme);

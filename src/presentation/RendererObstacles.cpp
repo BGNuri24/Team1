@@ -2,8 +2,9 @@
 #include "Renderer.h"
 #include <cmath>
 
-// Draw matching physical bulkheads and emissive hazard strips in separate lighting passes.
-// Warning marks sit before both approaches, giving players time to switch to the clear surface.
+// Draw the run's lethal barriers at the same world-space bounds used by collision, adding their
+// visible hazard treatment. The glow flag selects emissive contribution without creating or
+// moving obstacles.
 void Renderer::drawObstacles(const Game& game, bool glow) {
     const float pulse = 0.76f + 0.24f * std::sin((float)GetTime() * 4.0f);
     for (const GravityObstacle& obstacle : game.obstacles()) {

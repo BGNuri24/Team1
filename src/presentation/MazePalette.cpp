@@ -1,7 +1,8 @@
 #include "MazePalette.h"
 
 namespace {
-// Blend palette swatches without changing random state or relying on a graphics context.
+// Blend palette colors with the requested amount to derive related material roles. This helper
+// performs color arithmetic only and does not change the active UI theme or gameplay state.
 constexpr Color mix(Color a, Color b, float amount) {
     return {(unsigned char)(a.r + (b.r - a.r) * amount),
             (unsigned char)(a.g + (b.g - a.g) * amount),
@@ -10,7 +11,8 @@ constexpr Color mix(Color a, Color b, float amount) {
 constexpr Color Ivory = {235, 231, 218, 255};
 constexpr Color Black = {0, 0, 0, 255};
 
-// Assign material roles while retaining the supplied swatches as the dominant visible colors.
+// Build a complete set of material and interface colors from one curated collection of base
+// pigments. Derived roles keep walls, trim, floor, fixtures, and text visually related.
 constexpr MazePalette palette(const char* name, std::array<Color, 5> colors, int wall, int pattern,
                               int accent, int trim, int ceiling, Color lamp) {
     return {name,
@@ -78,7 +80,8 @@ constexpr MazePalette Palettes[MazeThemeCount] = {palette("SLATE STUDY",
                                                    {246, 230, 199, 255}}};
 }
 
-// Keep palette lookup safe when a caller passes a theme outside the supported enum range.
+// Return the curated material palette for a MazeTheme identifier. Palette lookup is deterministic
+// and does not reroll a run, upload textures, or alter the currently applied menu colors.
 const MazePalette& mazePalette(MazeTheme theme) {
     const int index = static_cast<int>(theme);
     return Palettes[index >= 0 && index < MazeThemeCount ? index : (int)ActiveMazeTheme];
