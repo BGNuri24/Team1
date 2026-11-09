@@ -3,7 +3,8 @@
 #include <algorithm>
 
 namespace {
-// Show live key presses without capturing input or changing the current run.
+// Draw a keyboard-key badge and center its label using the shared menu typography and scale. The
+// supplied reference coordinates keep the control guide aligned with other UI elements.
 void keycap(const MenuTypography& type, const char* label, int key, int x, int y, int width = 52,
             int height = 52) {
     using namespace MenuTheme;
@@ -19,7 +20,8 @@ void keycap(const MenuTypography& type, const char* label, int key, int x, int y
 }
 }
 
-// Return to the main menu on Enter, Escape or Back; G previews the gravity control in place.
+// Handle confirmation or back navigation from the controls page and return its requested screen.
+// This page presents instructions and does not modify gameplay bindings.
 Screen ControlsScreen::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER) || menuClicked(menuBackBounds()))
@@ -31,7 +33,8 @@ Screen ControlsScreen::update() {
     return Screen::CONTROLS;
 }
 
-// Use live keycaps and an interactive floor/ceiling diagram to explain the actual controls.
+// Render the controls guide over its shared menu backdrop, grouping keys with their gameplay
+// actions. Drawing reads the current theme and does not consume input or advance simulation.
 void ControlsScreen::draw() const {
     using namespace MenuTheme;
     background.draw((float)GetTime());

@@ -11,18 +11,23 @@ static const int ZERO_GRAVITY_OPTION = DIFFICULTY_COUNT + 1;
 static const int OPTION_COUNT = DIFFICULTY_COUNT + 2;
 
 namespace {
+// Return the scaled hit rectangle for a Normal preset card or one of the two lower options.
+// Preset and special/custom rows use separate layouts but share pointer and drawing geometry.
 Rectangle levelBounds(int index) {
     if (index < DIFFICULTY_COUNT)
         return uiRect(144 + index * 248, 202, 216, 304);
     return uiRect(index == DIFFICULTY_COUNT ? 144 : 516, 548, 340, 62);
 }
 
+// Draw a line in the shared reference UI coordinate system with a scaled minimum-one-pixel width.
+// Level cards use this for consistent borders and small decorative marks.
 void levelStroke(int x1, int y1, int x2, int y2, Color color, float width = 1) {
     DrawLineEx({(float)uiX(x1), (float)uiY(y1)}, {(float)uiX(x2), (float)uiY(y2)},
                std::max(1.0f, width * uiScale()), color);
 }
 
-// Cut corners and a punched hanging hole make the presets read as brass key tags.
+// Draw a compact number or shortcut badge on a level card using the supplied colors and shared
+// typography. Keep its size and label aligned with the common menu scale.
 void levelKeyPlate(int x, int y, Color fill, Color rim) {
     const Rectangle rect = uiRect(x, y, 216, 284);
     const float cut = (float)uiSize(22), bottom = (float)uiSize(14);
@@ -46,6 +51,8 @@ void levelKeyPlate(int x, int y, Color fill, Color rim) {
     DrawCircleLinesV(hole, 9 * uiScale(), rim);
 }
 
+// Draw a small clock outline and hands in reference UI coordinates. The level cards reuse it
+// beside time limits without requiring an external icon texture.
 void levelClock(int x, int y, Color color) {
     DrawCircleLinesV({(float)uiX(x), (float)uiY(y)}, 7 * uiScale(), color);
     levelStroke(x, y - 4, x, y, color);
@@ -53,18 +60,20 @@ void levelClock(int x, int y, Color color) {
 }
 } // namespace
 
-// Initialize an idle level menu with no confirmed size or duration and Normal mode as its default.
+// Initialize the selected option and custom-level entry state before the screen is first shown.
+// Chosen size, timer, and mode are exposed through accessors after update confirms a level.
 LevelSelect::LevelSelect()
     : selected(0), typing(false), showError(false), chosenSize(0), chosenSeconds(0),
       chosenMode(GameMode::Normal) {}
 
-// Handle preset selection or validated custom-size entry, recording the chosen size, time limit and
-// mode before requesting a new run.
+// Handle level-card navigation, Zero Gravity selection, and custom-size text entry. Validate a
+// custom size before requesting PLAYING and retain an explanatory error when confirmation is
+// invalid.
 Screen LevelSelect::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (typing) {
-        // Accept at most two decimal digits and clear the previous validation message when the
-        // value changes.
+        // Accept only ASCII decimal digits while editing the two-character custom size. Range
+        // validation remains separate when the player confirms the complete value.
         if (editText(text, 2, [](int ch) { return ch >= '0' && ch <= '9'; }))
             showError = false;
         if (IsKeyPressed(KEY_ENTER) || menuClicked(entryConfirmBounds())) {
@@ -126,7 +135,9 @@ Screen LevelSelect::update() {
     return Screen::LEVEL_SELECT;
 }
 
-// Presets hang as room-key tags; custom sizing and gravity remain separate, compact choices.
+// Render preset cards, the Zero Gravity option, and the custom-size dialog using shared theme and
+// typography. Display the current selection and any validation feedback without changing chosen
+// run parameters.
 void LevelSelect::draw() const {
     using namespace MenuTheme;
     background.draw((float)GetTime());
@@ -215,15 +226,19 @@ void LevelSelect::draw() const {
     }
 }
 
-// Return the side length recorded by the latest confirmed level choice.
+// Return the selected maze side length for Application::startGame. Read this after update
+// confirms play; the accessor does not validate a new value or regenerate a maze.
 int LevelSelect::size() const {
     return chosenSize;
 }
-// Return the countdown duration recorded by the latest confirmed level choice.
+// Return the selected run's time allowance in seconds, using the preset or validated custom-size
+// formula. Application captures this value when creating a new Game.
 float LevelSelect::seconds() const {
     return chosenSeconds;
 }
-// Return the gravity mode recorded by the latest confirmed level choice.
+// Return the mode associated with the selected level, distinguishing Zero Gravity from Normal
+// presets and custom play. This read-only value determines which gameplay mechanics the new run
+// enables.
 GameMode LevelSelect::mode() const {
     return chosenMode;
 }

@@ -5,19 +5,27 @@
 #include <cctype>
 
 namespace {
+// Return the reference-scaled rectangle for one profile-list row. Drawing and pointer selection
+// use identical row spacing so the visible entry matches its interactive region.
 Rectangle playerBounds(int index) {
     return uiRect(280, 232 + index * 58, 448, 52);
 }
 
+// Return the smaller delete-button rectangle inside a profile row. Keeping this separate from
+// playerBounds lets update distinguish profile selection from a deletion request.
 Rectangle playerDeleteBounds(int index) {
     return uiRect(672, 246 + index * 58, 28, 28);
 }
 
+// Draw a profile-screen line using shared coordinate scaling and a minimum-one-pixel thickness.
+// Cards and delete icons use the same helper to remain consistent when resized.
 void profileRule(int x1, int y1, int x2, int y2, Color color, float width = 1) {
     DrawLineEx({(float)uiX(x1), (float)uiY(y1)}, {(float)uiX(x2), (float)uiY(y2)},
                std::max(1.0f, width * uiScale()), color);
 }
 
+// Draw the small bin icon for a profile row from scaled lines and a rectangle. The index
+// determines its vertical placement; hit testing uses playerDeleteBounds separately.
 void profileDeleteIcon(int index, Color color) {
     const int y = 232 + index * 58;
     profileRule(680, y + 19, 692, y + 19, color);
@@ -25,6 +33,8 @@ void profileDeleteIcon(int index, Color color) {
     DrawRectangleLinesEx(uiRect(682, y + 22, 8, 10), std::max(1.0f, uiScale()), color);
 }
 
+// Take at most the first two bytes of a validated ASCII profile name and uppercase them for its
+// badge. Cast to unsigned char before toupper to avoid signed-character undefined behavior.
 std::string initials(const std::string& name) {
     std::string value = name.substr(0, 2);
     for (char& ch : value)
@@ -33,18 +43,21 @@ std::string initials(const std::string& name) {
 }
 } // namespace
 
-// Retain access to shared profiles and initialize selection, name entry and error display to their
-// idle states.
+// Borrow the application's Players object and initialize selection, name-entry, and feedback
+// state. The reference does not own profiles; additions and removals go through the shared logic
+// layer.
 PlayerSelect::PlayerSelect(Players& p) : players(p), selected(0), typing(false), error(0) {}
 
-// Count selectable profiles and include the new-player option only when profile capacity remains.
+// Count the currently selectable profile entries and available add-profile action. Keyboard
+// navigation uses this value to stay within the list as profiles are added or removed.
 int PlayerSelect::optionCount() const {
     // Count saved profiles plus the new-player option when the profile limit has not been reached.
     return players.count() < MAX_PLAYERS ? players.count() + 1 : players.count();
 }
 
-// Handle profile selection, name validation and deletion, advancing to level selection only after a
-// profile is selected or saved successfully.
+// Handle profile selection, validated name entry, and deletion while keeping the active profile
+// in shared Players state. Translate addition failures into feedback and return navigation only
+// after an appropriate confirmation.
 Screen PlayerSelect::update() {
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     if (typing) {
@@ -113,8 +126,9 @@ Screen PlayerSelect::update() {
     return Screen::PLAYER_SELECT;
 }
 
-// A ruled guest register keeps names together without a separate profile preview or repeated
-// labels.
+// Render saved profiles, their active and selected states, delete actions, and the name-entry
+// dialog. Display feedback supplied by update without performing database operations from
+// drawing.
 void PlayerSelect::draw() const {
     using namespace MenuTheme;
     background.draw((float)GetTime());

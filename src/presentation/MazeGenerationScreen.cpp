@@ -7,13 +7,17 @@
 static constexpr float BUILD_DURATION = 4.5f;
 
 namespace {
+// Draw a thin line for the hotel-directory generation layout using shared UI scaling. Enforce a
+// one-pixel minimum so separators remain visible at small resolutions.
 void directoryRule(int x1, int y1, int x2, int y2, Color color) {
     DrawLineEx({(float)uiX(x1), (float)uiY(y1)}, {(float)uiX(x2), (float)uiY(y2)},
                std::max(1.0f, uiScale()), color);
 }
 } // namespace
 
-// Reset preview timing and allocate a hidden-cell mask matching the newly generated maze.
+// Initialize the preview for a fresh Game by resetting its displayed carving progress and
+// generation timing. The maze is already generated; this screen animates its recorded opening
+// sequence.
 void MazeGenerationScreen::begin(const Game& game) {
     elapsed = 0;
     shownSteps = 0;
@@ -21,7 +25,9 @@ void MazeGenerationScreen::begin(const Game& game) {
     revealed.assign(size * size, 0);
 }
 
-// Advance only with elapsed frame time. Keyboard and pointer input cannot bypass generation.
+// Advance the generation preview from elapsed frame time and the run's recorded steps. Return
+// whether its presentation has completed so Application can enter gameplay and capture the
+// cursor.
 bool MazeGenerationScreen::update(const Game& game) {
     const float delta = GetFrameTime();
     if (std::isfinite(delta) && delta > 0)
@@ -37,8 +43,9 @@ bool MazeGenerationScreen::update(const Game& game) {
     return elapsed >= BUILD_DURATION && shownSteps == (int)steps.size();
 }
 
-// Reveal the selected maze inside a walnut and brass hotel floor directory.
-// Drawing follows the existing carving mask; it does not advance generation or the run timer.
+// Render the preparation directory and current generation progress for the supplied Game. This
+// reads the chosen run and preview state without changing the maze or starting its gameplay
+// timer.
 void MazeGenerationScreen::draw(const Game& game) const {
     using namespace MenuTheme;
     const int size = game.maze().size();
@@ -85,6 +92,8 @@ void MazeGenerationScreen::draw(const Game& game) const {
     const float board = (float)uiSize(400);
     const float cell = board / size;
     const float originX = (float)uiX(300), originY = (float)uiY(169);
+    // Test whether a maze cell has been reached by the current recorded-generation preview.
+    // Neighbor drawing uses this to avoid displaying passages before their animation step.
     auto visible = [&](int row, int col) {
         return row >= 0 && row < size && col >= 0 && col < size &&
                (int)revealed.size() == size * size && revealed[row * size + col] != 0;

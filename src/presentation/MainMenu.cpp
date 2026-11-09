@@ -17,30 +17,43 @@ const Color& ACCENT = MenuTheme::Accent;
 const Color& TEXT = MenuTheme::Paper;
 const Color& MUTED = MenuTheme::Muted;
 
-// Keep the home screen's wide composition centered and usable down to the minimum window size.
+// Fit the main menu's 1280-by-720 reference layout into the current window while preserving its
+// aspect ratio. Other helpers use this common factor for positions, typography, and ornament
+// widths.
 float scale() {
     return std::min(GetScreenWidth() / 1280.0f, GetScreenHeight() / 720.0f);
 }
 
+// Convert a reference-layout point into window pixels, centering the scaled 1280-by-720 canvas.
+// This keeps menu artwork and hit regions aligned when the window aspect ratio changes.
 Vector2 point(float x, float y) {
     const float s = scale();
     return {(GetScreenWidth() - 1280 * s) * 0.5f + x * s,
             (GetScreenHeight() - 720 * s) * 0.5f + y * s};
 }
 
+// Scale a reference font size to a rounded pixel size with a minimum of 12 pixels. Rebuilding
+// fonts at this size keeps text crisp instead of stretching a single small atlas.
 float fontSize(float size) {
     return std::max(12.0f, std::round(size * scale()));
 }
 
+// Convert a reference rectangle's origin through point and scale its dimensions. The same result
+// is used for menu hit testing and drawing so visual and interactive regions match.
 Rectangle bounds(float x, float y, float width, float height) {
     const Vector2 p = point(x, y);
     return {p.x, p.y, width * scale(), height * scale()};
 }
 
+// Return the scaled rectangle for a zero-based main-menu option. Options share a fixed reference
+// width and vertical spacing, keeping pointer selection aligned with their labels.
 Rectangle optionBounds(int index) {
     return bounds(440, 335 + index * 76.0f, 400, 62);
 }
 
+// Load an available font at the requested pixel size and optional glyph set, applying bilinear
+// filtering to a successful custom atlas. Return raylib's default font when the file is missing
+// or loading fails.
 Font loadFontFile(const std::string& path, int size, int* glyphs = nullptr, int count = 0) {
     if (FileExists(path.c_str())) {
         Font font = LoadFontEx(path.c_str(), size, glyphs, count);
@@ -52,7 +65,8 @@ Font loadFontFile(const std::string& path, int size, int* glyphs = nullptr, int 
     return GetFontDefault();
 }
 
-// Borrow the default font when system typography is unavailable.
+// Load the main menu's supporting typeface using its available font paths and requested pixel
+// size. Keep a default-font fallback so missing system fonts do not prevent menu rendering.
 Font loadMenuFont(const char* filename, int size, int* glyphs = nullptr, int count = 0) {
 #if defined(_WIN32)
     char* directory = nullptr;
@@ -66,8 +80,9 @@ Font loadMenuFont(const char* filename, int size, int* glyphs = nullptr, int cou
     return GetFontDefault();
 }
 
-// Package the calligraphy face so the title is consistent across devices; retain a system-script
-// fallback when someone runs an incomplete copy without its assets folder.
+// Load the bundled title face at the requested size, including the glyphs required by the
+// wordmark. Development and packaged asset paths are checked before falling back to an available
+// menu font.
 Font loadTitleFont(int size) {
     int glyphs[] = {'T', '1'};
     const std::string packaged = std::string(GetApplicationDirectory()) + "assets/fonts/Ballet.ttf";
@@ -79,12 +94,16 @@ Font loadTitleFont(int size) {
     return loadMenuFont("Gabriola.ttf", size, glyphs, 2);
 }
 
+// Unload a custom font atlas when present and clear its handle. Never unload raylib's shared
+// default font, which can be returned by a failed custom-font load.
 void releaseFont(Font& font) {
     if (font.texture.id != 0 && font.texture.id != GetFontDefault().texture.id)
         UnloadFont(font);
     font = {};
 }
 
+// Measure a label with its scaled pixel size and letter spacing, then draw it around a reference
+// center X. Round its final position so the font atlas stays aligned to screen pixels.
 void centeredText(Font font, const char* label, float x, float y, float size, float spacing,
                   Color color) {
     const float pixels = fontSize(size);
@@ -95,17 +114,22 @@ void centeredText(Font font, const char* label, float x, float y, float size, fl
     DrawTextEx(font, label, position, pixels, tracking, color);
 }
 
+// Draw an ornament line between two reference-layout points, scaling its thickness with the
+// window. Enforce a one-pixel minimum so small-window decorations remain visible.
 void line(float x1, float y1, float x2, float y2, Color color, float width = 1) {
     DrawLineEx(point(x1, y1), point(x2, y2), std::max(1.0f, width * scale()), color);
 }
 
+// Draw a filled diamond from two triangles around a reference point. Position and radius follow
+// the same scaled canvas as menu text and dividers.
 void diamond(float x, float y, float radius, Color color) {
     DrawTriangle(point(x, y - radius), point(x - radius, y), point(x, y + radius), color);
     DrawTriangle(point(x, y - radius), point(x, y + radius), point(x + radius, y), color);
 }
 
-// Center the visible calligraphy, including overhanging swashes. Fit its actual ink bounds so
-// tall ascenders and flourishes remain clear of the navigation at every supported window size.
+// Measure the visible ink bounds of the T1 glyphs and fit the title into its reference area with
+// the intended horizontal stretch. Center the actual glyph artwork rather than its font line box
+// before drawing.
 void wordmark(Font font, Color color) {
     float left = std::numeric_limits<float>::max(), top = left;
     float right = -left, bottom = right, advance = 0;
@@ -132,18 +156,22 @@ void wordmark(Font font, Color color) {
 
 } // namespace
 
-// Own the bundled title and native navigation fonts inside the graphics context.
+// Initialize the main-menu selection and font cache, loading typefaces for the current window
+// scale. The menu owns its custom font handles and releases them in its destructor.
 MainMenu::MainMenu() : selected(0) {
     refreshFonts();
 }
 
+// Release the title, option, and detail font handles while leaving raylib's shared default font
+// intact. Font cleanup must happen before the application closes the graphics context.
 MainMenu::~MainMenu() {
     releaseFont(titleFont);
     releaseFont(menuFont);
     releaseFont(detailFont);
 }
 
-// Rasterize each font at its actual display size, including after resizing the window.
+// Rebuild title and supporting font atlases when the effective menu scale changes. Reuse cached
+// fonts at an unchanged size and release old custom atlases before replacement.
 void MainMenu::refreshFonts() const {
     const std::array<int, 3> pixels = {(int)std::ceil(fontSize(180) * TITLE_STRETCH),
                                        (int)fontSize(24), (int)fontSize(14)};
@@ -158,8 +186,12 @@ void MainMenu::refreshFonts() const {
     fontPixels = pixels;
 }
 
-// Preserve keyboard selection under a stationary mouse and use the drawn bounds for all clicks.
+// Process keyboard and pointer navigation for the main options and return a requested application
+// screen. Maintain selection between frames without starting a game or changing shared
+// application ownership directly.
 Screen MainMenu::update() {
+    // Translate the selected main-menu option into its destination screen. Keyboard confirmation
+    // and pointer activation share this decision so they cannot choose different routes.
     auto choose = [&] {
         SetMouseCursor(MOUSE_CURSOR_DEFAULT);
         return DESTINATIONS[selected];
@@ -186,7 +218,9 @@ Screen MainMenu::update() {
     return Screen::MAIN_MENU;
 }
 
-// Center navigation over the shared corridor. Application coordinates all menu travel and fades.
+// Render the main-menu foreground, wordmark, selectable options, and supporting decorations over
+// the shared corridor. Refresh scale-dependent fonts as needed while leaving navigation decisions
+// to update.
 void MainMenu::draw() const {
     refreshFonts();
     const float time = (float)GetTime();
