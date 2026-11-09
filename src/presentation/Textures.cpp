@@ -8,8 +8,9 @@
 #include <vector>
 
 namespace {
-// Derive surface grain from pixel coordinates so texture generation does not consume the maze
-// generator's random sequence.
+// Add deterministic pixel-coordinate grain to an image without consuming gameplay random state.
+// strength controls the variation, allowing repeatable surface detail while keeping seeded mazes
+// unchanged.
 void grain(Image& image, int strength) {
     for (int y = 0; y < image.height; ++y) {
         for (int x = 0; x < image.width; ++x) {
@@ -17,6 +18,9 @@ void grain(Image& image, int strength) {
             hash = (hash ^ (hash >> 13)) * 1274126177u;
             int amount = (int)((hash ^ (hash >> 16)) % (2 * strength + 1)) - strength;
             Color color = GetImageColor(image, x, y);
+            // Offset one color byte by the deterministic grain amount and clamp it to the valid
+            // channel range. Applying the same adjustment to channels changes brightness without
+            // unrelated hue shifts.
             auto adjust = [amount](unsigned char channel) {
                 int value = channel + amount;
                 return (unsigned char)(value < 0 ? 0 : value > 255 ? 255 : value);
@@ -26,8 +30,8 @@ void grain(Image& image, int strength) {
     }
 }
 
-// Draw light top/left edges and dark bottom/right edges to give a rectangular texture panel a
-// beveled appearance.
+// Draw light top and left edges plus dark bottom and right edges around an image-space rectangle.
+// The paired colors create a shallow beveled-panel appearance in the generated texture.
 void frame(Image& image, int x, int y, int width, int height, Color light, Color dark) {
     ImageDrawRectangle(&image, x, y, width, 2, light);
     ImageDrawRectangle(&image, x, y, 2, height, light);
@@ -35,8 +39,9 @@ void frame(Image& image, int x, int y, int width, int height, Color light, Color
     ImageDrawRectangle(&image, x + width - 2, y, 2, height, dark);
 }
 
-// Upload the image and free its CPU pixels, then enable mipmaps, anisotropic filtering and
-// repeating texture coordinates.
+// Upload a CPU Image to a GPU texture and release the image's pixels afterward. Configure
+// mipmaps, anisotropic filtering, and repeating coordinates; the returned texture must be owned
+// and unloaded exactly once.
 Texture2D upload(Image& image) {
     Texture2D texture = LoadTextureFromImage(image);
     UnloadImage(image);
@@ -46,8 +51,8 @@ Texture2D upload(Image& image) {
     return texture;
 }
 
-// Draw a small cubic scroll in image space. The ceiling ornaments use these curves without
-// loading artwork or consuming random state.
+// Approximate a cubic decorative curve with image-space strokes using the supplied control points
+// and width. Ornament generation uses this without external curve assets or random draws.
 void scroll(Image& image, Vector2 a, Vector2 b, Vector2 c, Vector2 d, int width, Color color) {
     Vector2 previous = a;
     for (int step = 1; step <= 18; ++step) {
@@ -59,11 +64,17 @@ void scroll(Image& image, Vector2 a, Vector2 b, Vector2 c, Vector2 d, int width,
     }
 }
 
+// Draw a fourfold damask ornament around an image-space center, scaling its curves and stroke
+// widths by size. A shadow pass beneath the thread-colored pass gives the pattern depth before
+// GPU upload.
 void floralMotif(Image& image, float x, float y, float size, Color thread, Color shadow) {
     for (int layer = 0; layer < 2; ++layer) {
         const Color color = layer ? thread : shadow;
         const int width = std::max(1, (int)((layer ? 2.1f : 4.8f) * size));
         for (int quarter = 0; quarter < 4; ++quarter) {
+            // Rotate and scale a motif-local point for the current quarter-turn before
+            // translating it to the image center. Four rotations reuse the same decorative curve
+            // definitions.
             auto point = [&](float px, float py) {
                 for (int turn = 0; turn < quarter; ++turn) {
                     const float old = px;
@@ -72,6 +83,9 @@ void floralMotif(Image& image, float x, float y, float size, Color thread, Color
                 }
                 return Vector2{x + px * size, y + py * size};
             };
+            // Transform four motif-local control points and draw their cubic scroll with the
+            // current layer's width and color. The enclosing shadow and thread passes reuse this
+            // curve callback.
             auto curve = [&](Vector2 a, Vector2 b, Vector2 c, Vector2 d) {
                 scroll(image, point(a.x, a.y), point(b.x, b.y), point(c.x, c.y), point(d.x, d.y),
                        width, color);
@@ -91,6 +105,9 @@ void floralMotif(Image& image, float x, float y, float size, Color thread, Color
     ImageDrawCircle(&image, (int)x, (int)y, std::max(1, (int)(2 * size)), thread);
 }
 
+// Look for a material image in packaged assets beside the executable, then in src/assets for a
+// development run. Return an empty Image when unavailable so material generation can use its
+// procedural fallback.
 Image materialArtwork(const char* filename) {
     std::string path = std::string(GetApplicationDirectory()) + "assets/" + filename;
     if (!FileExists(path.c_str()))
@@ -98,8 +115,9 @@ Image materialArtwork(const char* filename) {
     return FileExists(path.c_str()) ? LoadImage(path.c_str()) : Image{};
 }
 
-// The diffuse wall bay follows the loading-screen artwork: dark damask, gilt scroll corners,
-// marble wainscoting and layered moldings. Real sconces provide the room's light separately.
+// Build the wall's CPU artwork from hotel damask, stone, and layered molding details, using
+// available image assets and procedural ornament. Upload the completed surface separately from
+// real-time lamp lighting.
 Texture2D wallMaterial(const MazePalette& palette) {
     Image artwork = materialArtwork("hotel-wall-panels.png");
     if (artwork.data) {
@@ -136,8 +154,9 @@ Texture2D wallMaterial(const MazePalette& palette) {
     return upload(image);
 }
 
-// A separate material lets the pilaster fronts and returns use stone rather than stretched wall
-// wallpaper. It shares the same ownership and filtering as the other room materials.
+// Create a separate stone texture for pilaster fronts and returns so architectural pieces do not
+// stretch the wall wallpaper. Return an owned GPU texture using the same filtering and cleanup
+// conventions as other materials.
 Texture2D marbleMaterial(const MazePalette& palette) {
     Image image = materialArtwork("hotel-marble.png");
     if (!image.data) {
@@ -148,6 +167,8 @@ Texture2D marbleMaterial(const MazePalette& palette) {
     return upload(image);
 }
 
+// Fill an image-space diamond with two triangles using independent horizontal and vertical radii.
+// Carpet ornament helpers reuse this primitive for broad shapes that survive texture filtering.
 void diamond(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
     const Vector2 top{(float)x, (float)(y - radiusY)}, bottom{(float)x, (float)(y + radiusY)};
     const Vector2 left{(float)(x - radiusX), (float)y}, right{(float)(x + radiusX), (float)y};
@@ -155,6 +176,8 @@ void diamond(Image& image, int x, int y, int radiusX, int radiusY, Color color) 
     ImageDrawTriangle(&image, left, bottom, right, color);
 }
 
+// Fill an eight-point carpet motif with a triangle fan around its image-space center. Alternate
+// outer and inner radii so the broad silhouette stays recognizable in lower mip levels.
 void star(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
     // Eight broad points stay recognizable in mipmaps; tiny stitches are secondary to the shape.
     Vector2 vertices[18]{};
@@ -168,10 +191,13 @@ void star(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
     ImageDrawTriangleFan(&image, vertices, 18, color);
 }
 
-// Angular ram-horn ornaments fill the spaces between medallions in the reference weave.
+// Draw an angular ram-horn motif into the carpet image using the supplied center, radius, and
+// colors. The broad stepped ornament fills spaces between the larger textile medallions.
 void wovenHook(Image& image, int x, int y, int radius, Color color, Color center) {
     const int width = std::max(3, radius / 6);
     for (int quarter = 0; quarter < 4; ++quarter) {
+        // Translate hook-local coordinates to image-space positions. The woven motif can then be
+        // authored around its center without repeating the offset calculation.
         auto point = [&](int px, int py) {
             for (int turn = 0; turn < quarter; ++turn) {
                 const int old = px;
@@ -189,7 +215,8 @@ void wovenHook(Image& image, int x, int y, int radius, Color color, Color center
     diamond(image, x, y, radius / 3, radius / 3, center);
 }
 
-// Layered Kazak-style medallions use filled shapes and wide stitches instead of hairline art.
+// Layer broad colored shapes and woven details into a Kazak-style carpet medallion. Keep its
+// silhouette readable after mipmapping instead of relying on hairline decoration.
 void medallion(Image& image, int x, int y, int radius, Color field, Color dye, Color yarn,
                Color dark) {
     diamond(image, x, y, radius, radius, dark);
@@ -211,6 +238,8 @@ void medallion(Image& image, int x, int y, int radius, Color field, Color dye, C
             diamond(image, x + horizontal * radius / 6, y + vertical * radius / 6, 12, 12, field);
         }
     for (int quarter = 0; quarter < 4; ++quarter) {
+        // Translate medallion-local coordinates into the carpet image. Repeated decorative
+        // strokes share the same center and orientation.
         auto point = [&](int px, int py) {
             for (int turn = 0; turn < quarter; ++turn) {
                 const int old = px;
@@ -236,7 +265,9 @@ void medallion(Image& image, int x, int y, int radius, Color field, Color dye, C
     }
 }
 
-// Fit the full-color textile artwork into its own atlas region without applying the maze palette.
+// Fit full-color textile artwork into a dedicated region of the floor atlas. Preserve the source
+// colors rather than tinting them with the maze palette, and keep field and border regions
+// separate.
 void carpetArtwork(Image& atlas, const char* filename, int left, int width) {
     Image source = materialArtwork(filename);
     if (!source.data)
@@ -247,10 +278,14 @@ void carpetArtwork(Image& atlas, const char* filename, int left, int width) {
     UnloadImage(source);
 }
 
-// Cache the same cream, crimson and near-black carpet for every run. Center and border remain
-// separate atlas regions so borders can follow walls and miter around corridor corners.
+// Create or reuse the cream, crimson, and near-black carpet atlas shared across runs. Separate
+// field and border regions let the renderer place continuous runners and miter them at real wall
+// corners.
 Texture2D floorMaterial() {
     using namespace CarpetLayout;
+    // Load or generate the fixed floor material once and retain a CPU pixel copy for later
+    // uploads. The cache preserves identical carpet artwork across runs without using maze random
+    // state.
     static const std::vector<Color> pixels = [] {
         constexpr Color field{214, 199, 164, 255}, dye{165, 38, 29, 255};
         constexpr Color yarn{225, 207, 165, 255}, dark{33, 24, 21, 255};
@@ -329,7 +364,9 @@ Texture2D floorMaterial() {
     return upload(image);
 }
 
-// Recessed plaster coffers and delicate corner flourishes replace the acoustic ceiling tiles.
+// Generate a ceiling surface with recessed plaster coffers and corner flourishes. Upload the
+// finished CPU image as an owned texture while geometry and real-time lighting remain the
+// renderer's responsibility.
 Texture2D ceilingMaterial(const MazePalette& palette) {
     const CorridorStyle style = corridorStyle(palette);
     Image image = GenImageColor(512, 512, style.ceiling);
@@ -348,30 +385,38 @@ Texture2D ceilingMaterial(const MazePalette& palette) {
 
 } // namespace
 
-// Create the room materials and return their GPU handles as one resource group.
+// Create the wall, floor, ceiling, and marble GPU materials and return them in one exclusively
+// owned Textures object. A valid graphics context is required before loading or generating these
+// resources.
 Textures createTextures(const MazePalette& palette) {
     return {wallMaterial(palette), floorMaterial(), ceilingMaterial(palette),
             marbleMaterial(palette)};
 }
 
-// Adopt handles returned by material creation without duplicating their ownership.
+// Adopt supplied material handles as exclusive ownership, or transfer them from another Textures
+// object when moving. The owner releases its handles automatically; copying is disabled to
+// prevent duplicate GPU deletion.
 Textures::Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D marble) noexcept
     : wallTexture(wall), floorTexture(floor), ceilingTexture(ceiling), marbleTexture(marble) {}
 
-// Release resources automatically at the end of their owner's lifetime.
+// Unload every owned material through reset when this resource set leaves scope. The owner must
+// be destroyed before CloseWindow tears down the graphics context.
 Textures::~Textures() {
     reset();
 }
 
-// Empty the source while transferring handles, so only the destination unloads them.
+// Adopt supplied material handles as exclusive ownership, or transfer them from another Textures
+// object when moving. The owner releases its handles automatically; copying is disabled to
+// prevent duplicate GPU deletion.
 Textures::Textures(Textures&& other) noexcept
     : wallTexture(std::exchange(other.wallTexture, {})),
       floorTexture(std::exchange(other.floorTexture, {})),
       ceilingTexture(std::exchange(other.ceilingTexture, {})),
       marbleTexture(std::exchange(other.marbleTexture, {})) {}
 
-// Release the destination's old resources before adopting a replacement, including partial material
-// sets.
+// Release the destination's current materials before transferring handles from the source,
+// leaving the moved-from object empty. Handle self-assignment without unloading resources that
+// are still owned by this object.
 Textures& Textures::operator=(Textures&& other) noexcept {
     if (this != &other) {
         reset();
@@ -383,12 +428,14 @@ Textures& Textures::operator=(Textures&& other) noexcept {
     return *this;
 }
 
-// Require every material before publishing a new palette to the renderer.
+// Require nonzero handles for every material before the renderer accepts a replacement set. This
+// prevents a partially created palette from displacing the currently usable resources.
 bool Textures::valid() const {
     return wallTexture.id && floorTexture.id && ceilingTexture.id && marbleTexture.id;
 }
 
-// Clear handles after unloading so destruction and move assignment can share the same cleanup path.
+// Unload any nonzero material handles and clear the stored values afterward. Destruction and move
+// assignment share this cleanup path so released textures are not deleted twice.
 void Textures::reset() noexcept {
     for (Texture2D* texture : {&wallTexture, &floorTexture, &ceilingTexture, &marbleTexture}) {
         if (texture->id)

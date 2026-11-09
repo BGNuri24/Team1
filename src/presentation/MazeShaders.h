@@ -15,7 +15,9 @@ uniform mat4 mvp;
 out vec2 fragTexCoord;
 out vec4 fragColor;
 out vec3 worldPosition;
-// Pass world positions to the fragment shader so light pools do not depend on polygon size.
+// Pass vertex UVs and color to the fragment stage and project the already transformed rlgl batch
+// position. Do not apply matModel again, because immediate-mode batch vertices already contain
+// each primitive's local transform.
 void main() {
     fragTexCoord = vertexTexCoord;
     fragColor = vertexColor;
@@ -39,6 +41,9 @@ uniform int extractHighlights;
 uniform int linearHdr;
 out vec4 finalColor;
 
+// Sample the source color and optionally isolate highlights using a soft threshold appropriate
+// for HDR or display-space input. Subsequent blur passes reuse the sampled light without
+// extracting it again.
 vec3 sampleGlow(vec2 uv) {
     vec3 color = texture(texture0, uv).rgb;
     if (extractHighlights == 0) return color;
@@ -51,6 +56,9 @@ vec3 sampleGlow(vec2 uv) {
     return color * contribution;
 }
 
+// Apply one separable Gaussian blur direction using symmetric texture samples and preselected
+// weights. sampleGlow extracts bright radiance only when requested, allowing horizontal and
+// vertical passes to share the shader.
 void main() {
     vec3 glow = sampleGlow(fragTexCoord) * 0.227027;
     glow += sampleGlow(fragTexCoord + stepSize * 1.384615) * 0.316216;
@@ -74,6 +82,8 @@ uniform mat4 inverseProjection;
 out vec4 finalColor;
 const float PI = 3.14159265359;
 
+// Unpack the material attachment's octahedral normal and transform it into view space.
+// Screen-space reflections and ambient sampling use the reconstructed unit direction.
 vec3 decodeNormal(vec2 encoded) {
     vec2 e = encoded * 2.0 - 1.0;
     vec3 n = vec3(e, 1.0 - abs(e.x) - abs(e.y));
@@ -81,20 +91,29 @@ vec3 decodeNormal(vec2 encoded) {
     return normalize(mat3(viewMatrix) * normalize(n));
 }
 
+// Reconstruct a view-space position from normalized screen coordinates and sampled depth using
+// inverseProjection. Divide by homogeneous w to undo the perspective projection.
 vec3 positionAt(vec2 uv, float depth) {
     vec4 p = inverseProjection * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     return p.xyz / p.w;
 }
 
+// Project a view-space position into normalized screen texture coordinates. Reflection and
+// neighborhood probes use these UVs to compare against the scene's depth buffer.
 vec2 projectPoint(vec3 p) {
     vec4 clip = projectionMatrix * vec4(p, 1.0);
     return clip.xy / clip.w * 0.5 + 0.5;
 }
 
+// Accept only UVs inside a small inset of the screen boundaries. Screen-space probes outside this
+// region are discarded rather than sampling wrapped or unreliable edge data.
 bool onScreen(vec2 uv) {
     return all(greaterThan(uv, vec2(0.002))) && all(lessThan(uv, vec2(0.998)));
 }
 
+// March a reflected view-space ray through the scene depth buffer and refine a candidate
+// intersection. Return roughness-filtered scene color weighted by Fresnel and confidence, or zero
+// when no reliable on-screen hit exists.
 vec3 sceneReflection(vec3 p, vec3 n, float roughness, float reflectance) {
     if (roughness > 0.64 || reflectance <= 0.0) return vec3(0.0);
     vec3 ray = reflect(normalize(p), n);
@@ -145,6 +164,9 @@ vec3 sceneReflection(vec3 p, vec3 n, float roughness, float reflectance) {
     return vec3(0.0);
 }
 
+// Reconstruct the visible surface, sample a view-space hemisphere for occlusion and color bounce,
+// and add a screen-space reflection. Store indirect radiance in RGB and ambient visibility in
+// alpha for the compositor.
 void main() {
     float depth = texture(depthTexture, fragTexCoord).r;
     vec4 data = texture(geometryTexture, fragTexCoord);
@@ -204,13 +226,17 @@ uniform int surfaceEffectsEnabled;
 uniform int linearHdr;
 out vec4 finalColor;
 
+// Reconstruct positive camera-space depth from the depth texture and inverse projection matrix.
+// The compositor compares this value across samples to preserve geometry edges during upsampling.
 float viewDepth(vec2 uv) {
     float depth = texture(depthTexture, uv).r;
     vec4 p = inverseProjection * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     return -p.z / p.w;
 }
 
-// Depth-aware reconstruction keeps half-resolution contact shadows inside their actual edges.
+// Upsample the lower-resolution surface-effect texture using bilinear spatial weights multiplied
+// by depth similarity. Reject cross-surface bleeding and return a neutral effect when usable
+// sample weight is negligible.
 vec4 surfaceAt(vec2 uv) {
     vec2 dimensions = vec2(textureSize(surfaceTexture, 0));
     vec2 coordinate = uv * dimensions - 0.5;
@@ -229,6 +255,9 @@ vec4 surfaceAt(vec2 uv) {
     return total > 0.0001 ? result / total : vec4(0, 0, 0, 1);
 }
 
+// Combine the scene with depth-aware surface effects and blurred highlights. Tone-map and
+// sRGB-encode only linear HDR input, leaving the final result ready for later screen-space UI
+// drawing.
 void main() {
     vec3 scene = texture(texture0, fragTexCoord).rgb;
     if (surfaceEffectsEnabled != 0) {

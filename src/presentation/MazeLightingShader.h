@@ -31,23 +31,32 @@ layout(location = 0) out vec4 finalColor;
 layout(location = 1) out vec4 surfaceData;
 const float PI = 3.14159265359;
 
+// Decode sRGB material color into linear-light RGB using the standard piecewise transfer curve.
+// Lighting calculations operate on this result so additions and attenuation represent light
+// energy.
 vec3 linearColor(vec3 c) {
     return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
 }
 
-// Narkowicz's CC0 ACES filmic fit; the HDR compositor applies the same display transform.
+// Compress linear HDR radiance with the fitted tone curve and encode it to display sRGB. Use this
+// only for direct output; the HDR path defers display conversion to the final composite pass.
 vec3 displayColor(vec3 c) {
     c = clamp((c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14), 0.0, 1.0);
     return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055,
                step(vec3(0.0031308), c));
 }
 
+// Read one maze-wall bit from the uploaded row masks, including columns beyond the first 32-bit
+// word. Treat cells outside mazeSize as solid to keep light rays inside the maze.
 bool solid(ivec2 cell) {
     if (cell.x < 0 || cell.y < 0 || cell.x >= mazeSize || cell.y >= mazeSize) return true;
     uint bits = uint(wallRows[cell.y][cell.x / 32]);
     return (bits & (1u << uint(cell.x % 32))) != 0u;
 }
 
+// Traverse maze cells along a world-space X/Z segment using grid-boundary distances. Stop at the
+// first solid cell; conservatively report occlusion when the bounded traversal cannot reach the
+// destination.
 bool occluded(vec3 from, vec3 to) {
     vec2 start = from.xz / cellSize + 0.5;
     vec2 finish = to.xz / cellSize + 0.5;
@@ -67,6 +76,9 @@ bool occluded(vec3 from, vec3 to) {
     return true;
 }
 
+// Estimate local ambient darkening from nearby walls and floor or ceiling edges. Ignore edges
+// parallel to the tested surface normal and return full visibility when maze dimensions are
+// unavailable.
 float ambientVisibility(vec3 p, vec3 n) {
     if (cellSize <= 0.0 || mazeSize <= 0) return 1.0;
     vec2 grid = p.xz / cellSize + 0.5;
@@ -86,6 +98,9 @@ float ambientVisibility(vec3 p, vec3 n) {
     return 0.52 + 0.48 * smoothstep(0.015, 0.30, edge);
 }
 
+// Derive a small surface-normal perturbation from world-position and height derivatives. Guard
+// near-degenerate determinants and clamp the slope so texture relief cannot create unstable
+// extreme normals.
 vec3 reliefNormal(vec3 n, float height) {
     vec3 dx = dFdx(worldPosition), dy = dFdy(worldPosition);
     vec3 a = cross(dy, n), b = cross(n, dx);
@@ -96,11 +111,14 @@ vec3 reliefNormal(vec3 n, float height) {
     return normalize(n - slope);
 }
 
+// Approximate angle-dependent reflectance with Schlick's fifth-power curve. f0 is reflectance at
+// normal incidence and v is the clamped view/half-vector alignment.
 vec3 fresnel(vec3 f0, float v) {
     return f0 + (1.0 - f0) * pow(1.0 - clamp(v, 0.0, 1.0), 5.0);
 }
 
-// Store a full-sphere normal in two channels, leaving roughness and reflectance independent.
+// Pack a unit normal into two normalized channels with octahedral encoding. The material
+// attachment uses the remaining channels for roughness and reflectance read by surface effects.
 vec2 encodeNormal(vec3 n) {
     n /= abs(n.x) + abs(n.y) + abs(n.z);
     vec2 encoded = n.xy;
@@ -108,6 +126,8 @@ vec2 encodeNormal(vec3 n) {
     return encoded * 0.5 + 0.5;
 }
 
+// Evaluate the microfacet specular response from a GGX distribution, Smith visibility, and
+// Schlick Fresnel. Clamp small denominators to keep grazing-angle highlights finite.
 vec3 specularBrdf(vec3 n, vec3 v, vec3 l, float roughness, vec3 f0) {
     float nv = max(dot(n, v), 0.001), nl = max(dot(n, l), 0.001);
     vec3 h = (v + l) / max(length(v + l), 0.0001);
@@ -120,12 +140,18 @@ vec3 specularBrdf(vec3 n, vec3 v, vec3 l, float roughness, vec3 f0) {
     return fresnel(f0, vh) * distribution * 0.5 / max(smithV + smithL, 0.0001);
 }
 
+// Find the point on a finite rectangular light nearest the supplied target by projecting onto its
+// two half-axes. Clamp each projection to the emitter bounds instead of treating the lamp as an
+// infinite plane.
 vec3 emitterPoint(vec3 target, vec3 center, vec3 along, vec3 across) {
     vec3 delta = target - center;
     return center + along * clamp(dot(delta, along) / max(dot(along, along), 0.00001), -1.0, 1.0)
         + across * clamp(dot(delta, across) / max(dot(across, across), 0.00001), -1.0, 1.0);
 }
 
+// Estimate a rectangular emitter's visibility with bounded wall-occlusion samples. Use a cheaper
+// nearest-point test for weak contributions and combine several samples for brighter lights to
+// soften shadow transitions.
 float softVisibility(vec3 p, vec3 center, vec3 nearest, vec3 along, vec3 across, float power) {
     ivec2 cell = ivec2(floor(p.xz / cellSize + 0.5));
     ivec2 sourceCell = ivec2(floor(center.xz / cellSize + 0.5));
@@ -140,7 +166,8 @@ float softVisibility(vec3 p, vec3 center, vec3 nearest, vec3 along, vec3 across,
     return visible;
 }
 
-// Analytical local scattering around each actual fixture; visibility prevents cross-wall shafts.
+// Estimate light scattering along the camera ray near a fixture's emission axis. Restrict the
+// contribution to the visible segment and lamp reach, rejecting haze blocked by maze walls.
 float lampHaze(int i, vec3 ray, float rayLength) {
     vec3 center = lightPositions[i].xyz, axis = lightDirections[i].xyz;
     float reach = axis.y < -0.5 ? max(roomHeight, 1.0) * 0.90 : 0.85;
@@ -164,6 +191,9 @@ float lampHaze(int i, vec3 ray, float rayLength) {
     return density * lightDirections[i].w * phase * 0.008;
 }
 
+// Shade a material using linear-light textures, geometric and relief normals, bounded area
+// lights, wall shadows, fog, and haze. Write material data for screen-space effects and either
+// HDR radiance or display-converted color.
 void main() {
     surfaceData = vec4(0.5, 0.5, 1.0, 0.0);
     vec4 texel = texture(texture0, fragTexCoord);

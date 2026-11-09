@@ -5,23 +5,32 @@
 #include <algorithm>
 
 namespace {
+// Require framebuffer, color, and depth handles and confirm framebuffer completeness before using
+// a render target. Invalid targets cause post-processing to fall back rather than draw into an
+// incomplete framebuffer.
 bool valid(RenderTexture2D target) {
     return target.id && target.texture.id && target.depth.id && rlFramebufferComplete(target.id);
 }
 
+// Unload a render target when it owns a framebuffer, then clear every stored handle. Resetting
+// the value lets resize and destruction share cleanup without reusing released GPU resources.
 void release(RenderTexture2D& target) {
     if (target.id)
         UnloadRenderTexture(target);
     target = {};
 }
 
+// Draw a source texture across the requested pixel dimensions with an optional tint. Use a
+// negative source height to correct render-texture orientation during fullscreen post-processing
+// passes.
 void drawTarget(Texture2D source, int width, int height, Color tint = WHITE) {
     DrawTexturePro(source, {0, 0, (float)source.width, -(float)source.height},
                    {0, 0, (float)width, (float)height}, {0, 0}, 0, tint);
 }
 
-// Keep light energy above one through bloom. Replace raylib's 8-bit color attachment with a
-// filterable RGBA16F texture, retaining its normal depth-buffer owner and cleanup path.
+// Create a render target whose color attachment stores floating-point RGBA16F light energy above
+// one. Retain the normal depth-buffer ownership and release incomplete allocations before
+// reporting failure.
 RenderTexture2D hdrTarget(int width, int height) {
     RenderTexture2D target = LoadRenderTexture(width, height);
     if (!target.id)
@@ -43,8 +52,9 @@ RenderTexture2D hdrTarget(int width, int height) {
     return target;
 }
 
-// The scene owns a sampleable depth texture; the extra material attachment has its own owner.
-// Half-resolution effects use both without redrawing any world geometry.
+// Create a scene framebuffer with sampleable depth and an additional material-data attachment.
+// Return the extra geometry texture through its separate owner so surface effects can read it
+// without redrawing world geometry.
 RenderTexture2D surfaceTarget(int width, int height, Texture2D& geometry) {
     RenderTexture2D target{};
     target.id = rlLoadFramebuffer();
@@ -73,6 +83,9 @@ RenderTexture2D surfaceTarget(int width, int height, Texture2D& geometry) {
 }
 } // namespace
 
+// Compile highlight-blur, composition, and surface-effect shaders and cache the uniforms required
+// by successful custom programs. Leave unavailable shaders empty so the caller can use normal
+// world rendering.
 Bloom::Bloom() {
     shader = LoadShaderFromMemory(nullptr, MazeShaders::Bloom);
     composite = LoadShaderFromMemory(nullptr, MazeShaders::Composite);
@@ -105,6 +118,9 @@ Bloom::Bloom() {
     }
 }
 
+// Release scene and intermediate render targets, the separately owned geometry attachment, and
+// successfully loaded shaders. These GPU resources must be destroyed while the graphics context
+// still exists.
 Bloom::~Bloom() {
     release(scene);
     release(horizontal);
@@ -120,6 +136,9 @@ Bloom::~Bloom() {
         UnloadShader(surfaceShader);
 }
 
+// Rebuild scene and intermediate targets when the requested dimensions change, reusing the
+// current targets otherwise. Clean up incomplete allocations and remember attempted dimensions so
+// failures are not retried every frame at the same size.
 bool Bloom::resize(int width, int height) {
     if (width == attemptedWidth && height == attemptedHeight)
         return scene.id != 0;
@@ -164,8 +183,9 @@ bool Bloom::resize(int width, int height) {
     return true;
 }
 
-// Preserve the caller's framebuffer as well as its matrices, including full-window screenshot
-// targets. Drawing the world does not depend on the screen being the active framebuffer.
+// Prepare targets for the current output size, save the caller's framebuffer and matrices, and
+// begin scene capture. Return false when effects are unavailable so rendering can continue
+// directly to the original destination.
 bool Bloom::begin(bool linearHdr) {
     if (!shader.id || !composite.id)
         return false;
@@ -189,6 +209,9 @@ bool Bloom::begin(bool linearHdr) {
     return true;
 }
 
+// Capture the actual 3D view and projection matrices after BeginMode3D and enable surface effects
+// only when their buffers and shader exist. Flush batches and disable blending while material
+// data is written to attachments.
 void Bloom::setView(Matrix view, Matrix perspective) {
     useSurfaceEffects = useLinearHdr && surfaceShader.id && geometry.id && surfaceEffects.id;
     if (!useSurfaceEffects)
@@ -201,6 +224,9 @@ void Bloom::setView(Matrix view, Matrix perspective) {
     rlDisableColorBlend();
 }
 
+// Finish scene capture, extract and blur highlights, optionally compute screen-space surface
+// effects, and composite into the caller's saved framebuffer. Restore matrices and drawing state
+// so later HUD and UI rendering remains unaffected.
 void Bloom::end() {
     rlDrawRenderBatchActive();
     if (useSurfaceEffects)
@@ -209,6 +235,9 @@ void Bloom::end() {
         rlActiveDrawBuffers(1);
     EndTextureMode();
     const int hdr = useLinearHdr ? 1 : 0;
+    // Run one fullscreen blur pass into the supplied target with its source texture, sampling
+    // direction, and extraction flag. Horizontal and vertical passes share this immediate
+    // callback without reallocating shaders.
     auto blur = [&](RenderTexture2D target, Texture2D source, Vector2 step, int extract) {
         BeginTextureMode(target);
         ClearBackground(BLACK);
