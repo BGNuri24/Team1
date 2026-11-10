@@ -1,41 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title description">
-  <title id="title">Maze Game</title>
-  <desc id="description">A purple and gold maze illustration with a green exit, inspired by the game's retro menu.</desc>
-  <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#151025"/>
-      <stop offset="0.55" stop-color="#30114d"/>
-      <stop offset="1" stop-color="#741657"/>
-    </linearGradient>
-    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#b346cf" stop-opacity="0.05"/>
-      <stop offset="1" stop-color="#ee4bd3" stop-opacity="0.45"/>
-    </linearGradient>
-    <clipPath id="bounds"><rect width="1200" height="360" rx="24"/></clipPath>
-  </defs>
-  <g clip-path="url(#bounds)">
-    <rect width="1200" height="360" fill="url(#background)"/>
-    <path d="M0 235H1200 M0 257H1200 M0 286H1200 M0 325H1200 M600 235L-400 360 M600 235L-50 360 M600 235L250 360 M600 235L480 360 M600 235L720 360 M600 235L950 360 M600 235L1250 360 M600 235L1600 360" fill="none" stroke="url(#floor)" stroke-width="1.5"/>
-    <circle cx="1100" cy="30" r="205" fill="#c33eab" opacity="0.08"/>
-    <path d="M54 64H93" stroke="#ffd447" stroke-width="4"/>
-    <text x="110" y="70" fill="#c6aedc" font-family="Consolas, monospace" font-size="16" letter-spacing="4">TEAM 1 / 3D MAZE</text>
-    <text x="54" y="167" fill="#ffd447" font-family="Consolas, monospace" font-size="76" font-weight="700" letter-spacing="3">MAZE GAME</text>
-    <text x="58" y="210" fill="#f1e8fb" font-family="Consolas, monospace" font-size="20">A way out. A new direction.</text>
-    <rect x="58" y="263" width="119" height="31" rx="7" fill="#ffd447"/>
-    <text x="76" y="284" fill="#22132d" font-family="Consolas, monospace" font-size="14" font-weight="700">F5 TO PLAY</text>
-    <text x="195" y="284" fill="#c6aedc" font-family="Consolas, monospace" font-size="14">C++20 + raylib 5.5</text>
-    <g transform="translate(845 53)">
-      <rect x="-25" y="-21" width="300" height="296" rx="18" fill="#150e25" fill-opacity="0.65" stroke="#a95abb" stroke-opacity="0.45"/>
-      <g fill="none" stroke="#ffd447" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter">
-        <path d="M0 35V0H245V245H35 M0 70V245"/>
-        <path d="M35 35H105V70H70V105H35V175H70V210H140V245"/>
-        <path d="M140 0V35H210V70H175V105H245"/>
-        <path d="M105 105H140V70 M140 105V140H105V175H175V210H210"/>
-        <path d="M35 140H70 M175 140H210V175H245"/>
-      </g>
-      <path d="M0 52H18V18H122V88H157V122H227V228H157V228H18V192" fill="none" stroke="#ec72d3" stroke-width="2" stroke-dasharray="4 7" opacity="0.7"/>
-      <circle cx="0" cy="52" r="7" fill="#f3a5e6"/>
-      <rect x="7" y="207" width="20" height="20" rx="3" fill="#74e0a0"/>
-    </g>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" role="img" aria-labelledby="title desc">
+<title id="title">T1 — Grand Hotel maze game</title>
+<desc id="desc">A brass and ivory title beside an illustrated maze with a route from entry to exit.</desc>
+<rect width="1120" height="360" rx="16" fill="#151613"/>
+<rect x="12" y="12" width="1096" height="336" rx="9" fill="none" stroke="#574832"/>
+<path d="M50 51H78" stroke="#c6a66b" stroke-width="2"/>
+<g font-family="Segoe UI,Arial,sans-serif"><text x="92" y="55" fill="#bcaa8a" font-size="11" letter-spacing="2">TEAM ONE / FIRST-PERSON MAZE</text></g>
+<text x="43" y="178" fill="#f0e4cb" font-family="Cambria,Georgia,serif" font-weight="bold" font-size="124">T1</text>
+<text x="52" y="218" fill="#dfc89d" font-family="Cambria,Georgia,serif" font-size="28">Check in. Find a way out.</text>
+<text x="53" y="252" fill="#afa48e" font-family="Segoe UI,Arial,sans-serif" font-size="14">A first-person maze with a change of perspective.</text>
+<g font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#cbb995"><rect x="52" y="285" width="82" height="27" rx="3" fill="#25251f" stroke="#514632"/><text x="69" y="303">C++20</text><rect x="144" y="285" width="106" height="27" rx="3" fill="#25251f" stroke="#514632"/><text x="157" y="303">RAYLIB 5.5</text><rect x="260" y="285" width="102" height="27" rx="3" fill="#25251f" stroke="#514632"/><text x="275" y="303">WINDOWS</text></g>
+<rect x="682" y="24" width="414" height="312" rx="7" fill="#1d1e18" stroke="#665237"/>
+<text x="708" y="50" fill="#c3af88" font-family="Segoe UI,Arial,sans-serif" font-size="10" letter-spacing="2">THE FLOOR PLAN</text>
+<rect x="719" y="74" width="342" height="234" fill="#121510"/>
+<g fill="#705c40"><rect x="719" y="74" width="18" height="18"/><rect x="755" y="74" width="18" height="18"/><rect x="773" y="74" width="18" height="18"/><rect x="791" y="74" width="18" height="18"/><rect x="809" y="74" width="18" height="18"/><rect x="827" y="74" width="18" height="18"/><rect x="845" y="74" width="18" height="18"/><rect x="863" y="74" width="18" height="18"/><rect x="881" y="74" width="18" height="18"/><rect x="899" y="74" width="18" height="18"/><rect x="917" y="74" width="18" height="18"/><rect x="935" y="74" width="18" height="18"/><rect x="953" y="74" width="18" height="18"/><rect x="971" y="74" width="18" height="18"/><rect x="989" y="74" width="18" height="18"/><rect x="1007" y="74" width="18" height="18"/><rect x="1025" y="74" width="18" height="18"/><rect x="1043" y="74" width="18" height="18"/><rect x="719" y="92" width="18" height="18"/><rect x="755" y="92" width="18" height="18"/><rect x="863" y="92" width="18" height="18"/><rect x="1043" y="92" width="18" height="18"/><rect x="719" y="110" width="18" height="18"/><rect x="755" y="110" width="18" height="18"/><rect x="791" y="110" width="18" height="18"/><rect x="827" y="110" width="18" height="18"/><rect x="845" y="110" width="18" height="18"/><rect x="863" y="110" width="18" height="18"/><rect x="899" y="110" width="18" height="18"/><rect x="917" y="110" width="18" height="18"/><rect x="935" y="110" width="18" height="18"/><rect x="953" y="110" width="18" height="18"/><rect x="971" y="110" width="18" height="18"/><rect x="989" y="110" width="18" height="18"/><rect x="1007" y="110" width="18" height="18"/><rect x="1043" y="110" width="18" height="18"/><rect x="719" y="128" width="18" height="18"/><rect x="755" y="128" width="18" height="18"/><rect x="791" y="128" width="18" height="18"/><rect x="899" y="128" width="18" height="18"/><rect x="1043" y="128" width="18" height="18"/><rect x="719" y="146" width="18" height="18"/><rect x="755" y="146" width="18" height="18"/><rect x="773" y="146" width="18" height="18"/><rect x="791" y="146" width="18" height="18"/><rect x="827" y="146" width="18" height="18"/><rect x="845" y="146" width="18" height="18"/><rect x="863" y="146" width="18" height="18"/><rect x="881" y="146" width="18" height="18"/><rect x="899" y="146" width="18" height="18"/><rect x="935" y="146" width="18" height="18"/><rect x="953" y="146" width="18" height="18"/><rect x="971" y="146" width="18" height="18"/><rect x="989" y="146" width="18" height="18"/><rect x="1007" y="146" width="18" height="18"/><rect x="1043" y="146" width="18" height="18"/><rect x="719" y="164" width="18" height="18"/><rect x="791" y="164" width="18" height="18"/><rect x="827" y="164" width="18" height="18"/><rect x="899" y="164" width="18" height="18"/><rect x="971" y="164" width="18" height="18"/><rect x="1043" y="164" width="18" height="18"/><rect x="719" y="182" width="18" height="18"/><rect x="737" y="182" width="18" height="18"/><rect x="755" y="182" width="18" height="18"/><rect x="791" y="182" width="18" height="18"/><rect x="827" y="182" width="18" height="18"/><rect x="845" y="182" width="18" height="18"/><rect x="863" y="182" width="18" height="18"/><rect x="899" y="182" width="18" height="18"/><rect x="917" y="182" width="18" height="18"/><rect x="935" y="182" width="18" height="18"/><rect x="971" y="182" width="18" height="18"/><rect x="1007" y="182" width="18" height="18"/><rect x="1025" y="182" width="18" height="18"/><rect x="1043" y="182" width="18" height="18"/><rect x="719" y="200" width="18" height="18"/><rect x="755" y="200" width="18" height="18"/><rect x="791" y="200" width="18" height="18"/><rect x="899" y="200" width="18" height="18"/><rect x="935" y="200" width="18" height="18"/><rect x="971" y="200" width="18" height="18"/><rect x="1043" y="200" width="18" height="18"/><rect x="719" y="218" width="18" height="18"/><rect x="755" y="218" width="18" height="18"/><rect x="791" y="218" width="18" height="18"/><rect x="809" y="218" width="18" height="18"/><rect x="827" y="218" width="18" height="18"/><rect x="845" y="218" width="18" height="18"/><rect x="863" y="218" width="18" height="18"/><rect x="899" y="218" width="18" height="18"/><rect x="935" y="218" width="18" height="18"/><rect x="971" y="218" width="18" height="18"/><rect x="989" y="218" width="18" height="18"/><rect x="1007" y="218" width="18" height="18"/><rect x="1043" y="218" width="18" height="18"/><rect x="719" y="236" width="18" height="18"/><rect x="755" y="236" width="18" height="18"/><rect x="827" y="236" width="18" height="18"/><rect x="935" y="236" width="18" height="18"/><rect x="971" y="236" width="18" height="18"/><rect x="1007" y="236" width="18" height="18"/><rect x="1043" y="236" width="18" height="18"/><rect x="719" y="254" width="18" height="18"/><rect x="755" y="254" width="18" height="18"/><rect x="773" y="254" width="18" height="18"/><rect x="791" y="254" width="18" height="18"/><rect x="827" y="254" width="18" height="18"/><rect x="845" y="254" width="18" height="18"/><rect x="863" y="254" width="18" height="18"/><rect x="881" y="254" width="18" height="18"/><rect x="899" y="254" width="18" height="18"/><rect x="917" y="254" width="18" height="18"/><rect x="935" y="254" width="18" height="18"/><rect x="971" y="254" width="18" height="18"/><rect x="1007" y="254" width="18" height="18"/><rect x="1043" y="254" width="18" height="18"/><rect x="719" y="272" width="18" height="18"/><rect x="971" y="272" width="18" height="18"/><rect x="1043" y="272" width="18" height="18"/><rect x="719" y="290" width="18" height="18"/><rect x="737" y="290" width="18" height="18"/><rect x="755" y="290" width="18" height="18"/><rect x="773" y="290" width="18" height="18"/><rect x="791" y="290" width="18" height="18"/><rect x="809" y="290" width="18" height="18"/><rect x="827" y="290" width="18" height="18"/><rect x="845" y="290" width="18" height="18"/><rect x="863" y="290" width="18" height="18"/><rect x="881" y="290" width="18" height="18"/><rect x="899" y="290" width="18" height="18"/><rect x="917" y="290" width="18" height="18"/><rect x="935" y="290" width="18" height="18"/><rect x="953" y="290" width="18" height="18"/><rect x="971" y="290" width="18" height="18"/><rect x="989" y="290" width="18" height="18"/><rect x="1007" y="290" width="18" height="18"/><rect x="1043" y="290" width="18" height="18"/></g>
+<path d="M746 83 L746 101 L746 119 L746 137 L746 155 L746 173 L764 173 L782 173 L782 191 L782 209 L782 227 L782 245 L800 245 L818 245 L818 263 L818 281 L836 281 L854 281 L872 281 L890 281 L908 281 L926 281 L944 281 L962 281 L962 263 L962 245 L962 227 L962 209 L962 191 L962 173 L944 173 L926 173 L926 155 L926 137 L944 137 L962 137 L980 137 L998 137 L1016 137 L1034 137 L1034 155 L1034 173 L1016 173 L998 173 L998 191 L998 209 L1016 209 L1034 209 L1034 227 L1034 245 L1034 263 L1034 281 L1034 299" fill="none" stroke="#d9b572" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="746" cy="83" r="4" fill="#e7d3ac"/>
+<circle cx="1034" cy="299" r="5" fill="#97b99d"/>
+<text x="719" y="325" fill="#b5a17d" font-family="Segoe UI,Arial,sans-serif" font-size="9" letter-spacing="1.5">ENTRY</text><text x="1030" y="325" fill="#97b99d" font-family="Segoe UI,Arial,sans-serif" font-size="9" letter-spacing="1">EXIT</text>
 </svg>

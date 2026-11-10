@@ -1,6 +1,5 @@
 build/
 /memory.txt
-/README.md
 /.clang-format
 build-*/
 .vs/
