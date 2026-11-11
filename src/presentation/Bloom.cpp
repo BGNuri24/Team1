@@ -8,78 +8,78 @@ namespace {
 // Require framebuffer, color, and depth handles and confirm framebuffer completeness before using
 // a render target. Invalid targets cause post-processing to fall back rather than draw into an
 // incomplete framebuffer.
-bool valid(RenderTexture2D target) {
-    return target.id && target.texture.id && target.depth.id && rlFramebufferComplete(target.id);
+bool Valid(RenderTexture2D Target) {
+    return Target.id && Target.texture.id && Target.depth.id && rlFramebufferComplete(Target.id);
 }
 
 // Unload a render target when it owns a framebuffer, then clear every stored handle. Resetting
 // the value lets resize and destruction share cleanup without reusing released GPU resources.
-void release(RenderTexture2D& target) {
-    if (target.id)
-        UnloadRenderTexture(target);
-    target = {};
+void Release(RenderTexture2D& Target) {
+    if (Target.id)
+        UnloadRenderTexture(Target);
+    Target = {};
 }
 
 // Draw a source texture across the requested pixel dimensions with an optional tint. Use a
 // negative source height to correct render-texture orientation during fullscreen post-processing
 // passes.
-void drawTarget(Texture2D source, int width, int height, Color tint = WHITE) {
-    DrawTexturePro(source, {0, 0, (float)source.width, -(float)source.height},
-                   {0, 0, (float)width, (float)height}, {0, 0}, 0, tint);
+void DrawTarget(Texture2D Source, int Width, int Height, Color Tint = WHITE) {
+    DrawTexturePro(Source, {0, 0, (float)Source.width, -(float)Source.height},
+                   {0, 0, (float)Width, (float)Height}, {0, 0}, 0, Tint);
 }
 
 // Create a render target whose color attachment stores floating-point RGBA16F light energy above
 // one. Retain the normal depth-buffer ownership and release incomplete allocations before
 // reporting failure.
-RenderTexture2D hdrTarget(int width, int height) {
-    RenderTexture2D target = LoadRenderTexture(width, height);
-    if (!target.id)
+RenderTexture2D HdrTarget(int Width, int Height) {
+    RenderTexture2D Target = LoadRenderTexture(Width, Height);
+    if (!Target.id)
         return {};
-    const unsigned int color =
-        rlLoadTexture(nullptr, width, height, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16, 1);
-    if (!color) {
-        UnloadRenderTexture(target);
-        return {};
-    }
-    const Texture2D previous = target.texture;
-    target.texture = {color, width, height, 1, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16};
-    rlFramebufferAttach(target.id, color, RL_ATTACHMENT_COLOR_CHANNEL0, RL_ATTACHMENT_TEXTURE2D, 0);
-    UnloadTexture(previous);
-    if (!valid(target)) {
-        UnloadRenderTexture(target);
+    const unsigned int CurrentColor =
+        rlLoadTexture(nullptr, Width, Height, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16, 1);
+    if (!CurrentColor) {
+        UnloadRenderTexture(Target);
         return {};
     }
-    return target;
+    const Texture2D Previous = Target.texture;
+    Target.texture = {CurrentColor, Width, Height, 1, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16};
+    rlFramebufferAttach(Target.id, CurrentColor, RL_ATTACHMENT_COLOR_CHANNEL0, RL_ATTACHMENT_TEXTURE2D, 0);
+    UnloadTexture(Previous);
+    if (!Valid(Target)) {
+        UnloadRenderTexture(Target);
+        return {};
+    }
+    return Target;
 }
 
 // Create a scene framebuffer with sampleable depth and an additional material-data attachment.
 // Return the extra geometry texture through its separate owner so surface effects can read it
 // without redrawing world geometry.
-RenderTexture2D surfaceTarget(int width, int height, Texture2D& geometry) {
-    RenderTexture2D target{};
-    target.id = rlLoadFramebuffer();
-    if (!target.id)
+RenderTexture2D SurfaceTarget(int Width, int Height, Texture2D& CurrentGeometry) {
+    RenderTexture2D Target{};
+    Target.id = rlLoadFramebuffer();
+    if (!Target.id)
         return {};
-    constexpr int format = PIXELFORMAT_UNCOMPRESSED_R16G16B16A16;
-    target.texture = {rlLoadTexture(nullptr, width, height, format, 1), width, height, 1, format};
-    target.depth = {rlLoadTextureDepth(width, height, false), width, height, 1, 0};
-    geometry = {rlLoadTexture(nullptr, width, height, format, 1), width, height, 1, format};
-    rlFramebufferAttach(target.id, target.texture.id, RL_ATTACHMENT_COLOR_CHANNEL0,
+    constexpr int CurrentFormat = PIXELFORMAT_UNCOMPRESSED_R16G16B16A16;
+    Target.texture = {rlLoadTexture(nullptr, Width, Height, CurrentFormat, 1), Width, Height, 1, CurrentFormat};
+    Target.depth = {rlLoadTextureDepth(Width, Height, false), Width, Height, 1, 0};
+    CurrentGeometry = {rlLoadTexture(nullptr, Width, Height, CurrentFormat, 1), Width, Height, 1, CurrentFormat};
+    rlFramebufferAttach(Target.id, Target.texture.id, RL_ATTACHMENT_COLOR_CHANNEL0,
                         RL_ATTACHMENT_TEXTURE2D, 0);
-    rlFramebufferAttach(target.id, geometry.id, RL_ATTACHMENT_COLOR_CHANNEL1,
+    rlFramebufferAttach(Target.id, CurrentGeometry.id, RL_ATTACHMENT_COLOR_CHANNEL1,
                         RL_ATTACHMENT_TEXTURE2D, 0);
-    rlFramebufferAttach(target.id, target.depth.id, RL_ATTACHMENT_DEPTH, RL_ATTACHMENT_TEXTURE2D,
+    rlFramebufferAttach(Target.id, Target.depth.id, RL_ATTACHMENT_DEPTH, RL_ATTACHMENT_TEXTURE2D,
                         0);
-    if (!geometry.id || !valid(target)) {
-        release(target);
-        if (geometry.id)
-            UnloadTexture(geometry);
-        geometry = {};
+    if (!CurrentGeometry.id || !Valid(Target)) {
+        Release(Target);
+        if (CurrentGeometry.id)
+            UnloadTexture(CurrentGeometry);
+        CurrentGeometry = {};
         return {};
     }
-    SetTextureFilter(geometry, TEXTURE_FILTER_POINT);
-    SetTextureWrap(geometry, TEXTURE_WRAP_CLAMP);
-    return target;
+    SetTextureFilter(CurrentGeometry, TEXTURE_FILTER_POINT);
+    SetTextureWrap(CurrentGeometry, TEXTURE_WRAP_CLAMP);
+    return Target;
 }
 } // namespace
 
@@ -87,34 +87,34 @@ RenderTexture2D surfaceTarget(int width, int height, Texture2D& geometry) {
 // by successful custom programs. Leave unavailable shaders empty so the caller can use normal
 // world rendering.
 Bloom::Bloom() {
-    shader = LoadShaderFromMemory(nullptr, MazeShaders::Bloom);
-    composite = LoadShaderFromMemory(nullptr, MazeShaders::Composite);
-    surfaceShader = LoadShaderFromMemory(nullptr, MazeShaders::SurfaceEffects);
-    if (shader.id && shader.id != rlGetShaderIdDefault()) {
-        stepLocation = GetShaderLocation(shader, "stepSize");
-        extractLocation = GetShaderLocation(shader, "extractHighlights");
-        hdrLocation = GetShaderLocation(shader, "linearHdr");
+    CurrentShader = LoadShaderFromMemory(nullptr, MazeShaders::Bloom);
+    CurrentComposite = LoadShaderFromMemory(nullptr, MazeShaders::Composite);
+    SurfaceShader = LoadShaderFromMemory(nullptr, MazeShaders::SurfaceEffects);
+    if (CurrentShader.id && CurrentShader.id != rlGetShaderIdDefault()) {
+        StepLocation = GetShaderLocation(CurrentShader, "StepSize");
+        ExtractLocation = GetShaderLocation(CurrentShader, "ExtractHighlights");
+        HdrLocation = GetShaderLocation(CurrentShader, "LinearHdr");
     } else {
-        shader = {};
+        CurrentShader = {};
     }
-    if (composite.id && composite.id != rlGetShaderIdDefault()) {
-        compositeHdrLocation = GetShaderLocation(composite, "linearHdr");
-        bloomLocation = GetShaderLocation(composite, "bloomTexture");
-        effectsLocation = GetShaderLocation(composite, "surfaceTexture");
-        effectsEnabledLocation = GetShaderLocation(composite, "surfaceEffectsEnabled");
-        compositeDepthLocation = GetShaderLocation(composite, "depthTexture");
-        compositeInverseLocation = GetShaderLocation(composite, "inverseProjection");
+    if (CurrentComposite.id && CurrentComposite.id != rlGetShaderIdDefault()) {
+        CompositeHdrLocation = GetShaderLocation(CurrentComposite, "LinearHdr");
+        BloomLocation = GetShaderLocation(CurrentComposite, "BloomTexture");
+        EffectsLocation = GetShaderLocation(CurrentComposite, "SurfaceTexture");
+        EffectsEnabledLocation = GetShaderLocation(CurrentComposite, "SurfaceEffectsEnabled");
+        CompositeDepthLocation = GetShaderLocation(CurrentComposite, "DepthTexture");
+        CompositeInverseLocation = GetShaderLocation(CurrentComposite, "InverseProjection");
     } else {
-        composite = {};
+        CurrentComposite = {};
     }
-    if (surfaceShader.id && surfaceShader.id != rlGetShaderIdDefault()) {
-        depthLocation = GetShaderLocation(surfaceShader, "depthTexture");
-        geometryLocation = GetShaderLocation(surfaceShader, "geometryTexture");
-        viewLocation = GetShaderLocation(surfaceShader, "viewMatrix");
-        perspectiveLocation = GetShaderLocation(surfaceShader, "projectionMatrix");
-        inversePerspectiveLocation = GetShaderLocation(surfaceShader, "inverseProjection");
+    if (SurfaceShader.id && SurfaceShader.id != rlGetShaderIdDefault()) {
+        DepthLocation = GetShaderLocation(SurfaceShader, "DepthTexture");
+        GeometryLocation = GetShaderLocation(SurfaceShader, "GeometryTexture");
+        ViewLocation = GetShaderLocation(SurfaceShader, "ViewMatrix");
+        PerspectiveLocation = GetShaderLocation(SurfaceShader, "ProjectionMatrix");
+        InversePerspectiveLocation = GetShaderLocation(SurfaceShader, "InverseProjection");
     } else {
-        surfaceShader = {};
+        SurfaceShader = {};
     }
 }
 
@@ -122,63 +122,63 @@ Bloom::Bloom() {
 // successfully loaded shaders. These GPU resources must be destroyed while the graphics context
 // still exists.
 Bloom::~Bloom() {
-    release(scene);
-    release(horizontal);
-    release(vertical);
-    release(surfaceEffects);
-    if (geometry.id)
-        UnloadTexture(geometry);
-    if (shader.id)
-        UnloadShader(shader);
-    if (composite.id)
-        UnloadShader(composite);
-    if (surfaceShader.id)
-        UnloadShader(surfaceShader);
+    Release(CurrentScene);
+    Release(CurrentHorizontal);
+    Release(Vertical);
+    Release(CurrentSurfaceEffects);
+    if (CurrentGeometry.id)
+        UnloadTexture(CurrentGeometry);
+    if (CurrentShader.id)
+        UnloadShader(CurrentShader);
+    if (CurrentComposite.id)
+        UnloadShader(CurrentComposite);
+    if (SurfaceShader.id)
+        UnloadShader(SurfaceShader);
 }
 
 // Rebuild scene and intermediate targets when the requested dimensions change, reusing the
 // current targets otherwise. Clean up incomplete allocations and remember attempted dimensions so
 // failures are not retried every frame at the same size.
-bool Bloom::resize(int width, int height) {
-    if (width == attemptedWidth && height == attemptedHeight)
-        return scene.id != 0;
-    attemptedWidth = width;
-    attemptedHeight = height;
-    release(scene);
-    release(horizontal);
-    release(vertical);
-    release(surfaceEffects);
-    if (geometry.id)
-        UnloadTexture(geometry);
-    geometry = {};
-    if (surfaceShader.id)
-        scene = surfaceTarget(width, height, geometry);
-    if (!scene.id)
-        scene = hdrTarget(width, height);
-    horizontal = hdrTarget(std::max(1, width / 2), std::max(1, height / 2));
-    vertical = hdrTarget(std::max(1, width / 2), std::max(1, height / 2));
-    if (geometry.id) {
-        const int effectWidth = std::max(1, std::min(width / 2, 720));
-        const int effectHeight = std::max(1, height * effectWidth / width);
-        surfaceEffects = hdrTarget(effectWidth, effectHeight);
+bool Bloom::Resize(int Width, int Height) {
+    if (Width == AttemptedWidth && Height == AttemptedHeight)
+        return CurrentScene.id != 0;
+    AttemptedWidth = Width;
+    AttemptedHeight = Height;
+    Release(CurrentScene);
+    Release(CurrentHorizontal);
+    Release(Vertical);
+    Release(CurrentSurfaceEffects);
+    if (CurrentGeometry.id)
+        UnloadTexture(CurrentGeometry);
+    CurrentGeometry = {};
+    if (SurfaceShader.id)
+        CurrentScene = SurfaceTarget(Width, Height, CurrentGeometry);
+    if (!CurrentScene.id)
+        CurrentScene = HdrTarget(Width, Height);
+    CurrentHorizontal = HdrTarget(std::max(1, Width / 2), std::max(1, Height / 2));
+    Vertical = HdrTarget(std::max(1, Width / 2), std::max(1, Height / 2));
+    if (CurrentGeometry.id) {
+        const int EffectWidth = std::max(1, std::min(Width / 2, 720));
+        const int EffectHeight = std::max(1, Height * EffectWidth / Width);
+        CurrentSurfaceEffects = HdrTarget(EffectWidth, EffectHeight);
     }
-    if (!valid(scene) || !valid(horizontal) || !valid(vertical)) {
-        release(scene);
-        release(horizontal);
-        release(vertical);
-        release(surfaceEffects);
-        if (geometry.id)
-            UnloadTexture(geometry);
-        geometry = {};
+    if (!Valid(CurrentScene) || !Valid(CurrentHorizontal) || !Valid(Vertical)) {
+        Release(CurrentScene);
+        Release(CurrentHorizontal);
+        Release(Vertical);
+        Release(CurrentSurfaceEffects);
+        if (CurrentGeometry.id)
+            UnloadTexture(CurrentGeometry);
+        CurrentGeometry = {};
         return false;
     }
-    for (Texture2D texture : {scene.texture, horizontal.texture, vertical.texture}) {
-        SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
-        SetTextureWrap(texture, TEXTURE_WRAP_CLAMP);
+    for (Texture2D CurrentTexture : {CurrentScene.texture, CurrentHorizontal.texture, Vertical.texture}) {
+        SetTextureFilter(CurrentTexture, TEXTURE_FILTER_BILINEAR);
+        SetTextureWrap(CurrentTexture, TEXTURE_WRAP_CLAMP);
     }
-    if (surfaceEffects.id) {
-        SetTextureFilter(surfaceEffects.texture, TEXTURE_FILTER_BILINEAR);
-        SetTextureWrap(surfaceEffects.texture, TEXTURE_WRAP_CLAMP);
+    if (CurrentSurfaceEffects.id) {
+        SetTextureFilter(CurrentSurfaceEffects.texture, TEXTURE_FILTER_BILINEAR);
+        SetTextureWrap(CurrentSurfaceEffects.texture, TEXTURE_WRAP_CLAMP);
     }
     return true;
 }
@@ -186,25 +186,25 @@ bool Bloom::resize(int width, int height) {
 // Prepare targets for the current output size, save the caller's framebuffer and matrices, and
 // begin scene capture. Return false when effects are unavailable so rendering can continue
 // directly to the original destination.
-bool Bloom::begin(bool linearHdr) {
-    if (!shader.id || !composite.id)
+bool Bloom::Begin(bool LinearHdr) {
+    if (!CurrentShader.id || !CurrentComposite.id)
         return false;
     rlDrawRenderBatchActive();
-    destination = rlGetActiveFramebuffer();
-    destinationWidth = destination ? GetScreenWidth() : GetRenderWidth();
-    destinationHeight = destination ? GetScreenHeight() : GetRenderHeight();
-    if (destinationWidth <= 0 || destinationHeight <= 0)
+    Destination = rlGetActiveFramebuffer();
+    DestinationWidth = Destination ? GetScreenWidth() : GetRenderWidth();
+    DestinationHeight = Destination ? GetScreenHeight() : GetRenderHeight();
+    if (DestinationWidth <= 0 || DestinationHeight <= 0)
         return false;
-    projection = rlGetMatrixProjection();
-    modelview = rlGetMatrixModelview();
-    if (!resize(destinationWidth, destinationHeight)) {
-        rlEnableFramebuffer(destination);
+    Projection = rlGetMatrixProjection();
+    Modelview = rlGetMatrixModelview();
+    if (!Resize(DestinationWidth, DestinationHeight)) {
+        rlEnableFramebuffer(Destination);
         return false;
     }
-    useLinearHdr = linearHdr;
-    useSurfaceEffects = false;
-    BeginTextureMode(scene);
-    if (geometry.id)
+    UseLinearHdr = LinearHdr;
+    UseSurfaceEffects = false;
+    BeginTextureMode(CurrentScene);
+    if (CurrentGeometry.id)
         rlActiveDrawBuffers(2);
     return true;
 }
@@ -212,13 +212,13 @@ bool Bloom::begin(bool linearHdr) {
 // Capture the actual 3D view and projection matrices after BeginMode3D and enable surface effects
 // only when their buffers and shader exist. Flush batches and disable blending while material
 // data is written to attachments.
-void Bloom::setView(Matrix view, Matrix perspective) {
-    useSurfaceEffects = useLinearHdr && surfaceShader.id && geometry.id && surfaceEffects.id;
-    if (!useSurfaceEffects)
+void Bloom::SetView(Matrix View, Matrix Perspective) {
+    UseSurfaceEffects = UseLinearHdr && SurfaceShader.id && CurrentGeometry.id && CurrentSurfaceEffects.id;
+    if (!UseSurfaceEffects)
         return;
-    surfaceView = view;
-    surfacePerspective = perspective;
-    inversePerspective = MatrixInvert(perspective);
+    SurfaceView = View;
+    SurfacePerspective = Perspective;
+    InversePerspective = MatrixInvert(Perspective);
     // Reflectance is data in attachment alpha, not surface transparency.
     rlDrawRenderBatchActive();
     rlDisableColorBlend();
@@ -227,60 +227,60 @@ void Bloom::setView(Matrix view, Matrix perspective) {
 // Finish scene capture, extract and blur highlights, optionally compute screen-space surface
 // effects, and composite into the caller's saved framebuffer. Restore matrices and drawing state
 // so later HUD and UI rendering remains unaffected.
-void Bloom::end() {
+void Bloom::End() {
     rlDrawRenderBatchActive();
-    if (useSurfaceEffects)
+    if (UseSurfaceEffects)
         rlEnableColorBlend();
-    if (geometry.id)
+    if (CurrentGeometry.id)
         rlActiveDrawBuffers(1);
     EndTextureMode();
-    const int hdr = useLinearHdr ? 1 : 0;
+    const int Hdr = UseLinearHdr ? 1 : 0;
     // Run one fullscreen blur pass into the supplied target with its source texture, sampling
     // direction, and extraction flag. Horizontal and vertical passes share this immediate
     // callback without reallocating shaders.
-    auto blur = [&](RenderTexture2D target, Texture2D source, Vector2 step, int extract) {
-        BeginTextureMode(target);
+    auto Blur = [&](RenderTexture2D Target, Texture2D Source, Vector2 Step, int Extract) {
+        BeginTextureMode(Target);
         ClearBackground(BLACK);
-        BeginShaderMode(shader);
-        SetShaderValue(shader, stepLocation, &step, SHADER_UNIFORM_VEC2);
-        SetShaderValue(shader, extractLocation, &extract, SHADER_UNIFORM_INT);
-        SetShaderValue(shader, hdrLocation, &hdr, SHADER_UNIFORM_INT);
-        drawTarget(source, target.texture.width, target.texture.height);
+        BeginShaderMode(CurrentShader);
+        SetShaderValue(CurrentShader, StepLocation, &Step, SHADER_UNIFORM_VEC2);
+        SetShaderValue(CurrentShader, ExtractLocation, &Extract, SHADER_UNIFORM_INT);
+        SetShaderValue(CurrentShader, HdrLocation, &Hdr, SHADER_UNIFORM_INT);
+        DrawTarget(Source, Target.texture.width, Target.texture.height);
         EndShaderMode();
         EndTextureMode();
     };
-    blur(horizontal, scene.texture, {3.0f / horizontal.texture.width, 0}, 1);
-    blur(vertical, horizontal.texture, {0, 3.0f / vertical.texture.height}, 0);
-    if (useSurfaceEffects) {
-        BeginTextureMode(surfaceEffects);
+    Blur(CurrentHorizontal, CurrentScene.texture, {3.0f / CurrentHorizontal.texture.width, 0}, 1);
+    Blur(Vertical, CurrentHorizontal.texture, {0, 3.0f / Vertical.texture.height}, 0);
+    if (UseSurfaceEffects) {
+        BeginTextureMode(CurrentSurfaceEffects);
         ClearBackground(BLACK);
         rlDisableColorBlend();
-        BeginShaderMode(surfaceShader);
-        SetShaderValueTexture(surfaceShader, depthLocation, scene.depth);
-        SetShaderValueTexture(surfaceShader, geometryLocation, geometry);
-        SetShaderValueMatrix(surfaceShader, viewLocation, surfaceView);
-        SetShaderValueMatrix(surfaceShader, perspectiveLocation, surfacePerspective);
-        SetShaderValueMatrix(surfaceShader, inversePerspectiveLocation, inversePerspective);
-        drawTarget(scene.texture, surfaceEffects.texture.width, surfaceEffects.texture.height);
+        BeginShaderMode(SurfaceShader);
+        SetShaderValueTexture(SurfaceShader, DepthLocation, CurrentScene.depth);
+        SetShaderValueTexture(SurfaceShader, GeometryLocation, CurrentGeometry);
+        SetShaderValueMatrix(SurfaceShader, ViewLocation, SurfaceView);
+        SetShaderValueMatrix(SurfaceShader, PerspectiveLocation, SurfacePerspective);
+        SetShaderValueMatrix(SurfaceShader, InversePerspectiveLocation, InversePerspective);
+        DrawTarget(CurrentScene.texture, CurrentSurfaceEffects.texture.width, CurrentSurfaceEffects.texture.height);
         rlDrawRenderBatchActive();
         rlEnableColorBlend();
         EndShaderMode();
         EndTextureMode();
     }
-    rlEnableFramebuffer(destination);
-    rlViewport(0, 0, destinationWidth, destinationHeight);
-    rlSetMatrixProjection(projection);
-    rlSetMatrixModelview(modelview);
-    BeginShaderMode(composite);
-    SetShaderValue(composite, compositeHdrLocation, &hdr, SHADER_UNIFORM_INT);
-    SetShaderValueTexture(composite, bloomLocation, vertical.texture);
-    const int enabled = useSurfaceEffects ? 1 : 0;
-    SetShaderValue(composite, effectsEnabledLocation, &enabled, SHADER_UNIFORM_INT);
-    if (useSurfaceEffects) {
-        SetShaderValueTexture(composite, effectsLocation, surfaceEffects.texture);
-        SetShaderValueTexture(composite, compositeDepthLocation, scene.depth);
-        SetShaderValueMatrix(composite, compositeInverseLocation, inversePerspective);
+    rlEnableFramebuffer(Destination);
+    rlViewport(0, 0, DestinationWidth, DestinationHeight);
+    rlSetMatrixProjection(Projection);
+    rlSetMatrixModelview(Modelview);
+    BeginShaderMode(CurrentComposite);
+    SetShaderValue(CurrentComposite, CompositeHdrLocation, &Hdr, SHADER_UNIFORM_INT);
+    SetShaderValueTexture(CurrentComposite, BloomLocation, Vertical.texture);
+    const int Enabled = UseSurfaceEffects ? 1 : 0;
+    SetShaderValue(CurrentComposite, EffectsEnabledLocation, &Enabled, SHADER_UNIFORM_INT);
+    if (UseSurfaceEffects) {
+        SetShaderValueTexture(CurrentComposite, EffectsLocation, CurrentSurfaceEffects.texture);
+        SetShaderValueTexture(CurrentComposite, CompositeDepthLocation, CurrentScene.depth);
+        SetShaderValueMatrix(CurrentComposite, CompositeInverseLocation, InversePerspective);
     }
-    drawTarget(scene.texture, GetScreenWidth(), GetScreenHeight());
+    DrawTarget(CurrentScene.texture, GetScreenWidth(), GetScreenHeight());
     EndShaderMode();
 }

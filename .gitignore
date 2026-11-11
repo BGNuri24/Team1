@@ -10,3 +10,5 @@ build-*/
 *.pdb
 *.vcxproj.user
 /save_data/
+/docs/CodeStyle.md
+/docs/Database.md

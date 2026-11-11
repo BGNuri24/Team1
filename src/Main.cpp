@@ -8,21 +8,21 @@ int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1280, 720, "T1");
 
-    Image appIcon = LoadImage("T1_.png");
-    if (appIcon.data == nullptr) {
-        appIcon = LoadImage("docs/assets/T1_.png");
+    Image AppIcon = LoadImage("T1.png");
+    if (AppIcon.data == nullptr) {
+        AppIcon = LoadImage("docs/assets/T1.png");
     }
-    if (appIcon.data != nullptr) {
-        SetWindowIcon(appIcon);
-        UnloadImage(appIcon);
+    if (AppIcon.data != nullptr) {
+        SetWindowIcon(AppIcon);
+        UnloadImage(AppIcon);
     }
     SetWindowMinSize(640, 480);
     SetExitKey(KEY_NULL);
     SetTargetFPS(120);
 
     {
-        Application application;
-        application.run();
+        Application CurrentApplication;
+        CurrentApplication.Run();
     } 
 
     CloseWindow();

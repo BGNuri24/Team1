@@ -25,70 +25,70 @@ public:
 
     // Render the world first, then draw the gameplay HUD in screen space with optional map-peek
     // state. Paused and result views can use drawWorld when gameplay overlays should be omitted.
-    void draw(const Game& game, const MapPeek* mapPeek = nullptr);
+    void Draw(const Game& CurrentGame, const MapPeek* CurrentMapPeek = nullptr);
     // Build the camera from the game's displayed position, direction, and up vector, then draw
     // lit maze surfaces, details, hazards, and exit. Use post-processing when available and keep
     // the fallback world render functional.
-    void drawWorld(const Game& game);
+    void DrawWorld(const Game& CurrentGame);
     // Reuse already prepared materials when the requested theme is unchanged. Build a complete
     // replacement first and publish it only when valid, preserving the old resources if material
     // creation fails.
-    void prepareMazeTheme(MazeTheme theme);
+    void PrepareMazeTheme(MazeTheme Theme);
 
 private:
     // Batch nearby floor, ceiling, and exposed wall surfaces using their textures, followed by
     // shallow architectural pieces. Manage texture and culling state explicitly so each surface
     // uses the intended material.
-    void drawMaze(const Game& game);
+    void DrawMaze(const Game& CurrentGame);
     // Draw the paired opal-glass sconce cups and other fixture geometry with their emissive
     // treatment. Placement stays clear of ceiling-walking eye positions and never changes
     // gameplay collision.
-    void drawLights(const Game& game);
+    void DrawLights(const Game& CurrentGame);
     // Layer skirting, cornices, chair rails, stone pieces, and panel frames over the base wall
     // material. Nearby visibility limits the fine geometry while distant texture detail preserves
     // the room's appearance.
-    void drawDetails(const Game& game);
+    void DrawDetails(const Game& CurrentGame);
     // Draw the run's lethal barriers at the same world-space bounds used by collision, adding
     // their visible hazard treatment. The glow flag selects emissive contribution without
     // creating or moving obstacles.
-    void drawObstacles(const Game& game, bool glow);
+    void DrawObstacles(const Game& CurrentGame, bool Glow);
     // Draw the final corridor's exit architecture and its lit details using the run's theme and
     // geometry. The glow flag selects its emissive contribution while the logical exit remains a
     // maze cell.
-    void drawExit(const Game& game, bool glow);
+    void DrawExit(const Game& CurrentGame, bool Glow);
     // Upload wall occupancy masks when the run layout changes, then select a bounded list of
     // nearby ceiling and wall sources. Cache layout identity by size and seed so per-frame
     // lighting cost stays bounded.
-    void updateLights(const Game& game);
+    void UpdateLights(const Game& CurrentGame);
     // Flush queued vertices before changing the material uniforms for following geometry.
     // Roughness, metalness, relief, clear coat, and wall-surface flags must not retroactively
     // affect a previous batch.
-    void material(float roughness, float metalness, float relief, float clearCoat = 0,
-                  bool wallSurface = false);
+    void GetMaterial(float CurrentRoughness, float Metalness, float Relief, float ClearCoat = 0,
+                  bool WallSurface = false);
 
-    Camera3D cam;
-    Textures tex;
-    HudRenderer hud;
-    Bloom bloom;
-    MazeTheme activeTheme = ActiveMazeTheme;
-    MazePalette palette = mazePalette(ActiveMazeTheme);
-    bool texturesReady = false;
-    Shader atmosphere{};
-    int eyeLocation = -1;
-    int directionLocation = -1;
-    int emissionLocation = -1;
-    int materialLocation = -1, hdrLocation = -1, wallSurfaceLocation = -1;
-    int lightPositionsLocation = -1;
-    int lightDirectionsLocation = -1;
-    int lightExtentsLocation = -1;
-    int lightCountLocation = -1;
-    int wallRowsLocation = -1;
-    int mazeSizeLocation = -1;
-    int cellSizeLocation = -1;
-    int lightMazeSize = 0;
-    std::uint32_t lightMazeSeed = 0;
-    int fixtureColorLocation = -1;
-    int fogColorLocation = -1;
-    int bounceColorLocation = -1;
-    int roomHeightLocation = -1;
+    Camera3D Cam;
+    Textures Tex;
+    HudRenderer Hud;
+    Bloom CurrentBloom;
+    MazeTheme ActiveTheme = ActiveMazeTheme;
+    MazePalette CurrentPalette = GetMazePalette(ActiveMazeTheme);
+    bool TexturesReady = false;
+    Shader Atmosphere{};
+    int EyeLocation = -1;
+    int DirectionLocation = -1;
+    int EmissionLocation = -1;
+    int MaterialLocation = -1, HdrLocation = -1, WallSurfaceLocation = -1;
+    int LightPositionsLocation = -1;
+    int LightDirectionsLocation = -1;
+    int LightExtentsLocation = -1;
+    int LightCountLocation = -1;
+    int WallRowsLocation = -1;
+    int MazeSizeLocation = -1;
+    int CellSizeLocation = -1;
+    int LightMazeSize = 0;
+    std::uint32_t LightMazeSeed = 0;
+    int FixtureColorLocation = -1;
+    int FogColorLocation = -1;
+    int BounceColorLocation = -1;
+    int RoomHeightLocation = -1;
 };

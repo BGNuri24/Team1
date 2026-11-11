@@ -6,137 +6,137 @@
 #include <cmath>
 #include <utility>
 
-using namespace storage;
+using namespace Storage;
 
 // Retain the requested database path without opening a connection yet. The default points to
 // save_data/maze_game.db; an explicit path lets tests use isolated databases without changing the
 // process working directory.
-GameDatabase::GameDatabase(std::filesystem::path value) : path(std::move(value)) {
+GameDatabase::GameDatabase(std::filesystem::path Value) : Path(std::move(Value)) {
 }
 
 // Create the parent directory when needed, open SQLite, and migrate the schema and legacy saves.
 // Mark this instance ready only after migration commits; return the committed profiles or an
 // unavailable result on failure.
-ProfileResult GameDatabase::initialize() {
-    ready = false;
-    std::error_code error;
-    if (!path.parent_path().empty())
-        std::filesystem::create_directories(path.parent_path(), error);
-    if (error)
+ProfileResult GameDatabase::Initialize() {
+    CurrentReady = false;
+    std::error_code Error;
+    if (!Path.parent_path().empty())
+        std::filesystem::create_directories(Path.parent_path(), Error);
+    if (Error)
         return {};
-    Connection connection;
-    ProfileResult result;
-    if (!connection.open(path) ||
-        !migrateDatabase(connection, path.parent_path(), result.players))
+    Connection CurrentConnection;
+    ProfileResult Result;
+    if (!CurrentConnection.Open(Path) ||
+        !MigrateDatabase(CurrentConnection, Path.parent_path(), Result.CurrentPlayers))
         return {};
-    ready = true;
-    result.status = StorageStatus::Success;
-    return result;
+    CurrentReady = true;
+    Result.Status = StorageStatus::Success;
+    return Result;
 }
 
 // Validate the proposed name, then check capacity and duplicates against persisted profiles while
 // holding an immediate write transaction. Insert the profile and return the refreshed list only
 // after commit; report validation and storage failures separately.
-ProfileResult GameDatabase::addPlayer(const std::string& player) {
-    if (!isValidPlayerName(player))
+ProfileResult GameDatabase::AddPlayer(const std::string& Player) {
+    if (!IsValidPlayerName(Player))
         return {StorageStatus::Invalid, {}};
-    if (!ready)
+    if (!CurrentReady)
         return {};
-    Connection connection;
-    if (!connection.open(path))
+    Connection CurrentConnection;
+    if (!CurrentConnection.Open(Path))
         return {};
-    Transaction transaction(connection);
-    ProfileResult result;
-    if (!transaction.active || !readPlayers(connection, result.players))
+    Transaction CurrentTransaction(CurrentConnection);
+    ProfileResult Result;
+    if (!CurrentTransaction.Active || !ReadPlayers(CurrentConnection, Result.CurrentPlayers))
         return {};
-    if (result.players.size() >= MAX_PLAYERS)
+    if (Result.CurrentPlayers.size() >= MaxPlayers)
         return {StorageStatus::Full, {}};
-    if (std::find(result.players.begin(), result.players.end(), player) != result.players.end())
+    if (std::find(Result.CurrentPlayers.begin(), Result.CurrentPlayers.end(), Player) != Result.CurrentPlayers.end())
         return {StorageStatus::Duplicate, {}};
-    Statement cleanup, insert;
-    if (!cleanup.prepare(connection, "DELETE FROM best_times WHERE player=?1") ||
-        !cleanup.text(1, player) || sqlite3_step(cleanup.handle) != SQLITE_DONE ||
-        !insert.prepare(connection, "INSERT INTO players(name,sort_order) SELECT "
+    Statement CurrentCleanup, CurrentInsert;
+    if (!CurrentCleanup.Prepare(CurrentConnection, "DELETE FROM best_times WHERE player=?1") ||
+        !CurrentCleanup.Text(1, Player) || sqlite3_step(CurrentCleanup.CurrentHandle) != SQLITE_DONE ||
+        !CurrentInsert.Prepare(CurrentConnection, "INSERT INTO players(name,sort_order) SELECT "
                                     "?1,COALESCE(MAX(sort_order),-1)+1 FROM players") ||
-        !insert.text(1, player) || sqlite3_step(insert.handle) != SQLITE_DONE ||
-        !readPlayers(connection, result.players) || !transaction.commit())
+        !CurrentInsert.Text(1, Player) || sqlite3_step(CurrentInsert.CurrentHandle) != SQLITE_DONE ||
+        !ReadPlayers(CurrentConnection, Result.CurrentPlayers) || !CurrentTransaction.Commit())
         return {};
-    result.status = StorageStatus::Success;
-    return result;
+    Result.Status = StorageStatus::Success;
+    return Result;
 }
 
 // Delete the named profile and all of its scores within one transaction. Return NotFound for a
 // missing profile, preserve both tables if any operation fails, and expose the refreshed profile
 // list only after commit.
-ProfileResult GameDatabase::removePlayer(const std::string& player) {
-    if (!isValidPlayerName(player))
+ProfileResult GameDatabase::RemovePlayer(const std::string& Player) {
+    if (!IsValidPlayerName(Player))
         return {StorageStatus::Invalid, {}};
-    if (!ready)
+    if (!CurrentReady)
         return {};
-    Connection connection;
-    if (!connection.open(path))
+    Connection CurrentConnection;
+    if (!CurrentConnection.Open(Path))
         return {};
-    Transaction transaction(connection);
-    Statement profile, scores;
-    ProfileResult result;
-    if (!transaction.active || !profile.prepare(connection, "DELETE FROM players WHERE name=?1") ||
-        !profile.text(1, player) || sqlite3_step(profile.handle) != SQLITE_DONE)
+    Transaction CurrentTransaction(CurrentConnection);
+    Statement Profile, Scores;
+    ProfileResult Result;
+    if (!CurrentTransaction.Active || !Profile.Prepare(CurrentConnection, "DELETE FROM players WHERE name=?1") ||
+        !Profile.Text(1, Player) || sqlite3_step(Profile.CurrentHandle) != SQLITE_DONE)
         return {};
-    if (!sqlite3_changes(connection.handle))
+    if (!sqlite3_changes(CurrentConnection.CurrentHandle))
         return {StorageStatus::NotFound, {}};
-    if (!scores.prepare(connection, "DELETE FROM best_times WHERE player=?1") ||
-        !scores.text(1, player) || sqlite3_step(scores.handle) != SQLITE_DONE ||
-        !readPlayers(connection, result.players) || !transaction.commit())
+    if (!Scores.Prepare(CurrentConnection, "DELETE FROM best_times WHERE player=?1") ||
+        !Scores.Text(1, Player) || sqlite3_step(Scores.CurrentHandle) != SQLITE_DONE ||
+        !ReadPlayers(CurrentConnection, Result.CurrentPlayers) || !CurrentTransaction.Commit())
         return {};
-    result.status = StorageStatus::Success;
-    return result;
+    Result.Status = StorageStatus::Success;
+    return Result;
 }
 
 // Look up a score by player, maze size, and mode after validating the key. Success with an empty
 // seconds optional means no score exists; Invalid and Unavailable distinguish bad input from a
 // storage failure.
-BestTimeResult GameDatabase::bestTime(const std::string& player, int size, GameMode mode) const {
-    if (!isValidPlayerName(player) || !isValidSize(size) || !modeKey(mode))
+BestTimeResult GameDatabase::BestTime(const std::string& Player, int CurrentSize, GameMode Mode) const {
+    if (!IsValidPlayerName(Player) || !IsValidSize(CurrentSize) || !ModeKey(Mode))
         return {StorageStatus::Invalid, {}};
-    if (!ready)
+    if (!CurrentReady)
         return {};
-    Connection connection;
-    Statement query;
-    if (!connection.open(path) ||
-        !query.prepare(
-            connection,
+    Connection CurrentConnection;
+    Statement CurrentQuery;
+    if (!CurrentConnection.Open(Path) ||
+        !CurrentQuery.Prepare(
+            CurrentConnection,
             "SELECT seconds FROM best_times WHERE player=?1 AND maze_size=?2 AND mode=?3") ||
-        !bindKey(query, player, size, mode))
+        !BindKey(CurrentQuery, Player, CurrentSize, Mode))
         return {};
-    const int result = sqlite3_step(query.handle);
-    if (result == SQLITE_DONE)
+    const int Result = sqlite3_step(CurrentQuery.CurrentHandle);
+    if (Result == SQLITE_DONE)
         return {StorageStatus::Success, {}};
-    if (result != SQLITE_ROW)
+    if (Result != SQLITE_ROW)
         return {};
-    return {StorageStatus::Success, (float)sqlite3_column_double(query.handle, 0)};
+    return {StorageStatus::Success, (float)sqlite3_column_double(CurrentQuery.CurrentHandle, 0)};
 }
 
 // Validate the completed run and confirm its profile still exists, then compare and write its
 // time under an immediate transaction. Return Updated, Unchanged, Invalid, or StorageError
 // directly so the UI can report the correct outcome.
-RecordResult GameDatabase::record(const std::string& player, int size, float seconds,
-                                  GameMode mode) {
-    if (!isValidPlayerName(player) || !isValidSize(size) || !std::isfinite(seconds) ||
-        seconds < 0 || !modeKey(mode))
+RecordResult GameDatabase::Record(const std::string& Player, int CurrentSize, float Seconds,
+                                  GameMode Mode) {
+    if (!IsValidPlayerName(Player) || !IsValidSize(CurrentSize) || !std::isfinite(Seconds) ||
+        Seconds < 0 || !ModeKey(Mode))
         return RecordResult::Invalid;
-    if (!ready)
+    if (!CurrentReady)
         return RecordResult::StorageError;
-    Connection connection;
-    if (!connection.open(path))
+    Connection CurrentConnection;
+    if (!CurrentConnection.Open(Path))
         return RecordResult::StorageError;
-    Transaction transaction(connection);
-    std::vector<std::string> players;
-    if (!transaction.active || !readPlayers(connection, players))
+    Transaction CurrentTransaction(CurrentConnection);
+    std::vector<std::string> CurrentPlayers;
+    if (!CurrentTransaction.Active || !ReadPlayers(CurrentConnection, CurrentPlayers))
         return RecordResult::StorageError;
-    if (std::find(players.begin(), players.end(), player) == players.end())
+    if (std::find(CurrentPlayers.begin(), CurrentPlayers.end(), Player) == CurrentPlayers.end())
         return RecordResult::Invalid;
-    bool changed = false;
-    if (!writeBest(connection, player, size, seconds, mode, changed) || !transaction.commit())
+    bool Changed = false;
+    if (!WriteBest(CurrentConnection, Player, CurrentSize, Seconds, Mode, Changed) || !CurrentTransaction.Commit())
         return RecordResult::StorageError;
-    return changed ? RecordResult::Updated : RecordResult::Unchanged;
+    return Changed ? RecordResult::Updated : RecordResult::Unchanged;
 }

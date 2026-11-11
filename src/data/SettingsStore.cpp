@@ -4,101 +4,101 @@
 #include <string>
 
 namespace {
-const std::filesystem::path FILE_NAME = "save_data/settings.txt";
+const std::filesystem::path FileName = "save_data/settings.txt";
 const std::filesystem::path TEMPORARY = "save_data/settings.txt.tmp";
 const std::filesystem::path BACKUP = "save_data/settings.txt.bak";
 
 // Parse one mouse_sensitivity integer record from the requested file, permitting surrounding
 // whitespace and rejecting extra content or malformed values. Return an empty optional when the
 // file cannot supply a valid record.
-std::optional<int> readSensitivity(const std::filesystem::path& path) {
-    std::ifstream input(path);
-    std::string key;
-    int value = 0;
-    if (!(input >> key >> value) || key != "mouse_sensitivity") return std::nullopt;
-    input >> std::ws;
-    if (!input.eof()) return std::nullopt;
-    return value;
+std::optional<int> ReadSensitivity(const std::filesystem::path& Path) {
+    std::ifstream CurrentInput(Path);
+    std::string Key;
+    int Value = 0;
+    if (!(CurrentInput >> Key >> Value) || Key != "mouse_sensitivity") return std::nullopt;
+    CurrentInput >> std::ws;
+    if (!CurrentInput.eof()) return std::nullopt;
+    return Value;
 }
 
 // Best-effort removal of a failed save's temporary file using error_code rather than exceptions.
 // Cleanup must not replace the original save failure with a second filesystem exception.
-void removeTemporary() {
-    std::error_code ignored;
-    std::filesystem::remove(TEMPORARY, ignored);
+void RemoveTemporary() {
+    std::error_code Ignored;
+    std::filesystem::remove(TEMPORARY, Ignored);
 }
 }
 
 // Read the primary settings file, consulting its backup only when the primary is absent. Return
 // an empty optional for unavailable or malformed data without creating files or changing
 // preferences.
-std::optional<int> SettingsStore::loadMouseSensitivity() const {
+std::optional<int> SettingsStore::LoadMouseSensitivity() const {
     // Read the main file, or its backup if the main file is absent, without changing either file.
-    std::error_code error;
-    bool exists = std::filesystem::exists(FILE_NAME, error);
-    if (error) return std::nullopt;
-    return readSensitivity(exists ? FILE_NAME : BACKUP);
+    std::error_code Error;
+    bool Exists = std::filesystem::exists(FileName, Error);
+    if (Error) return std::nullopt;
+    return ReadSensitivity(Exists ? FileName : BACKUP);
 }
 
 // Write the supplied percentage to a checked temporary file, then replace the settings file using
 // a backup for recovery. Return false if saving fails; profiles and scores are never changed by
 // this operation.
-bool SettingsStore::saveMouseSensitivity(int percent) const {
-    std::error_code error;
-    std::filesystem::create_directories(FILE_NAME.parent_path(), error);
-    if (error) return false;
+bool SettingsStore::SaveMouseSensitivity(int Percent) const {
+    std::error_code Error;
+    std::filesystem::create_directories(FileName.parent_path(), Error);
+    if (Error) return false;
 
-    bool hadOriginal = std::filesystem::exists(FILE_NAME, error);
-    if (error) return false;
-    if (hadOriginal && !std::filesystem::is_regular_file(FILE_NAME, error)) return false;
-    if (error) return false;
+    bool HadOriginal = std::filesystem::exists(FileName, Error);
+    if (Error) return false;
+    if (HadOriginal && !std::filesystem::is_regular_file(FileName, Error)) return false;
+    if (Error) return false;
 
     // Restore an orphaned backup before saving so an interrupted replacement does not discard the last
     // saved value.
-    if (!hadOriginal && std::filesystem::exists(BACKUP, error)) {
-        if (error || !std::filesystem::is_regular_file(BACKUP, error) || error) return false;
-        std::filesystem::rename(BACKUP, FILE_NAME, error);
-        if (error) return false;
-        hadOriginal = true;
+    if (!HadOriginal && std::filesystem::exists(BACKUP, Error)) {
+        if (Error || !std::filesystem::is_regular_file(BACKUP, Error) || Error) return false;
+        std::filesystem::rename(BACKUP, FileName, Error);
+        if (Error) return false;
+        HadOriginal = true;
     }
-    if (error) return false;
+    if (Error) return false;
 
-    std::ofstream output(TEMPORARY, std::ios::binary | std::ios::trunc);
-    if (!output) return false;
-    output << "mouse_sensitivity " << percent << '\n';
-    output.flush();
-    if (!output) {
-        output.close();
-        removeTemporary();
+    std::ofstream Output(TEMPORARY, std::ios::binary | std::ios::trunc);
+    if (!Output) return false;
+    Output << "mouse_sensitivity " << Percent << '\n';
+    Output.flush();
+    if (!Output) {
+        Output.close();
+        RemoveTemporary();
         return false;
     }
-    output.close();
-    if (!output) {
-        removeTemporary();
+    Output.close();
+    if (!Output) {
+        RemoveTemporary();
         return false;
     }
 
-    std::filesystem::remove(BACKUP, error);
-    if (error) {
-        removeTemporary();
+    std::filesystem::remove(BACKUP, Error);
+    if (Error) {
+        RemoveTemporary();
         return false;
     }
-    if (hadOriginal) {
-        std::filesystem::rename(FILE_NAME, BACKUP, error);
-        if (error) {
-            removeTemporary();
+    if (HadOriginal) {
+        std::filesystem::rename(FileName, BACKUP, Error);
+        if (Error) {
+            RemoveTemporary();
             return false;
         }
     }
-    std::filesystem::rename(TEMPORARY, FILE_NAME, error);
-    if (error) {
-        if (hadOriginal) {
-            std::error_code restoreError;
-            std::filesystem::rename(BACKUP, FILE_NAME, restoreError);
+    std::filesystem::rename(TEMPORARY, FileName, Error);
+    if (Error) {
+        if (HadOriginal) {
+            std::error_code RestoreError;
+            std::filesystem::rename(BACKUP, FileName, RestoreError);
         }
-        removeTemporary();
+        RemoveTemporary();
         return false;
     }
-    if (hadOriginal) std::filesystem::remove(BACKUP, error);
+    if (HadOriginal) std::filesystem::remove(BACKUP, Error);
     return true;
 }

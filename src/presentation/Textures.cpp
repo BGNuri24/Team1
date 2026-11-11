@@ -11,256 +11,256 @@ namespace {
 // Add deterministic pixel-coordinate grain to an image without consuming gameplay random state.
 // strength controls the variation, allowing repeatable surface detail while keeping seeded mazes
 // unchanged.
-void grain(Image& image, int strength) {
-    for (int y = 0; y < image.height; ++y) {
-        for (int x = 0; x < image.width; ++x) {
-            unsigned int hash = (unsigned int)x * 374761393u + (unsigned int)y * 668265263u;
-            hash = (hash ^ (hash >> 13)) * 1274126177u;
-            int amount = (int)((hash ^ (hash >> 16)) % (2 * strength + 1)) - strength;
-            Color color = GetImageColor(image, x, y);
+void Grain(Image& CurrentImage, int Strength) {
+    for (int CurrentY = 0; CurrentY < CurrentImage.height; ++CurrentY) {
+        for (int CurrentX = 0; CurrentX < CurrentImage.width; ++CurrentX) {
+            unsigned int Hash = (unsigned int)CurrentX * 374761393u + (unsigned int)CurrentY * 668265263u;
+            Hash = (Hash ^ (Hash >> 13)) * 1274126177u;
+            int Amount = (int)((Hash ^ (Hash >> 16)) % (2 * Strength + 1)) - Strength;
+            Color CurrentColor = GetImageColor(CurrentImage, CurrentX, CurrentY);
             // Offset one color byte by the deterministic grain amount and clamp it to the valid
             // channel range. Applying the same adjustment to channels changes brightness without
             // unrelated hue shifts.
-            auto adjust = [amount](unsigned char channel) {
-                int value = channel + amount;
-                return (unsigned char)(value < 0 ? 0 : value > 255 ? 255 : value);
+            auto Adjust = [Amount](unsigned char Channel) {
+                int Value = Channel + Amount;
+                return (unsigned char)(Value < 0 ? 0 : Value > 255 ? 255 : Value);
             };
-            ImageDrawPixel(&image, x, y, {adjust(color.r), adjust(color.g), adjust(color.b), 255});
+            ImageDrawPixel(&CurrentImage, CurrentX, CurrentY, {Adjust(CurrentColor.r), Adjust(CurrentColor.g), Adjust(CurrentColor.b), 255});
         }
     }
 }
 
 // Draw light top and left edges plus dark bottom and right edges around an image-space rectangle.
 // The paired colors create a shallow beveled-panel appearance in the generated texture.
-void frame(Image& image, int x, int y, int width, int height, Color light, Color dark) {
-    ImageDrawRectangle(&image, x, y, width, 2, light);
-    ImageDrawRectangle(&image, x, y, 2, height, light);
-    ImageDrawRectangle(&image, x, y + height - 2, width, 2, dark);
-    ImageDrawRectangle(&image, x + width - 2, y, 2, height, dark);
+void Frame(Image& CurrentImage, int CurrentX, int CurrentY, int Width, int Height, Color Light, Color Dark) {
+    ImageDrawRectangle(&CurrentImage, CurrentX, CurrentY, Width, 2, Light);
+    ImageDrawRectangle(&CurrentImage, CurrentX, CurrentY, 2, Height, Light);
+    ImageDrawRectangle(&CurrentImage, CurrentX, CurrentY + Height - 2, Width, 2, Dark);
+    ImageDrawRectangle(&CurrentImage, CurrentX + Width - 2, CurrentY, 2, Height, Dark);
 }
 
 // Upload a CPU Image to a GPU texture and release the image's pixels afterward. Configure
 // mipmaps, anisotropic filtering, and repeating coordinates; the returned texture must be owned
 // and unloaded exactly once.
-Texture2D upload(Image& image) {
-    Texture2D texture = LoadTextureFromImage(image);
-    UnloadImage(image);
-    GenTextureMipmaps(&texture);
-    SetTextureFilter(texture, TEXTURE_FILTER_ANISOTROPIC_8X);
-    SetTextureWrap(texture, TEXTURE_WRAP_REPEAT);
-    return texture;
+Texture2D Upload(Image& CurrentImage) {
+    Texture2D CurrentTexture = LoadTextureFromImage(CurrentImage);
+    UnloadImage(CurrentImage);
+    GenTextureMipmaps(&CurrentTexture);
+    SetTextureFilter(CurrentTexture, TEXTURE_FILTER_ANISOTROPIC_8X);
+    SetTextureWrap(CurrentTexture, TEXTURE_WRAP_REPEAT);
+    return CurrentTexture;
 }
 
 // Approximate a cubic decorative curve with image-space strokes using the supplied control points
 // and width. Ornament generation uses this without external curve assets or random draws.
-void scroll(Image& image, Vector2 a, Vector2 b, Vector2 c, Vector2 d, int width, Color color) {
-    Vector2 previous = a;
-    for (int step = 1; step <= 18; ++step) {
-        const float t = step / 18.0f, u = 1 - t;
-        Vector2 next{u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
-                     u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y};
-        ImageDrawLineEx(&image, previous, next, width, color);
-        previous = next;
+void Scroll(Image& CurrentImage, Vector2 CurrentA, Vector2 B, Vector2 CurrentC, Vector2 CurrentD, int Width, Color CurrentColor) {
+    Vector2 Previous = CurrentA;
+    for (int Step = 1; Step <= 18; ++Step) {
+        const float CurrentT = Step / 18.0f, U = 1 - CurrentT;
+        Vector2 Next{U * U * U * CurrentA.x + 3 * U * U * CurrentT * B.x + 3 * U * CurrentT * CurrentT * CurrentC.x + CurrentT * CurrentT * CurrentT * CurrentD.x,
+                     U * U * U * CurrentA.y + 3 * U * U * CurrentT * B.y + 3 * U * CurrentT * CurrentT * CurrentC.y + CurrentT * CurrentT * CurrentT * CurrentD.y};
+        ImageDrawLineEx(&CurrentImage, Previous, Next, Width, CurrentColor);
+        Previous = Next;
     }
 }
 
 // Draw a fourfold damask ornament around an image-space center, scaling its curves and stroke
 // widths by size. A shadow pass beneath the thread-colored pass gives the pattern depth before
 // GPU upload.
-void floralMotif(Image& image, float x, float y, float size, Color thread, Color shadow) {
-    for (int layer = 0; layer < 2; ++layer) {
-        const Color color = layer ? thread : shadow;
-        const int width = std::max(1, (int)((layer ? 2.1f : 4.8f) * size));
-        for (int quarter = 0; quarter < 4; ++quarter) {
+void FloralMotif(Image& CurrentImage, float CurrentX, float CurrentY, float CurrentSize, Color Thread, Color Shadow) {
+    for (int CurrentLayer = 0; CurrentLayer < 2; ++CurrentLayer) {
+        const Color CurrentColor = CurrentLayer ? Thread : Shadow;
+        const int Width = std::max(1, (int)((CurrentLayer ? 2.1f : 4.8f) * CurrentSize));
+        for (int Quarter = 0; Quarter < 4; ++Quarter) {
             // Rotate and scale a motif-local point for the current quarter-turn before
             // translating it to the image center. Four rotations reuse the same decorative curve
             // definitions.
-            auto point = [&](float px, float py) {
-                for (int turn = 0; turn < quarter; ++turn) {
-                    const float old = px;
-                    px = -py;
-                    py = old;
+            auto Point = [&](float Px, float Py) {
+                for (int CurrentTurn = 0; CurrentTurn < Quarter; ++CurrentTurn) {
+                    const float Old = Px;
+                    Px = -Py;
+                    Py = Old;
                 }
-                return Vector2{x + px * size, y + py * size};
+                return Vector2{CurrentX + Px * CurrentSize, CurrentY + Py * CurrentSize};
             };
             // Transform four motif-local control points and draw their cubic scroll with the
             // current layer's width and color. The enclosing shadow and thread passes reuse this
             // curve callback.
-            auto curve = [&](Vector2 a, Vector2 b, Vector2 c, Vector2 d) {
-                scroll(image, point(a.x, a.y), point(b.x, b.y), point(c.x, c.y), point(d.x, d.y),
-                       width, color);
+            auto Curve = [&](Vector2 CurrentA, Vector2 B, Vector2 CurrentC, Vector2 CurrentD) {
+                Scroll(CurrentImage, Point(CurrentA.x, CurrentA.y), Point(B.x, B.y), Point(CurrentC.x, CurrentC.y), Point(CurrentD.x, CurrentD.y),
+                       Width, CurrentColor);
             };
-            curve({0, -4}, {-17, -18}, {-11, -34}, {0, -43});
-            curve({0, -43}, {11, -34}, {17, -18}, {0, -4});
-            curve({0, -8}, {0, -22}, {1, -29}, {0, -37});
-            curve({0, -23}, {30, -57}, {49, -22}, {25, -10});
-            curve({25, -10}, {8, -3}, {6, -31}, {22, -27});
-            curve({22, -27}, {33, -23}, {29, -15}, {24, -20});
-            ImageDrawLineEx(&image, point(0, -57), point(57, 0), std::max(1, width - 1), color);
-            ImageDrawLineEx(&image, point(16, -42), point(24, -43), width, color);
-            ImageDrawLineEx(&image, point(40, -18), point(43, -25), width, color);
+            Curve({0, -4}, {-17, -18}, {-11, -34}, {0, -43});
+            Curve({0, -43}, {11, -34}, {17, -18}, {0, -4});
+            Curve({0, -8}, {0, -22}, {1, -29}, {0, -37});
+            Curve({0, -23}, {30, -57}, {49, -22}, {25, -10});
+            Curve({25, -10}, {8, -3}, {6, -31}, {22, -27});
+            Curve({22, -27}, {33, -23}, {29, -15}, {24, -20});
+            ImageDrawLineEx(&CurrentImage, Point(0, -57), Point(57, 0), std::max(1, Width - 1), CurrentColor);
+            ImageDrawLineEx(&CurrentImage, Point(16, -42), Point(24, -43), Width, CurrentColor);
+            ImageDrawLineEx(&CurrentImage, Point(40, -18), Point(43, -25), Width, CurrentColor);
         }
     }
-    ImageDrawCircle(&image, (int)x, (int)y, std::max(1, (int)(5 * size)), shadow);
-    ImageDrawCircle(&image, (int)x, (int)y, std::max(1, (int)(2 * size)), thread);
+    ImageDrawCircle(&CurrentImage, (int)CurrentX, (int)CurrentY, std::max(1, (int)(5 * CurrentSize)), Shadow);
+    ImageDrawCircle(&CurrentImage, (int)CurrentX, (int)CurrentY, std::max(1, (int)(2 * CurrentSize)), Thread);
 }
 
 // Look for a material image in packaged assets beside the executable, then in src/assets for a
 // development run. Return an empty Image when unavailable so material generation can use its
 // procedural fallback.
-Image materialArtwork(const char* filename) {
-    std::string path = std::string(GetApplicationDirectory()) + "assets/" + filename;
-    if (!FileExists(path.c_str()))
-        path = std::string("src/assets/") + filename;
-    return FileExists(path.c_str()) ? LoadImage(path.c_str()) : Image{};
+Image MaterialArtwork(const char* Filename) {
+    std::string Path = std::string(GetApplicationDirectory()) + "assets/" + Filename;
+    if (!FileExists(Path.c_str()))
+        Path = std::string("src/assets/") + Filename;
+    return FileExists(Path.c_str()) ? LoadImage(Path.c_str()) : Image{};
 }
 
 // Build the wall's CPU artwork from hotel damask, stone, and layered molding details, using
 // available image assets and procedural ornament. Upload the completed surface separately from
 // real-time lamp lighting.
-Texture2D wallMaterial(const MazePalette& palette) {
-    Image artwork = materialArtwork("hotel-wall-panels.png");
-    if (artwork.data) {
-        ImageResize(&artwork, 1024, 1024);
-        return upload(artwork);
+Texture2D WallMaterial(const MazePalette& CurrentPalette) {
+    Image Artwork = MaterialArtwork("HotelWallPanels.png");
+    if (Artwork.data) {
+        ImageResize(&Artwork, 1024, 1024);
+        return Upload(Artwork);
     }
-    const CorridorStyle style = corridorStyle(palette);
-    Image image = GenImageColor(1024, 1024, style.panel);
-    ImageDrawRectangle(&image, 0, 700, 1024, 324, style.trim);
-    for (int x = 0; x < 1024; ++x) {
-        const float fiber = .018f + .006f * std::sin(x * .39f) + .008f * std::sin(x * .071f);
-        ImageDrawRectangle(&image, x, 0, 1, 700, ColorLerp(style.panel, palette.paper, fiber));
-        const float wood = .03f + .025f * std::sin(x * .19f + std::sin(x * .037f));
-        ImageDrawRectangle(&image, x, 700, 1, 324, ColorLerp(style.trim, style.trimLight, wood));
+    const CorridorStyle Style = GetCorridorStyle(CurrentPalette);
+    Image CurrentImage = GenImageColor(1024, 1024, Style.CurrentPanel);
+    ImageDrawRectangle(&CurrentImage, 0, 700, 1024, 324, Style.Trim);
+    for (int CurrentX = 0; CurrentX < 1024; ++CurrentX) {
+        const float Fiber = .018f + .006f * std::sin(CurrentX * .39f) + .008f * std::sin(CurrentX * .071f);
+        ImageDrawRectangle(&CurrentImage, CurrentX, 0, 1, 700, ColorLerp(Style.CurrentPanel, CurrentPalette.CurrentPaper, Fiber));
+        const float Wood = .03f + .025f * std::sin(CurrentX * .19f + std::sin(CurrentX * .037f));
+        ImageDrawRectangle(&CurrentImage, CurrentX, 700, 1, 324, ColorLerp(Style.Trim, Style.TrimLight, Wood));
     }
-    for (int left : {44, 532}) {
-        ImageDrawRectangle(&image, left, 756, 448, 190,
-                           ColorLerp(style.trim, style.trimShade, .24f));
-        frame(image, left, 756, 448, 190, style.trimShade, style.trimLight);
-        frame(image, left + 7, 763, 434, 176, style.trimLight, style.trimShade);
-        ImageDrawRectangle(&image, left + 13, 769, 422, 164, style.trim);
+    for (int CurrentLeft : {44, 532}) {
+        ImageDrawRectangle(&CurrentImage, CurrentLeft, 756, 448, 190,
+                           ColorLerp(Style.Trim, Style.TrimShade, .24f));
+        Frame(CurrentImage, CurrentLeft, 756, 448, 190, Style.TrimShade, Style.TrimLight);
+        Frame(CurrentImage, CurrentLeft + 7, 763, 434, 176, Style.TrimLight, Style.TrimShade);
+        ImageDrawRectangle(&CurrentImage, CurrentLeft + 13, 769, 422, 164, Style.Trim);
     }
-    frame(image, 62, 78, 900, 590, style.trimLight, style.trimShade);
-    frame(image, 68, 84, 888, 578, style.brass, style.trimLight);
-    for (int left : {0, 990}) {
-        ImageDrawRectangle(&image, left, 0, 34, 1024, style.trim);
-        ImageDrawRectangle(&image, left + 5, 0, 2, 1024, style.trimLight);
+    Frame(CurrentImage, 62, 78, 900, 590, Style.TrimLight, Style.TrimShade);
+    Frame(CurrentImage, 68, 84, 888, 578, Style.Brass, Style.TrimLight);
+    for (int CurrentLeft : {0, 990}) {
+        ImageDrawRectangle(&CurrentImage, CurrentLeft, 0, 34, 1024, Style.Trim);
+        ImageDrawRectangle(&CurrentImage, CurrentLeft + 5, 0, 2, 1024, Style.TrimLight);
     }
-    for (int y : {12, 28, 45, 675, 683, 699, 961, 984, 1009}) {
-        ImageDrawRectangle(&image, 0, y, 1024, 4, style.trimLight);
-        ImageDrawRectangle(&image, 0, y + 4, 1024, 3, style.trimShade);
+    for (int CurrentY : {12, 28, 45, 675, 683, 699, 961, 984, 1009}) {
+        ImageDrawRectangle(&CurrentImage, 0, CurrentY, 1024, 4, Style.TrimLight);
+        ImageDrawRectangle(&CurrentImage, 0, CurrentY + 4, 1024, 3, Style.TrimShade);
     }
-    grain(image, 1);
-    return upload(image);
+    Grain(CurrentImage, 1);
+    return Upload(CurrentImage);
 }
 
 // Create a separate stone texture for pilaster fronts and returns so architectural pieces do not
 // stretch the wall wallpaper. Return an owned GPU texture using the same filtering and cleanup
 // conventions as other materials.
-Texture2D marbleMaterial(const MazePalette& palette) {
-    Image image = materialArtwork("hotel-marble.png");
-    if (!image.data) {
-        image = GenImageColor(512, 512, corridorStyle(palette).plaster);
-        grain(image, 3);
+Texture2D MarbleMaterial(const MazePalette& CurrentPalette) {
+    Image CurrentImage = MaterialArtwork("HotelMarble.png");
+    if (!CurrentImage.data) {
+        CurrentImage = GenImageColor(512, 512, GetCorridorStyle(CurrentPalette).Plaster);
+        Grain(CurrentImage, 3);
     }
-    ImageResize(&image, 512, 512);
-    return upload(image);
+    ImageResize(&CurrentImage, 512, 512);
+    return Upload(CurrentImage);
 }
 
 // Fill an image-space diamond with two triangles using independent horizontal and vertical radii.
 // Carpet ornament helpers reuse this primitive for broad shapes that survive texture filtering.
-void diamond(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
-    const Vector2 top{(float)x, (float)(y - radiusY)}, bottom{(float)x, (float)(y + radiusY)};
-    const Vector2 left{(float)(x - radiusX), (float)y}, right{(float)(x + radiusX), (float)y};
-    ImageDrawTriangle(&image, top, left, right, color);
-    ImageDrawTriangle(&image, left, bottom, right, color);
+void Diamond(Image& CurrentImage, int CurrentX, int CurrentY, int RadiusX, int RadiusY, Color CurrentColor) {
+    const Vector2 Top{(float)CurrentX, (float)(CurrentY - RadiusY)}, Bottom{(float)CurrentX, (float)(CurrentY + RadiusY)};
+    const Vector2 CurrentLeft{(float)(CurrentX - RadiusX), (float)CurrentY}, CurrentRight{(float)(CurrentX + RadiusX), (float)CurrentY};
+    ImageDrawTriangle(&CurrentImage, Top, CurrentLeft, CurrentRight, CurrentColor);
+    ImageDrawTriangle(&CurrentImage, CurrentLeft, Bottom, CurrentRight, CurrentColor);
 }
 
 // Fill an eight-point carpet motif with a triangle fan around its image-space center. Alternate
 // outer and inner radii so the broad silhouette stays recognizable in lower mip levels.
-void star(Image& image, int x, int y, int radiusX, int radiusY, Color color) {
+void Star(Image& CurrentImage, int CurrentX, int CurrentY, int RadiusX, int RadiusY, Color CurrentColor) {
     // Eight broad points stay recognizable in mipmaps; tiny stitches are secondary to the shape.
-    Vector2 vertices[18]{};
-    vertices[0] = {(float)x, (float)y};
-    for (int point = 0; point <= 16; ++point) {
-        const float angle = point * PI / 8.0f;
-        const float radius = point % 2 ? .47f : 1.0f;
-        vertices[point + 1] = {x + std::cos(angle) * radiusX * radius,
-                               y + std::sin(angle) * radiusY * radius};
+    Vector2 Vertices[18]{};
+    Vertices[0] = {(float)CurrentX, (float)CurrentY};
+    for (int Point = 0; Point <= 16; ++Point) {
+        const float Angle = Point * PI / 8.0f;
+        const float Radius = Point % 2 ? .47f : 1.0f;
+        Vertices[Point + 1] = {CurrentX + std::cos(Angle) * RadiusX * Radius,
+                               CurrentY + std::sin(Angle) * RadiusY * Radius};
     }
-    ImageDrawTriangleFan(&image, vertices, 18, color);
+    ImageDrawTriangleFan(&CurrentImage, Vertices, 18, CurrentColor);
 }
 
 // Draw an angular ram-horn motif into the carpet image using the supplied center, radius, and
 // colors. The broad stepped ornament fills spaces between the larger textile medallions.
-void wovenHook(Image& image, int x, int y, int radius, Color color, Color center) {
-    const int width = std::max(3, radius / 6);
-    for (int quarter = 0; quarter < 4; ++quarter) {
+void WovenHook(Image& CurrentImage, int CurrentX, int CurrentY, int Radius, Color CurrentColor, Color CurrentCenter) {
+    const int Width = std::max(3, Radius / 6);
+    for (int Quarter = 0; Quarter < 4; ++Quarter) {
         // Translate hook-local coordinates to image-space positions. The woven motif can then be
         // authored around its center without repeating the offset calculation.
-        auto point = [&](int px, int py) {
-            for (int turn = 0; turn < quarter; ++turn) {
-                const int old = px;
-                px = -py;
-                py = old;
+        auto Point = [&](int Px, int Py) {
+            for (int CurrentTurn = 0; CurrentTurn < Quarter; ++CurrentTurn) {
+                const int Old = Px;
+                Px = -Py;
+                Py = Old;
             }
-            return Vector2{(float)(x + px), (float)(y + py)};
+            return Vector2{(float)(CurrentX + Px), (float)(CurrentY + Py)};
         };
-        ImageDrawLineEx(&image, point(0, 0), point(0, -radius), width, color);
-        ImageDrawLineEx(&image, point(0, -radius), point(radius, -radius), width, color);
-        ImageDrawLineEx(&image, point(radius, -radius), point(radius, -radius / 3), width, color);
-        ImageDrawLineEx(&image, point(radius, -radius / 3), point(radius / 2, -radius / 3), width,
-                        color);
+        ImageDrawLineEx(&CurrentImage, Point(0, 0), Point(0, -Radius), Width, CurrentColor);
+        ImageDrawLineEx(&CurrentImage, Point(0, -Radius), Point(Radius, -Radius), Width, CurrentColor);
+        ImageDrawLineEx(&CurrentImage, Point(Radius, -Radius), Point(Radius, -Radius / 3), Width, CurrentColor);
+        ImageDrawLineEx(&CurrentImage, Point(Radius, -Radius / 3), Point(Radius / 2, -Radius / 3), Width,
+                        CurrentColor);
     }
-    diamond(image, x, y, radius / 3, radius / 3, center);
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius / 3, Radius / 3, CurrentCenter);
 }
 
 // Layer broad colored shapes and woven details into a Kazak-style carpet medallion. Keep its
 // silhouette readable after mipmapping instead of relying on hairline decoration.
-void medallion(Image& image, int x, int y, int radius, Color field, Color dye, Color yarn,
-               Color dark) {
-    diamond(image, x, y, radius, radius, dark);
-    diamond(image, x, y, radius - 9, radius - 9, yarn);
-    diamond(image, x, y, radius - 20, radius - 20, dye);
-    diamond(image, x, y, radius - 39, radius - 39, dark);
-    diamond(image, x, y, radius - 48, radius - 48, yarn);
-    diamond(image, x, y, radius - 61, radius - 61, dye);
-    diamond(image, x, y, (int)(radius * .60f), (int)(radius * .60f), yarn);
-    diamond(image, x, y, (int)(radius * .55f), (int)(radius * .55f), field);
-    diamond(image, x, y, (int)(radius * .43f), (int)(radius * .43f), dye);
-    star(image, x, y, (int)(radius * .29f), (int)(radius * .29f), yarn);
-    star(image, x, y, (int)(radius * .21f), (int)(radius * .21f), dark);
-    diamond(image, x, y, (int)(radius * .09f), (int)(radius * .09f), yarn);
-    for (int horizontal : {-1, 1})
-        for (int vertical : {-1, 1}) {
-            wovenHook(image, x + horizontal * radius / 3, y + vertical * radius / 3, 14, yarn,
-                      dark);
-            diamond(image, x + horizontal * radius / 6, y + vertical * radius / 6, 12, 12, field);
+void Medallion(Image& CurrentImage, int CurrentX, int CurrentY, int Radius, Color Field, Color CurrentDye, Color Yarn,
+               Color Dark) {
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius, Radius, Dark);
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius - 9, Radius - 9, Yarn);
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius - 20, Radius - 20, CurrentDye);
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius - 39, Radius - 39, Dark);
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius - 48, Radius - 48, Yarn);
+    Diamond(CurrentImage, CurrentX, CurrentY, Radius - 61, Radius - 61, CurrentDye);
+    Diamond(CurrentImage, CurrentX, CurrentY, (int)(Radius * .60f), (int)(Radius * .60f), Yarn);
+    Diamond(CurrentImage, CurrentX, CurrentY, (int)(Radius * .55f), (int)(Radius * .55f), Field);
+    Diamond(CurrentImage, CurrentX, CurrentY, (int)(Radius * .43f), (int)(Radius * .43f), CurrentDye);
+    Star(CurrentImage, CurrentX, CurrentY, (int)(Radius * .29f), (int)(Radius * .29f), Yarn);
+    Star(CurrentImage, CurrentX, CurrentY, (int)(Radius * .21f), (int)(Radius * .21f), Dark);
+    Diamond(CurrentImage, CurrentX, CurrentY, (int)(Radius * .09f), (int)(Radius * .09f), Yarn);
+    for (int CurrentHorizontal : {-1, 1})
+        for (int Vertical : {-1, 1}) {
+            WovenHook(CurrentImage, CurrentX + CurrentHorizontal * Radius / 3, CurrentY + Vertical * Radius / 3, 14, Yarn,
+                      Dark);
+            Diamond(CurrentImage, CurrentX + CurrentHorizontal * Radius / 6, CurrentY + Vertical * Radius / 6, 12, 12, Field);
         }
-    for (int quarter = 0; quarter < 4; ++quarter) {
+    for (int Quarter = 0; Quarter < 4; ++Quarter) {
         // Translate medallion-local coordinates into the carpet image. Repeated decorative
         // strokes share the same center and orientation.
-        auto point = [&](int px, int py) {
-            for (int turn = 0; turn < quarter; ++turn) {
-                const int old = px;
-                px = -py;
-                py = old;
+        auto Point = [&](int Px, int Py) {
+            for (int CurrentTurn = 0; CurrentTurn < Quarter; ++CurrentTurn) {
+                const int Old = Px;
+                Px = -Py;
+                Py = Old;
             }
-            return Vector2{(float)(x + px), (float)(y + py)};
+            return Vector2{(float)(CurrentX + Px), (float)(CurrentY + Py)};
         };
         // Stepped hooks and opposing stitches echo the woven border around the reference diamonds.
-        for (int step = 0; step < 7; ++step) {
-            const int a = 38 + step * (radius - 90) / 7, b = radius - 26 - a;
-            const Vector2 stitch = point(a, -b);
-            diamond(image, (int)stitch.x, (int)stitch.y, 7, 7, yarn);
-            const Vector2 tip = point(a - 8, -b - 22);
-            ImageDrawLineEx(&image, point(a - 8, -b - 4), tip, 5, yarn);
-            ImageDrawLineEx(&image, tip, point(a + 5, -b - 22), 5, yarn);
+        for (int Step = 0; Step < 7; ++Step) {
+            const int CurrentA = 38 + Step * (Radius - 90) / 7, B = Radius - 26 - CurrentA;
+            const Vector2 Stitch = Point(CurrentA, -B);
+            Diamond(CurrentImage, (int)Stitch.x, (int)Stitch.y, 7, 7, Yarn);
+            const Vector2 Tip = Point(CurrentA - 8, -B - 22);
+            ImageDrawLineEx(&CurrentImage, Point(CurrentA - 8, -B - 4), Tip, 5, Yarn);
+            ImageDrawLineEx(&CurrentImage, Tip, Point(CurrentA + 5, -B - 22), 5, Yarn);
         }
-        for (int step = 0; step < 5; ++step) {
-            const int a = 25 + step * (radius / 2 - 40) / 5;
-            const Vector2 stitch = point(a, -(int)(radius * .58f) + a);
-            diamond(image, (int)stitch.x, (int)stitch.y, 5, 5, dark);
+        for (int Step = 0; Step < 5; ++Step) {
+            const int CurrentA = 25 + Step * (Radius / 2 - 40) / 5;
+            const Vector2 Stitch = Point(CurrentA, -(int)(Radius * .58f) + CurrentA);
+            Diamond(CurrentImage, (int)Stitch.x, (int)Stitch.y, 5, 5, Dark);
         }
     }
 }
@@ -268,119 +268,119 @@ void medallion(Image& image, int x, int y, int radius, Color field, Color dye, C
 // Fit full-color textile artwork into a dedicated region of the floor atlas. Preserve the source
 // colors rather than tinting them with the maze palette, and keep field and border regions
 // separate.
-void carpetArtwork(Image& atlas, const char* filename, int left, int width) {
-    Image source = materialArtwork(filename);
-    if (!source.data)
+void CarpetArtwork(Image& Atlas, const char* Filename, int CurrentLeft, int Width) {
+    Image Source = MaterialArtwork(Filename);
+    if (!Source.data)
         return;
-    ImageResize(&source, width, CarpetLayout::FieldSize);
-    ImageDraw(&atlas, source, {0, 0, (float)width, (float)CarpetLayout::FieldSize},
-              {(float)left, 0, (float)width, (float)CarpetLayout::FieldSize}, WHITE);
-    UnloadImage(source);
+    ImageResize(&Source, Width, CarpetLayout::FieldSize);
+    ImageDraw(&Atlas, Source, {0, 0, (float)Width, (float)CarpetLayout::FieldSize},
+              {(float)CurrentLeft, 0, (float)Width, (float)CarpetLayout::FieldSize}, WHITE);
+    UnloadImage(Source);
 }
 
 // Create or reuse the cream, crimson, and near-black carpet atlas shared across runs. Separate
 // field and border regions let the renderer place continuous runners and miter them at real wall
 // corners.
-Texture2D floorMaterial() {
+Texture2D FloorMaterial() {
     using namespace CarpetLayout;
     // Load or generate the fixed floor material once and retain a CPU pixel copy for later
     // uploads. The cache preserves identical carpet artwork across runs without using maze random
     // state.
-    static const std::vector<Color> pixels = [] {
-        constexpr Color field{214, 199, 164, 255}, dye{165, 38, 29, 255};
-        constexpr Color yarn{225, 207, 165, 255}, dark{33, 24, 21, 255};
+    static const std::vector<Color> Pixels = [] {
+        constexpr Color Field{214, 199, 164, 255}, CurrentDye{165, 38, 29, 255};
+        constexpr Color Yarn{225, 207, 165, 255}, Dark{33, 24, 21, 255};
         // Procedural motifs keep the material usable if the packaged artwork is unavailable.
-        Image image = GenImageColor(AtlasWidth, FieldSize, field);
-        medallion(image, 512, 512, 332, field, dye, yarn, dark);
-        for (int x : {238, 786})
-            for (int y : {176, 848}) {
-                diamond(image, x, y, 65, 65, dye);
-                diamond(image, x, y, 54, 54, yarn);
-                diamond(image, x, y, 44, 44, dark);
-                star(image, x, y, 34, 34, yarn);
-                diamond(image, x, y, 13, 13, dye);
+        Image CurrentImage = GenImageColor(AtlasWidth, FieldSize, Field);
+        Medallion(CurrentImage, 512, 512, 332, Field, CurrentDye, Yarn, Dark);
+        for (int CurrentX : {238, 786})
+            for (int CurrentY : {176, 848}) {
+                Diamond(CurrentImage, CurrentX, CurrentY, 65, 65, CurrentDye);
+                Diamond(CurrentImage, CurrentX, CurrentY, 54, 54, Yarn);
+                Diamond(CurrentImage, CurrentX, CurrentY, 44, 44, Dark);
+                Star(CurrentImage, CurrentX, CurrentY, 34, 34, Yarn);
+                Diamond(CurrentImage, CurrentX, CurrentY, 13, 13, CurrentDye);
             }
-        for (int y : {0, 1024}) {
-            star(image, 512, y, 73, 73, yarn);
-            star(image, 512, y, 52, 52, dye);
+        for (int CurrentY : {0, 1024}) {
+            Star(CurrentImage, 512, CurrentY, 73, 73, Yarn);
+            Star(CurrentImage, 512, CurrentY, 52, 52, CurrentDye);
         }
-        for (int x : {190, 834})
-            for (int y = 320; y <= 704; y += 96) {
-                star(image, x, y, 31, 31, dye);
-                star(image, x, y, 20, 20, yarn);
+        for (int CurrentX : {190, 834})
+            for (int CurrentY = 320; CurrentY <= 704; CurrentY += 96) {
+                Star(CurrentImage, CurrentX, CurrentY, 31, 31, CurrentDye);
+                Star(CurrentImage, CurrentX, CurrentY, 20, 20, Yarn);
             }
-        for (int x : {350, 674})
-            for (int y : {88, 936}) {
-                wovenHook(image, x, y, 32, yarn, dye);
-                diamond(image, x, y, 10, 10, dye);
+        for (int CurrentX : {350, 674})
+            for (int CurrentY : {88, 936}) {
+                WovenHook(CurrentImage, CurrentX, CurrentY, 32, Yarn, CurrentDye);
+                Diamond(CurrentImage, CurrentX, CurrentY, 10, 10, CurrentDye);
             }
-        for (int y : {256, 768})
-            for (int x : {190, 834})
-                wovenHook(image, x, y, 23, ColorLerp(yarn, dye, .28f), dye);
-        for (int y : {115, 909}) {
-            diamond(image, 512, y, 37, 37, dye);
-            diamond(image, 512, y, 27, 27, yarn);
-            star(image, 512, y, 18, 18, field);
+        for (int CurrentY : {256, 768})
+            for (int CurrentX : {190, 834})
+                WovenHook(CurrentImage, CurrentX, CurrentY, 23, ColorLerp(Yarn, CurrentDye, .28f), CurrentDye);
+        for (int CurrentY : {115, 909}) {
+            Diamond(CurrentImage, 512, CurrentY, 37, 37, CurrentDye);
+            Diamond(CurrentImage, 512, CurrentY, 27, 27, Yarn);
+            Star(CurrentImage, 512, CurrentY, 18, 18, Field);
         }
         // A broad repeating star band sits between narrow guard stripes and a stepped meander.
         // The dark guard gap prevents border colors bleeding into the field's mipmapped repeat
         // edge.
-        const int border = BorderOffset;
-        ImageDrawRectangle(&image, border, 0, BorderSize, FieldSize, dye);
-        for (int offset : {0, 19, 40, 178, 192, 232, 247})
-            ImageDrawRectangle(&image, border + offset, 0, offset == 192 ? 40 : 6, FieldSize,
-                               offset == 192 ? yarn : dark);
-        for (int y = 64; y < FieldSize; y += 128) {
-            star(image, border + 109, y, 65, 50, yarn);
-            star(image, border + 109, y, 46, 35, dark);
-            diamond(image, border + 109, y, 24, 19, dye);
-            for (int end : {-1, 1})
-                diamond(image, border + 109 + end * 52, y + 56, 16, 12, yarn);
+        const int CurrentBorder = BorderOffset;
+        ImageDrawRectangle(&CurrentImage, CurrentBorder, 0, BorderSize, FieldSize, CurrentDye);
+        for (int CurrentOffset : {0, 19, 40, 178, 192, 232, 247})
+            ImageDrawRectangle(&CurrentImage, CurrentBorder + CurrentOffset, 0, CurrentOffset == 192 ? 40 : 6, FieldSize,
+                               CurrentOffset == 192 ? Yarn : Dark);
+        for (int CurrentY = 64; CurrentY < FieldSize; CurrentY += 128) {
+            Star(CurrentImage, CurrentBorder + 109, CurrentY, 65, 50, Yarn);
+            Star(CurrentImage, CurrentBorder + 109, CurrentY, 46, 35, Dark);
+            Diamond(CurrentImage, CurrentBorder + 109, CurrentY, 24, 19, CurrentDye);
+            for (int End : {-1, 1})
+                Diamond(CurrentImage, CurrentBorder + 109 + End * 52, CurrentY + 56, 16, 12, Yarn);
         }
-        for (int y = -32; y < FieldSize; y += 64) {
-            ImageDrawRectangle(&image, border + 202, y, 20, 8, dye);
-            ImageDrawRectangle(&image, border + 202, y, 7, 36, dye);
-            ImageDrawRectangle(&image, border + 202, y + 29, 20, 7, dye);
-            ImageDrawRectangle(&image, border + 215, y + 29, 7, 35, dye);
+        for (int CurrentY = -32; CurrentY < FieldSize; CurrentY += 64) {
+            ImageDrawRectangle(&CurrentImage, CurrentBorder + 202, CurrentY, 20, 8, CurrentDye);
+            ImageDrawRectangle(&CurrentImage, CurrentBorder + 202, CurrentY, 7, 36, CurrentDye);
+            ImageDrawRectangle(&CurrentImage, CurrentBorder + 202, CurrentY + 29, 20, 7, CurrentDye);
+            ImageDrawRectangle(&CurrentImage, CurrentBorder + 215, CurrentY + 29, 7, 35, CurrentDye);
         }
-        carpetArtwork(image, "carpet-persian-field.png", 0, FieldSize);
-        carpetArtwork(image, "carpet-persian-border.png", BorderOffset, BorderSize);
+        CarpetArtwork(CurrentImage, "CarpetPersianField.png", 0, FieldSize);
+        CarpetArtwork(CurrentImage, "CarpetPersianBorder.png", BorderOffset, BorderSize);
         // Low-contrast weave preserves large filled motifs and lets mipmaps remove subpixel
         // threads.
-        for (int y = 0; y < image.height; ++y)
-            for (int x = 0; x < BorderOffset + BorderSize; ++x) {
-                const Color color = GetImageColor(image, x, y);
-                ImageDrawPixel(&image, x, y, ColorLerp(color, (x + y) % 2 ? dark : field, .035f));
+        for (int CurrentY = 0; CurrentY < CurrentImage.height; ++CurrentY)
+            for (int CurrentX = 0; CurrentX < BorderOffset + BorderSize; ++CurrentX) {
+                const Color CurrentColor = GetImageColor(CurrentImage, CurrentX, CurrentY);
+                ImageDrawPixel(&CurrentImage, CurrentX, CurrentY, ColorLerp(CurrentColor, (CurrentX + CurrentY) % 2 ? Dark : Field, .035f));
             }
-        grain(image, 2);
-        Color* colors = LoadImageColors(image);
-        std::vector<Color> result(colors, colors + AtlasWidth * FieldSize);
-        UnloadImageColors(colors);
-        UnloadImage(image);
-        return result;
+        Grain(CurrentImage, 2);
+        Color* CurrentColors = LoadImageColors(CurrentImage);
+        std::vector<Color> Result(CurrentColors, CurrentColors + AtlasWidth * FieldSize);
+        UnloadImageColors(CurrentColors);
+        UnloadImage(CurrentImage);
+        return Result;
     }();
-    Image image = GenImageColor(AtlasWidth, FieldSize, BLANK);
-    std::copy(pixels.begin(), pixels.end(), static_cast<Color*>(image.data));
-    return upload(image);
+    Image CurrentImage = GenImageColor(AtlasWidth, FieldSize, BLANK);
+    std::copy(Pixels.begin(), Pixels.end(), static_cast<Color*>(CurrentImage.data));
+    return Upload(CurrentImage);
 }
 
 // Generate a ceiling surface with recessed plaster coffers and corner flourishes. Upload the
 // finished CPU image as an owned texture while geometry and real-time lighting remain the
 // renderer's responsibility.
-Texture2D ceilingMaterial(const MazePalette& palette) {
-    const CorridorStyle style = corridorStyle(palette);
-    Image image = GenImageColor(512, 512, style.ceiling);
-    ImageDrawRectangle(&image, 43, 43, 426, 426, style.ceilingInset);
-    for (int inset : {10, 22, 37, 47})
-        frame(image, inset, inset, 512 - inset * 2, 512 - inset * 2,
-              ColorLerp(style.ceiling, palette.paper, .20f),
-              ColorLerp(style.ceiling, style.trimShade, .24f));
-    for (int x : {88, 424})
-        for (int y : {88, 424})
-            floralMotif(image, (float)x, (float)y, .43f,
-                        ColorLerp(style.ceilingInset, style.trim, .22f), style.ceilingInset);
-    grain(image, 1);
-    return upload(image);
+Texture2D CeilingMaterial(const MazePalette& CurrentPalette) {
+    const CorridorStyle Style = GetCorridorStyle(CurrentPalette);
+    Image CurrentImage = GenImageColor(512, 512, Style.Ceiling);
+    ImageDrawRectangle(&CurrentImage, 43, 43, 426, 426, Style.CeilingInset);
+    for (int Inset : {10, 22, 37, 47})
+        Frame(CurrentImage, Inset, Inset, 512 - Inset * 2, 512 - Inset * 2,
+              ColorLerp(Style.Ceiling, CurrentPalette.CurrentPaper, .20f),
+              ColorLerp(Style.Ceiling, Style.TrimShade, .24f));
+    for (int CurrentX : {88, 424})
+        for (int CurrentY : {88, 424})
+            FloralMotif(CurrentImage, (float)CurrentX, (float)CurrentY, .43f,
+                        ColorLerp(Style.CeilingInset, Style.Trim, .22f), Style.CeilingInset);
+    Grain(CurrentImage, 1);
+    return Upload(CurrentImage);
 }
 
 } // namespace
@@ -388,58 +388,58 @@ Texture2D ceilingMaterial(const MazePalette& palette) {
 // Create the wall, floor, ceiling, and marble GPU materials and return them in one exclusively
 // owned Textures object. A valid graphics context is required before loading or generating these
 // resources.
-Textures createTextures(const MazePalette& palette) {
-    return {wallMaterial(palette), floorMaterial(), ceilingMaterial(palette),
-            marbleMaterial(palette)};
+Textures CreateTextures(const MazePalette& CurrentPalette) {
+    return {WallMaterial(CurrentPalette), FloorMaterial(), CeilingMaterial(CurrentPalette),
+            MarbleMaterial(CurrentPalette)};
 }
 
 // Adopt supplied material handles as exclusive ownership, or transfer them from another Textures
 // object when moving. The owner releases its handles automatically; copying is disabled to
 // prevent duplicate GPU deletion.
-Textures::Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D marble) noexcept
-    : wallTexture(wall), floorTexture(floor), ceilingTexture(ceiling), marbleTexture(marble) {}
+Textures::Textures(Texture2D CurrentWall, Texture2D CurrentFloor, Texture2D Ceiling, Texture2D Marble) noexcept
+    : WallTexture(CurrentWall), FloorTexture(CurrentFloor), CeilingTexture(Ceiling), MarbleTexture(Marble) {}
 
 // Unload every owned material through reset when this resource set leaves scope. The owner must
 // be destroyed before CloseWindow tears down the graphics context.
 Textures::~Textures() {
-    reset();
+    Reset();
 }
 
 // Adopt supplied material handles as exclusive ownership, or transfer them from another Textures
 // object when moving. The owner releases its handles automatically; copying is disabled to
 // prevent duplicate GPU deletion.
-Textures::Textures(Textures&& other) noexcept
-    : wallTexture(std::exchange(other.wallTexture, {})),
-      floorTexture(std::exchange(other.floorTexture, {})),
-      ceilingTexture(std::exchange(other.ceilingTexture, {})),
-      marbleTexture(std::exchange(other.marbleTexture, {})) {}
+Textures::Textures(Textures&& CurrentOther) noexcept
+    : WallTexture(std::exchange(CurrentOther.WallTexture, {})),
+      FloorTexture(std::exchange(CurrentOther.FloorTexture, {})),
+      CeilingTexture(std::exchange(CurrentOther.CeilingTexture, {})),
+      MarbleTexture(std::exchange(CurrentOther.MarbleTexture, {})) {}
 
 // Release the destination's current materials before transferring handles from the source,
 // leaving the moved-from object empty. Handle self-assignment without unloading resources that
 // are still owned by this object.
-Textures& Textures::operator=(Textures&& other) noexcept {
-    if (this != &other) {
-        reset();
-        wallTexture = std::exchange(other.wallTexture, {});
-        floorTexture = std::exchange(other.floorTexture, {});
-        ceilingTexture = std::exchange(other.ceilingTexture, {});
-        marbleTexture = std::exchange(other.marbleTexture, {});
+Textures& Textures::operator=(Textures&& CurrentOther) noexcept {
+    if (this != &CurrentOther) {
+        Reset();
+        WallTexture = std::exchange(CurrentOther.WallTexture, {});
+        FloorTexture = std::exchange(CurrentOther.FloorTexture, {});
+        CeilingTexture = std::exchange(CurrentOther.CeilingTexture, {});
+        MarbleTexture = std::exchange(CurrentOther.MarbleTexture, {});
     }
     return *this;
 }
 
 // Require nonzero handles for every material before the renderer accepts a replacement set. This
 // prevents a partially created palette from displacing the currently usable resources.
-bool Textures::valid() const {
-    return wallTexture.id && floorTexture.id && ceilingTexture.id && marbleTexture.id;
+bool Textures::Valid() const {
+    return WallTexture.id && FloorTexture.id && CeilingTexture.id && MarbleTexture.id;
 }
 
 // Unload any nonzero material handles and clear the stored values afterward. Destruction and move
 // assignment share this cleanup path so released textures are not deleted twice.
-void Textures::reset() noexcept {
-    for (Texture2D* texture : {&wallTexture, &floorTexture, &ceilingTexture, &marbleTexture}) {
-        if (texture->id)
-            UnloadTexture(*texture);
-        *texture = {};
+void Textures::Reset() noexcept {
+    for (Texture2D* CurrentTexture : {&WallTexture, &FloorTexture, &CeilingTexture, &MarbleTexture}) {
+        if (CurrentTexture->id)
+            UnloadTexture(*CurrentTexture);
+        *CurrentTexture = {};
     }
 }

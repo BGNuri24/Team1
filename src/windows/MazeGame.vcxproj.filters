@@ -12,7 +12,7 @@
     <ClInclude Include="..\data\SettingsStore.h"><Filter>src\data</Filter></ClInclude>
     <ClInclude Include="..\data\MazeGeometry.h"><Filter>src\data</Filter></ClInclude>
 	<ClInclude Include="..\data\GameMode.h"><Filter>src\data</Filter></ClInclude>
-    <ClCompile Include="..\main.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="..\Main.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="..\data\PlayerStore.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\data\GameDatabase.cpp"><Filter>src\data</Filter></ClCompile>
     <ClCompile Include="..\presentation\HudRenderer.cpp"><Filter>src\presentation</Filter></ClCompile>
@@ -47,19 +47,19 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="MazeGame.rc" />
-    <None Include="T1_.ico" />
-    <None Include="..\assets\menu-corridor.png" />
-    <None Include="..\assets\menu-players.png" />
-    <None Include="..\assets\menu-levels.png" />
-    <None Include="..\assets\menu-preparing.png" />
-    <None Include="..\assets\wall-damask.png" />
-    <None Include="..\assets\carpet-persian-field.png" />
-    <None Include="..\assets\carpet-persian-border.png" />
-    <None Include="..\assets\hotel-wall-panels.png" />
-    <None Include="..\assets\hotel-marble.png" />
+    <None Include="T1.ico" />
+    <None Include="..\assets\MenuCorridor.png" />
+    <None Include="..\assets\MenuPlayers.png" />
+    <None Include="..\assets\MenuLevels.png" />
+    <None Include="..\assets\MenuPreparing.png" />
+    <None Include="..\assets\WallDamask.png" />
+    <None Include="..\assets\CarpetPersianField.png" />
+    <None Include="..\assets\CarpetPersianBorder.png" />
+    <None Include="..\assets\HotelWallPanels.png" />
+    <None Include="..\assets\HotelMarble.png" />
     <None Include="..\assets\fonts\Ballet.ttf" />
-    <None Include="..\assets\fonts\Ballet-OFL.txt" />
-    <None Include="T1_.png" />
+    <None Include="..\assets\fonts\BalletOfl.txt" />
+    <None Include="T1.png" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\presentation\Ui.h"><Filter>src\presentation</Filter></ClInclude>

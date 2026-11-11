@@ -14,9 +14,9 @@ inline constexpr float MovementSpeed = 3.24f;
 
 // Convert a row or column index into its world-space center using CellSize. Cell zero is centered
 // at coordinate zero; rendering, spawning, and collision share this conversion.
-inline constexpr float cellCenter(int index) { return index * CellSize; }
+inline constexpr float CellCenter(int Index) { return Index * CellSize; }
 // Convert a world-space X or Z coordinate into the index of the nearest cell center. The
 // half-cell offset and floor operation keep negative positions near the outer boundary consistent
 // with collision checks.
-inline int cellIndex(float position) { return (int)std::floor(position / CellSize + 0.5f); }
+inline int CellIndex(float CurrentPosition) { return (int)std::floor(CurrentPosition / CellSize + 0.5f); }
 }

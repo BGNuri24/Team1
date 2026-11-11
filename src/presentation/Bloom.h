@@ -23,35 +23,35 @@ public:
     // Prepare targets for the current output size, save the caller's framebuffer and matrices,
     // and begin scene capture. Return false when effects are unavailable so rendering can
     // continue directly to the original destination.
-    bool begin(bool linearHdr = false);
+    bool Begin(bool LinearHdr = false);
     // Capture the actual 3D view and projection matrices after BeginMode3D and enable surface
     // effects only when their buffers and shader exist. Flush batches and disable blending while
     // material data is written to attachments.
-    void setView(Matrix view, Matrix perspective);
+    void SetView(Matrix View, Matrix Perspective);
     // Finish scene capture, extract and blur highlights, optionally compute screen-space surface
     // effects, and composite into the caller's saved framebuffer. Restore matrices and drawing
     // state so later HUD and UI rendering remains unaffected.
-    void end();
+    void End();
 
 private:
     // Rebuild scene and intermediate targets when the requested dimensions change, reusing the
     // current targets otherwise. Clean up incomplete allocations and remember attempted
     // dimensions so failures are not retried every frame at the same size.
-    bool resize(int width, int height);
-    Shader shader{}, composite{}, surfaceShader{};
-    RenderTexture2D scene{}, horizontal{}, vertical{}, surfaceEffects{};
-    Texture2D geometry{};
-    int stepLocation = -1, extractLocation = -1;
-    int hdrLocation = -1, compositeHdrLocation = -1, bloomLocation = -1;
-    int depthLocation = -1, geometryLocation = -1;
-    int viewLocation = -1, perspectiveLocation = -1, inversePerspectiveLocation = -1;
-    int effectsLocation = -1, effectsEnabledLocation = -1, compositeDepthLocation = -1;
-    int compositeInverseLocation = -1;
-    bool useLinearHdr = false;
-    bool useSurfaceEffects = false;
-    Matrix surfaceView{}, surfacePerspective{}, inversePerspective{};
-    int attemptedWidth = 0, attemptedHeight = 0;
-    unsigned int destination = 0;
-    int destinationWidth = 0, destinationHeight = 0;
-    Matrix projection{}, modelview{};
+    bool Resize(int Width, int Height);
+    Shader CurrentShader{}, CurrentComposite{}, SurfaceShader{};
+    RenderTexture2D CurrentScene{}, CurrentHorizontal{}, Vertical{}, CurrentSurfaceEffects{};
+    Texture2D CurrentGeometry{};
+    int StepLocation = -1, ExtractLocation = -1;
+    int HdrLocation = -1, CompositeHdrLocation = -1, BloomLocation = -1;
+    int DepthLocation = -1, GeometryLocation = -1;
+    int ViewLocation = -1, PerspectiveLocation = -1, InversePerspectiveLocation = -1;
+    int EffectsLocation = -1, EffectsEnabledLocation = -1, CompositeDepthLocation = -1;
+    int CompositeInverseLocation = -1;
+    bool UseLinearHdr = false;
+    bool UseSurfaceEffects = false;
+    Matrix SurfaceView{}, SurfacePerspective{}, InversePerspective{};
+    int AttemptedWidth = 0, AttemptedHeight = 0;
+    unsigned int Destination = 0;
+    int DestinationWidth = 0, DestinationHeight = 0;
+    Matrix Projection{}, Modelview{};
 };

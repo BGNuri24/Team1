@@ -14,32 +14,32 @@ public:
     // Handle level-card navigation, Zero Gravity selection, and custom-size text entry. Validate
     // a custom size before requesting PLAYING and retain an explanatory error when confirmation
     // is invalid.
-    Screen update();
+    Screen Update();
     // Render preset cards, the Zero Gravity option, and the custom-size dialog using shared theme
     // and typography. Display the current selection and any validation feedback without changing
     // chosen run parameters.
-    void draw() const;
+    void Draw() const;
     // Return the selected maze side length for Application::startGame. Read this after update
     // confirms play; the accessor does not validate a new value or regenerate a maze.
-    int size() const;
+    int Size() const;
     // Return the selected run's time allowance in seconds, using the preset or validated
     // custom-size formula. Application captures this value when creating a new Game.
-    float seconds() const;
+    float Seconds() const;
     // Return the mode associated with the selected level, distinguishing Zero Gravity from Normal
     // presets and custom play. This read-only value determines which gameplay mechanics the new
     // run enables.
-    GameMode mode() const;
+    GameMode Mode() const;
 
 private:
-    int selected;
+    int CurrentSelected;
     // Keep custom-size entry active until the player confirms a valid value or cancels.
-    bool typing;
+    bool Typing;
     // Store the custom-size digits as text until confirmation validates and converts them.
-    std::string text;
-    bool showError;
-    int chosenSize;
-    float chosenSeconds;
-    GameMode chosenMode;
-    MenuBackground background;
-    MenuTypography type;
+    std::string CurrentText;
+    bool ShowError;
+    int ChosenSize;
+    float ChosenSeconds;
+    GameMode ChosenMode;
+    MenuBackground Background;
+    MenuTypography Type;
 };

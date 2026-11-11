@@ -13,7 +13,7 @@ public:
     // Adopt supplied material handles as exclusive ownership, or transfer them from another
     // Textures object when moving. The owner releases its handles automatically; copying is
     // disabled to prevent duplicate GPU deletion.
-    Textures(Texture2D wall, Texture2D floor, Texture2D ceiling, Texture2D marble) noexcept;
+    Textures(Texture2D CurrentWall, Texture2D CurrentFloor, Texture2D Ceiling, Texture2D Marble) noexcept;
     // Unload every owned material through reset when this resource set leaves scope. The owner
     // must be destroyed before CloseWindow tears down the graphics context.
     ~Textures();
@@ -27,36 +27,36 @@ public:
     // Adopt supplied material handles as exclusive ownership, or transfer them from another
     // Textures object when moving. The owner releases its handles automatically; copying is
     // disabled to prevent duplicate GPU deletion.
-    Textures(Textures&& other) noexcept;
+    Textures(Textures&& CurrentOther) noexcept;
     // Release the destination's current materials before transferring handles from the source,
     // leaving the moved-from object empty. Handle self-assignment without unloading resources
     // that are still owned by this object.
-    Textures& operator=(Textures&& other) noexcept;
+    Textures& operator=(Textures&& CurrentOther) noexcept;
     // Borrow the wall texture handle for drawing without transferring ownership. The reference
     // remains usable only while this resource set retains that material.
-    const Texture2D& wall() const { return wallTexture; }
+    const Texture2D& GetWall() const { return WallTexture; }
     // Borrow the carpet atlas handle for drawing without transferring ownership. Its field and
     // border regions are interpreted by the renderer, and the Textures object remains responsible
     // for unloading it.
-    const Texture2D& floor() const { return floorTexture; }
+    const Texture2D& Floor() const { return FloorTexture; }
     // Borrow the ceiling texture handle for drawing without transferring ownership. The caller
     // must not unload it or retain it after this set is replaced or destroyed.
-    const Texture2D& ceiling() const { return ceilingTexture; }
+    const Texture2D& Ceiling() const { return CeilingTexture; }
     // Borrow the stone material handle used by pilasters and related detail geometry. Ownership
     // remains with this Textures object, which releases it during reset or destruction.
-    const Texture2D& marble() const { return marbleTexture; }
+    const Texture2D& Marble() const { return MarbleTexture; }
     // Require nonzero handles for every material before the renderer accepts a replacement set.
     // This prevents a partially created palette from displacing the currently usable resources.
-    bool valid() const;
+    bool Valid() const;
 
 private:
     // Unload any nonzero material handles and clear the stored values afterward. Destruction and
     // move assignment share this cleanup path so released textures are not deleted twice.
-    void reset() noexcept;
-    Texture2D wallTexture{}, floorTexture{}, ceilingTexture{}, marbleTexture{};
+    void Reset() noexcept;
+    Texture2D WallTexture{}, FloorTexture{}, CeilingTexture{}, MarbleTexture{};
 };
 
 // Create the wall, floor, ceiling, and marble GPU materials and return them in one exclusively
 // owned Textures object. A valid graphics context is required before loading or generating these
 // resources.
-Textures createTextures(const MazePalette& palette = mazePalette(ActiveMazeTheme));
+Textures CreateTextures(const MazePalette& CurrentPalette = GetMazePalette(ActiveMazeTheme));

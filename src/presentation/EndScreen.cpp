@@ -8,116 +8,116 @@
 namespace {
 // Return the scaled rectangle for one result-screen action using fixed reference spacing.
 // Keyboard selection and pointer hit testing share the same action ordering.
-Rectangle actionBounds(int index) {
-    return uiRect(302 + index * 210, 576, 186, 48);
+Rectangle ActionBounds(int Index) {
+    return UiRect(302 + Index * 210, 576, 186, 48);
 }
 
 // Format nonnegative elapsed seconds as minutes, seconds, and tenths using raylib's temporary
 // TextFormat buffer. Consume the returned text promptly rather than retaining it across later
 // formatting calls.
-const char* formatTime(float value) {
-    const int tenths = (int)(std::max(0.0f, value) * 10);
-    return TextFormat("%02d:%02d.%d", tenths / 600, tenths / 10 % 60, tenths % 10);
+const char* FormatTime(float Value) {
+    const int Tenths = (int)(std::max(0.0f, Value) * 10);
+    return TextFormat("%02d:%02d.%d", Tenths / 600, Tenths / 10 % 60, Tenths % 10);
 }
 
 // Draw the main rounded result card at a reference-layout position plus the supplied pixel
 // offsets. The same shape is reused for the card and its displaced shadow.
-void drawResultCard(float offsetX, float offsetY, Color color) {
-    Rectangle body = uiRect(330, 224, 340, 312);
-    body.x += offsetX;
-    body.y += offsetY;
-    DrawRectangleRounded(body, 0.06f, 8, color);
+void DrawResultCard(float OffsetX, float OffsetY, Color CurrentColor) {
+    Rectangle Body = UiRect(330, 224, 340, 312);
+    Body.x += OffsetX;
+    Body.y += OffsetY;
+    DrawRectangleRounded(Body, 0.06f, 8, CurrentColor);
 }
 } // namespace
 
 // Restart the result-card entrance animation and select its first action. Application calls this
 // once when a run finishes so a previous result's animation and selection do not carry over.
-void EndScreen::reset() {
-    animationTime = 0;
-    selected = 0;
+void EndScreen::Reset() {
+    AnimationTime = 0;
+    CurrentSelected = 0;
 }
 
 // Advance result-screen animation and handle keyboard or pointer actions for retry and
 // navigation. Return the requested Screen while the finished Game itself remains frozen.
-Screen EndScreen::update(float deltaSeconds) {
-    if (std::isfinite(deltaSeconds) && deltaSeconds > 0)
-        animationTime += std::min(deltaSeconds, 0.1f);
+Screen EndScreen::Update(float DeltaSeconds) {
+    if (std::isfinite(DeltaSeconds) && DeltaSeconds > 0)
+        AnimationTime += std::min(DeltaSeconds, 0.1f);
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-    updateMenuSelection(selected, 2);
-    const bool left = IsKeyPressed(KEY_LEFT), right = IsKeyPressed(KEY_RIGHT);
-    if (left != right)
-        selected = 1 - selected;
-    bool clicked = false;
-    for (int index = 0; index < 2; ++index)
-        clicked |= menuPointer(actionBounds(index), index, selected);
+    UpdateMenuSelection(CurrentSelected, 2);
+    const bool CurrentLeft = IsKeyPressed(KEY_LEFT), CurrentRight = IsKeyPressed(KEY_RIGHT);
+    if (CurrentLeft != CurrentRight)
+        CurrentSelected = 1 - CurrentSelected;
+    bool Clicked = false;
+    for (int Index = 0; Index < 2; ++Index)
+        Clicked |= MenuPointer(ActionBounds(Index), Index, CurrentSelected);
     if (IsKeyPressed(KEY_ESCAPE))
-        return Screen::MAIN_MENU;
-    if (menuConfirmed() || clicked)
-        return selected == 0 ? Screen::PLAYING : Screen::MAIN_MENU;
+        return Screen::MainMenu;
+    if (MenuConfirmed() || Clicked)
+        return CurrentSelected == 0 ? Screen::PLAYING : Screen::MainMenu;
     return Screen::END;
 }
 
 // Render the frozen run's outcome, distinguishing victory, timeout, and obstacle contact. Show
 // the player's time, best-time status, save failures, and selected navigation action without
 // attempting persistence.
-void EndScreen::draw(const Game& game, const std::string& playerName, float bestTime,
-                     bool newBestTime, bool bestTimeSaveFailed) const {
+void EndScreen::Draw(const Game& CurrentGame, const std::string& PlayerName, float BestTime,
+                     bool NewBestTime, bool BestTimeSaveFailed) const {
     using namespace MenuTheme;
-    const bool won = game.won();
-    const bool hazard = game.failureReason() == FailureReason::ObstacleHit;
-    const Color card = ColorLerp(Ink, BLACK, .45f);
-    const Color surface = ColorLerp(Ink, Panel, .12f);
-    const Color focus = ColorLerp(surface, Accent, .12f);
-    const Color edge = ColorLerp(Ink, Accent, .23f);
-    const Color brass = ColorLerp(Accent, Panel, .30f);
-    const Color quiet = ColorLerp(Paper, Ink, .30f);
+    const bool Won = CurrentGame.Won();
+    const bool Hazard = CurrentGame.GetFailureReason() == FailureReason::ObstacleHit;
+    const Color Card = ColorLerp(Ink, BLACK, .45f);
+    const Color Surface = ColorLerp(Ink, Panel, .12f);
+    const Color Focus = ColorLerp(Surface, Accent, .12f);
+    const Color Edge = ColorLerp(Ink, Accent, .23f);
+    const Color Brass = ColorLerp(Accent, Panel, .30f);
+    const Color CurrentQuiet = ColorLerp(Paper, Ink, .30f);
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, .78f));
 
-    const float progress = std::clamp(animationTime / 0.4f, 0.0f, 1.0f);
-    const float lift = -12 * (1 - progress) * (1 - progress) * uiScale();
+    const float Progress = std::clamp(AnimationTime / 0.4f, 0.0f, 1.0f);
+    const float Lift = -12 * (1 - Progress) * (1 - Progress) * UiScale();
     rlPushMatrix();
-    rlTranslatef(0, lift, 0);
-    drawResultCard(5 * uiScale(), 7 * uiScale(), Fade(BLACK, .40f));
-    drawResultCard(0, 0, card);
-    DrawRectangleRoundedLinesEx(uiRect(330, 224, 340, 312), .06f, 8, std::max(1.0f, uiScale()),
-                                edge);
+    rlTranslatef(0, Lift, 0);
+    DrawResultCard(5 * UiScale(), 7 * UiScale(), Fade(BLACK, .40f));
+    DrawResultCard(0, 0, Card);
+    DrawRectangleRoundedLinesEx(UiRect(330, 224, 340, 312), .06f, 8, std::max(1.0f, UiScale()),
+                                Edge);
 
-    if (won) {
-        type.centered("You are so", 500, 240, 29, Paper, true, 284);
-        type.centered("cracked twin", 500, 272, 29, Paper, true, 284);
+    if (Won) {
+        Type.Centered("You are so", 500, 240, 29, Paper, true, 284);
+        Type.Centered("cracked twin", 500, 272, 29, Paper, true, 284);
     } else {
-        type.centered(hazard ? "Barrier hit" : "Time's up", 500, 258, 34, Paper, true, 284);
+        Type.Centered(Hazard ? "Barrier hit" : "Time's up", 500, 258, 34, Paper, true, 284);
     }
-    type.centered(playerName.c_str(), 500, 311, 17, quiet, true, 276);
-    type.centered("Time", 500, 345, 15, quiet, true);
-    type.centered(formatTime(game.timeTaken()), 500, 367, 46, Paper, true, 284);
-    DrawLine(uiX(370), uiY(428), uiX(630), uiY(428), edge);
+    Type.Centered(PlayerName.c_str(), 500, 311, 17, CurrentQuiet, true, 276);
+    Type.Centered("Time", 500, 345, 15, CurrentQuiet, true);
+    Type.Centered(FormatTime(CurrentGame.TimeTaken()), 500, 367, 46, Paper, true, 284);
+    DrawLine(UiX(370), UiY(428), UiX(630), UiY(428), Edge);
 
     // A failed save must never be presented as a new record.
-    if (bestTimeSaveFailed)
-        type.centered("Time not saved", 500, 447, 18, Danger, true, 260);
-    else if (won && newBestTime)
-        type.centered("New best", 500, 447, 18, brass, true, 260);
-    else if (bestTime >= 0)
-        type.centered(TextFormat("Best  %s", formatTime(bestTime)), 500, 447, 18, quiet, true, 260);
+    if (BestTimeSaveFailed)
+        Type.Centered("Time not saved", 500, 447, 18, Danger, true, 260);
+    else if (Won && NewBestTime)
+        Type.Centered("New best", 500, 447, 18, Brass, true, 260);
+    else if (BestTime >= 0)
+        Type.Centered(TextFormat("Best  %s", FormatTime(BestTime)), 500, 447, 18, CurrentQuiet, true, 260);
 
-    const int size = game.maze().size();
-    type.centered(game.mode() == GameMode::ZeroGravity
-                      ? TextFormat("%d x %d / Zero gravity", size, size)
-                      : TextFormat("%d x %d", size, size),
-                  500, 494, 14, quiet, true, 270);
+    const int CurrentSize = CurrentGame.Maze().Size();
+    Type.Centered(CurrentGame.Mode() == GameMode::ZeroGravity
+                      ? TextFormat("%d x %d / Zero gravity", CurrentSize, CurrentSize)
+                      : TextFormat("%d x %d", CurrentSize, CurrentSize),
+                  500, 494, 14, CurrentQuiet, true, 270);
     rlPopMatrix();
 
-    for (int index = 0; index < 2; ++index) {
-        const bool active = index == selected;
-        const Rectangle button = actionBounds(index);
-        DrawRectangleRounded(button, 0.10f, 6, active ? focus : surface);
-        DrawRectangleRoundedLinesEx(button, 0.10f, 6, std::max(1.0f, uiScale()),
-                                    active ? brass : edge);
-        if (active)
-            DrawRectangle((int)button.x, (int)button.y + uiSize(12), std::max(2, uiSize(2)),
-                          uiSize(24), brass);
-        type.centered(index == 0 ? "Again" : "Menu", 395 + index * 210, 587, 20,
-                      active ? Paper : quiet, true, 160);
+    for (int Index = 0; Index < 2; ++Index) {
+        const bool Active = Index == CurrentSelected;
+        const Rectangle Button = ActionBounds(Index);
+        DrawRectangleRounded(Button, 0.10f, 6, Active ? Focus : Surface);
+        DrawRectangleRoundedLinesEx(Button, 0.10f, 6, std::max(1.0f, UiScale()),
+                                    Active ? Brass : Edge);
+        if (Active)
+            DrawRectangle((int)Button.x, (int)Button.y + UiSize(12), std::max(2, UiSize(2)),
+                          UiSize(24), Brass);
+        Type.Centered(Index == 0 ? "Again" : "Menu", 395 + Index * 210, 587, 20,
+                      Active ? Paper : CurrentQuiet, true, 160);
     }
 }

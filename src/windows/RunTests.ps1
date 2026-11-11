@@ -1,16 +1,16 @@
 param([ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug')
 $ErrorActionPreference = 'Stop'
-$projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$output = Join-Path $projectRoot "build-vs\x64\$Configuration"
-foreach ($test in @('MazeGameTests', 'MazeGameLogicTests', 'MazeInputTests')) {
-    $executable = Join-Path $output "$test.exe"
-    if (!(Test-Path -LiteralPath $executable)) { throw "Build the solution in $Configuration | x64 first: $executable" }
-    $testDirectory = Join-Path $output "test-data\$test"
-    New-Item -ItemType Directory -Path $testDirectory -Force | Out-Null
-    Push-Location $testDirectory
+$ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+$Output = Join-Path $ProjectRoot "build-vs\x64\$Configuration"
+foreach ($Test in @('MazeGameTests', 'MazeGameLogicTests', 'MazeInputTests')) {
+    $Executable = Join-Path $Output "$Test.exe"
+    if (!(Test-Path -LiteralPath $Executable)) { throw "Build the solution in $Configuration | x64 first: $Executable" }
+    $TestDirectory = Join-Path $Output "test-data\$Test"
+    New-Item -ItemType Directory -Path $TestDirectory -Force | Out-Null
+    Push-Location $TestDirectory
     try {
-        & $executable
-        if ($LASTEXITCODE -ne 0) { throw "$test failed with exit code $LASTEXITCODE" }
+        & $Executable
+        if ($LASTEXITCODE -ne 0) { throw "$Test failed with exit code $LASTEXITCODE" }
     } finally {
         Pop-Location
     }

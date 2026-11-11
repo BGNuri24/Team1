@@ -3,8 +3,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/readme-banner.svg">
-  <img src="docs/assets/readme-maze.gif" width="1120" alt="T1: a brass-and-ivory title beside an animated route through a maze, from entry to exit.">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/ReadmeBanner.svg">
+  <img src="docs/assets/ReadmeMaze.gif" width="1120" alt="T1: a brass-and-ivory title beside an animated route through a maze, from entry to exit.">
 </picture>
 
 <p><strong>Warm lights. Winding corridors. One way out.</strong></p>
@@ -17,7 +17,7 @@
   <a href="#under-the-floorboards">The code</a>
 </p>
 
-<sub>The banner is an animated maze illustration. <a href="docs/assets/readme-banner.svg">View the still version.</a></sub>
+<sub>The banner is an animated maze illustration. <a href="docs/assets/ReadmeBanner.svg">View the still version.</a></sub>
 
 </div>
 
@@ -46,7 +46,7 @@ jumps, and use the ceiling when the floor is the wrong place to be.
 
 ## A look inside
 
-<img src="docs/assets/corridor-hotel.png" width="1120" alt="A first-person hotel maze corridor with damask walls, brass lamps, marble details, and patterned carpet.">
+<img src="docs/assets/CorridorHotel.png" width="1120" alt="A first-person hotel maze corridor with damask walls, brass lamps, marble details, and patterned carpet.">
 
 <p align="center"><sub>The hotel corridor: warm fixtures, stonework, and a continuous woven runner.</sub></p>
 
@@ -57,8 +57,8 @@ jumps, and use the ceiling when the floor is the wrong place to be.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/assets/menu-fantasy.png" alt="T1 main menu in a richly decorated hotel corridor."></td>
-<td width="50%"><img src="docs/assets/maze-generation.png" alt="The maze-generation preparation screen."></td>
+<td width="50%"><img src="docs/assets/MenuFantasy.png" alt="T1 main menu in a richly decorated hotel corridor."></td>
+<td width="50%"><img src="docs/assets/MazeGeneration.png" alt="The maze-generation preparation screen."></td>
 </tr>
 <tr>
 <td align="center"><strong>The entrance</strong></td>
@@ -198,7 +198,7 @@ They remain untouched as backups. Builds do not bundle your personal progress.
 
 To move progress to another PC, close the game and copy the database and, optionally,
 the settings file into the other copy's `save_data/` directory.
-See [the storage notes](docs/DATABASE.md) for migration and recovery details.
+See [the storage notes](docs/Database.md) for migration and recovery details.
 
 ## Under the floorboards
 
@@ -206,7 +206,7 @@ See [the storage notes](docs/DATABASE.md) for migration and recovery details.
 Team1/
 ├── .vscode/                F5 build and debugger configuration
 ├── src/
-│   ├── main.cpp            Window creation and application entry point
+│   ├── Main.cpp            Window creation and application entry point
 │   ├── data/               Maze representation, validation, SQLite, and file storage
 │   ├── logic/              Movement, gravity, obstacles, profiles, and settings
 │   ├── presentation/       Screens, input, rendering, materials, shaders, and HUD
@@ -218,7 +218,7 @@ Team1/
 └── build-vs/               Generated executables and object files; ignored by Git
 ~~~
 
-`main.cpp` creates `Application`, which coordinates the screens and owns the current run.
+`Main.cpp` creates `Application`, which coordinates the screens and owns the current run.
 The logic layer advances gameplay; the presentation layer reads that state to draw it.
 Storage keeps profiles and records independently of the rendering code.
 See the [project documentation](docs/T1Documentation.docx) and [presentation](docs/T1Presentation.pptx)
@@ -254,9 +254,13 @@ Add new game source files to `src/windows/MazeGame.vcxproj`, using Visual Studio
 The matching `.vcxproj.filters` file controls their visual grouping in Solution Explorer.
 
 Keep graphics resources scoped so they are destroyed before `CloseWindow()`.
-See [the code-style notes](docs/CODE_STYLE.md) for the project's conventions.
+See [the code-style notes](docs/CodeStyle.md) for the project's conventions.
 
 </details>
+
+## Essential test cases
+
+[View the test cases (PDF)](docs/T1TestCases.pdf) - 12 important tests across three pages covering startup, gameplay, gravity hazards, settings, and saved records. Completed entries are illustrative examples, not verified execution results.
 
 ## If the door will not open
 
@@ -268,7 +272,7 @@ See [the code-style notes](docs/CODE_STYLE.md) for the project's conventions.
 | raylib cannot be restored | Check first-build internet access and any custom `RAYLIB_SOURCE` value. Offline builds need a complete 5.5 source checkout. |
 | A test executable is missing | Build `src/windows/MazeGame.sln` in the same configuration as the test runner. |
 | Your profiles or times are missing | Check the working directory and its `save_data/maze_game.db`. |
-| A result cannot be saved | Check write permissions and database locks; see [storage recovery](docs/DATABASE.md). |
+| A result cannot be saved | Check write permissions and database locks; see [storage recovery](docs/Database.md). |
 
 ---
 

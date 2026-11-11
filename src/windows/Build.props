@@ -37,7 +37,7 @@
   <Target Name="CopyGameArtwork" AfterTargets="Build" Condition="'$(ProjectName)'=='MazeGame' or '$(ProjectName)'=='MazeGameTests'">
     <ItemGroup>
       <GameArtwork Include="$(ProjectRoot)src\assets\*.png" />
-      <MenuFonts Include="$(ProjectRoot)src\assets\fonts\*.ttf;$(ProjectRoot)src\assets\fonts\*-OFL.txt" />
+      <MenuFonts Include="$(ProjectRoot)src\assets\fonts\*.ttf;$(ProjectRoot)src\assets\fonts\*Ofl.txt" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)assets" />
     <Copy SourceFiles="@(GameArtwork)" DestinationFolder="$(OutDir)assets" SkipUnchangedFiles="true" />

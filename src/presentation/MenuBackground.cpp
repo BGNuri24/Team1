@@ -13,56 +13,56 @@ constexpr const char* Grade = R"glsl(#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
 uniform sampler2D texture0;
-uniform vec3 wallColor;
-uniform float yaw;
-uniform float aspect;
-uniform float clock;
-uniform int mirror;
-out vec4 finalColor;
+uniform vec3 WallColor;
+uniform float Yaw;
+uniform float Aspect;
+uniform float Clock;
+uniform int Mirror;
+out vec4 FinalColor;
 // Warp corridor artwork for the current yaw and mirror state, tint wall fabric to the active
 // palette, and add subtle lamp warmth and a vignette. Preserve the carpet pigments while applying
 // the menu transition's vertex tint.
 void main() {
-    vec3 ray = vec3((fragTexCoord - 0.5) * vec2(2.0 * aspect, 2.0), 1.5);
-    ray.xz = mat2(cos(yaw), -sin(yaw), sin(yaw), cos(yaw)) * ray.xz;
-    vec2 uv = ray.xy / max(ray.z, 0.2) * vec2(0.75 / aspect, 0.75) + 0.5;
-    if (mirror != 0) uv.x = 1.0 - uv.x;
-    vec3 color = texture(texture0, uv).rgb;
-    float value = max(max(color.r, color.g), color.b);
-    float saturation = (value - min(min(color.r, color.g), color.b)) / max(value, 0.001);
-    float redFabric = (1.0 - smoothstep(0.36, 0.60, color.g / max(color.r, 0.001)))
-        * smoothstep(0.22, 0.60, saturation);
-    float pigment = max(max(wallColor.r, wallColor.g), wallColor.b);
-    vec3 dyed = wallColor / max(pigment, 0.04) * value * (0.58 + pigment * 0.50);
+    vec3 Ray = vec3((fragTexCoord - 0.5) * vec2(2.0 * Aspect, 2.0), 1.5);
+    Ray.xz = mat2(cos(Yaw), -sin(Yaw), sin(Yaw), cos(Yaw)) * Ray.xz;
+    vec2 Uv = Ray.xy / max(Ray.z, 0.2) * vec2(0.75 / Aspect, 0.75) + 0.5;
+    if (Mirror != 0) Uv.x = 1.0 - Uv.x;
+    vec3 Color = texture(texture0, Uv).rgb;
+    float Value = max(max(Color.r, Color.g), Color.b);
+    float Saturation = (Value - min(min(Color.r, Color.g), Color.b)) / max(Value, 0.001);
+    float RedFabric = (1.0 - smoothstep(0.36, 0.60, Color.g / max(Color.r, 0.001)))
+        * smoothstep(0.22, 0.60, Saturation);
+    float Pigment = max(max(WallColor.r, WallColor.g), WallColor.b);
+    vec3 Dyed = WallColor / max(Pigment, 0.04) * Value * (0.58 + Pigment * 0.50);
     // Dye the wall fabric while retaining the carpet's original red and gold pigments.
-    float wallSurface = 1.0 - smoothstep(0.60, 0.82, uv.y);
-    color = mix(color, dyed, redFabric * wallSurface * 0.90);
+    float WallSurface = 1.0 - smoothstep(0.60, 0.82, Uv.y);
+    Color = mix(Color, Dyed, RedFabric * WallSurface * 0.90);
     // Slow, low-amplitude warmth in the brightest lamp pixels, without flashing the whole view.
-    float lamp = smoothstep(0.64, 0.96, dot(color, vec3(0.2126, 0.7152, 0.0722)))
-        * (1.0 - smoothstep(0.48, 0.78, saturation));
-    float breath = sin(clock * 1.15 + uv.x * 3.0 + uv.y * 4.0) * 0.75
-        + sin(clock * 0.31 - uv.y * 5.0) * 0.25;
-    color += color * vec3(1.0, 0.88, 0.65) * lamp * breath * 0.080;
-    vec2 vignette = (fragTexCoord - 0.5) * vec2(1.10, 0.85);
-    color *= 1.0 - smoothstep(0.22, 0.64, length(vignette)) * 0.32;
-    finalColor = vec4(color, 1.0) * fragColor;
+    float Lamp = smoothstep(0.64, 0.96, dot(Color, vec3(0.2126, 0.7152, 0.0722)))
+        * (1.0 - smoothstep(0.48, 0.78, Saturation));
+    float Breath = sin(Clock * 1.15 + Uv.x * 3.0 + Uv.y * 4.0) * 0.75
+        + sin(Clock * 0.31 - Uv.y * 5.0) * 0.25;
+    Color += Color * vec3(1.0, 0.88, 0.65) * Lamp * Breath * 0.080;
+    vec2 Vignette = (fragTexCoord - 0.5) * vec2(1.10, 0.85);
+    Color *= 1.0 - smoothstep(0.22, 0.64, length(Vignette)) * 0.32;
+    FinalColor = vec4(Color, 1.0) * fragColor;
 }
 )glsl";
 
 // Resolve menu artwork beside the executable first, falling back to src/assets for development
 // runs. Return a path only; the caller checks availability and owns any subsequently loaded
 // texture.
-std::string artworkPath(const char* filename) {
-    const std::string packaged = std::string(GetApplicationDirectory()) + "assets/" + filename;
-    if (FileExists(packaged.c_str()))
-        return packaged;
-    return std::string("src/assets/") + filename;
+std::string ArtworkPath(const char* Filename) {
+    const std::string Packaged = std::string(GetApplicationDirectory()) + "assets/" + Filename;
+    if (FileExists(Packaged.c_str()))
+        return Packaged;
+    return std::string("src/assets/") + Filename;
 }
 
 // Map menu stops to the four shared corridor artwork slots. Controls reuses the player view with
 // mirroring, while entrance and fallback stops use the first image.
-int viewIndex(MenuPlace place) {
-    switch (place) {
+int ViewIndex(MenuPlace CurrentPlace) {
+    switch (CurrentPlace) {
     case MenuPlace::Players:
     case MenuPlace::Controls:
         return 1;
@@ -77,88 +77,88 @@ int viewIndex(MenuPlace place) {
 } // namespace
 
 struct MenuBackground::Scene {
-    std::array<Texture2D, 4> artwork{};
-    Shader grade{};
-    int wallLocation = -1;
-    int yawLocation = -1, aspectLocation = -1, mirrorLocation = -1;
-    int clockLocation = -1;
-    MenuJourney journey;
-    RenderTexture2D overlay{};
-    bool suppressBackdrop = false;
+    std::array<Texture2D, 4> Artwork{};
+    Shader CurrentGrade{};
+    int WallLocation = -1;
+    int YawLocation = -1, AspectLocation = -1, MirrorLocation = -1;
+    int ClockLocation = -1;
+    MenuJourney Journey;
+    RenderTexture2D Overlay{};
+    bool SuppressBackdrop = false;
 
     // Load corridor artwork with mipmaps and compile the grading shader, caching uniform
     // locations only for a valid custom shader. The shared scene owns these resources and the
     // journey state used by every menu.
     Scene() {
-        const char* filenames[] = {"menu-corridor.png", "menu-players.png", "menu-levels.png",
-                                   "menu-preparing.png"};
-        for (int index = 0; index < (int)artwork.size(); ++index) {
-            const std::string path = artworkPath(filenames[index]);
-            if (FileExists(path.c_str())) {
-                artwork[index] = LoadTexture(path.c_str());
-                if (artwork[index].id) {
-                    GenTextureMipmaps(&artwork[index]);
-                    SetTextureFilter(artwork[index], TEXTURE_FILTER_TRILINEAR);
-                    SetTextureWrap(artwork[index], TEXTURE_WRAP_CLAMP);
+        const char* Filenames[] = {"MenuCorridor.png", "MenuPlayers.png", "MenuLevels.png",
+                                   "MenuPreparing.png"};
+        for (int Index = 0; Index < (int)Artwork.size(); ++Index) {
+            const std::string Path = ArtworkPath(Filenames[Index]);
+            if (FileExists(Path.c_str())) {
+                Artwork[Index] = LoadTexture(Path.c_str());
+                if (Artwork[Index].id) {
+                    GenTextureMipmaps(&Artwork[Index]);
+                    SetTextureFilter(Artwork[Index], TEXTURE_FILTER_TRILINEAR);
+                    SetTextureWrap(Artwork[Index], TEXTURE_WRAP_CLAMP);
                 }
             }
         }
-        grade = LoadShaderFromMemory(nullptr, Grade);
-        if (grade.id && grade.id != rlGetShaderIdDefault()) {
-            wallLocation = GetShaderLocation(grade, "wallColor");
-            yawLocation = GetShaderLocation(grade, "yaw");
-            aspectLocation = GetShaderLocation(grade, "aspect");
-            mirrorLocation = GetShaderLocation(grade, "mirror");
-            clockLocation = GetShaderLocation(grade, "clock");
+        CurrentGrade = LoadShaderFromMemory(nullptr, Grade);
+        if (CurrentGrade.id && CurrentGrade.id != rlGetShaderIdDefault()) {
+            WallLocation = GetShaderLocation(CurrentGrade, "WallColor");
+            YawLocation = GetShaderLocation(CurrentGrade, "Yaw");
+            AspectLocation = GetShaderLocation(CurrentGrade, "Aspect");
+            MirrorLocation = GetShaderLocation(CurrentGrade, "Mirror");
+            ClockLocation = GetShaderLocation(CurrentGrade, "Clock");
         } else
-            grade = {};
+            CurrentGrade = {};
     }
 
     // Release the shared grading shader, overlay render target, and all successfully loaded
     // artwork textures. Destruction occurs when the last MenuBackground owner releases the scene,
     // before the graphics context closes.
     ~Scene() {
-        if (grade.id)
-            UnloadShader(grade);
-        if (overlay.id)
-            UnloadRenderTexture(overlay);
-        for (Texture2D texture : artwork)
-            if (texture.id)
-                UnloadTexture(texture);
+        if (CurrentGrade.id)
+            UnloadShader(CurrentGrade);
+        if (Overlay.id)
+            UnloadRenderTexture(Overlay);
+        for (Texture2D CurrentTexture : Artwork)
+            if (CurrentTexture.id)
+                UnloadTexture(CurrentTexture);
     }
 
     // Draw the selected corridor image with cover sizing, zoom, yaw, and gentle time-based
     // panning. Fall back to the entrance image when needed, skip missing or transparent views,
     // and apply the grading shader when available.
-    void drawView(MenuPlace place, float zoom, float yaw, float alpha, float time) const {
-        const Texture2D image =
-            artwork[viewIndex(place)].id ? artwork[viewIndex(place)] : artwork[0];
-        if (!image.id || alpha <= 0)
+    void DrawView(MenuPlace CurrentPlace, float Zoom, float Yaw, float Alpha, float CurrentTime) const {
+        const Texture2D CurrentImage =
+            Artwork[ViewIndex(CurrentPlace)].id ? Artwork[ViewIndex(CurrentPlace)] : Artwork[0];
+        if (!CurrentImage.id || Alpha <= 0)
             return;
-        const int width = GetScreenWidth(), height = GetScreenHeight();
-        const float cover = std::max(width / (float)image.width, height / (float)image.height);
-        const float artWidth = std::max((float)width, image.width * cover * zoom);
-        const float artHeight = std::max((float)height, image.height * cover * zoom);
-        const float phase = viewIndex(place) * 1.19f;
-        const float panX = width * .014f * std::sin(time * .35f + phase);
-        const float panY = height * .006f * std::sin(time * .27f + phase * .6f);
-        if (grade.id) {
-            const Color pigment = mazePalette(MenuTheme::current()).wall;
-            const float wall[] = {pigment.r / 255.0f, pigment.g / 255.0f, pigment.b / 255.0f};
-            const float aspect = image.width / (float)image.height;
-            const int mirror = place == MenuPlace::Controls ? 1 : 0;
-            BeginShaderMode(grade);
-            SetShaderValue(grade, wallLocation, wall, SHADER_UNIFORM_VEC3);
-            SetShaderValue(grade, yawLocation, &yaw, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(grade, aspectLocation, &aspect, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(grade, mirrorLocation, &mirror, SHADER_UNIFORM_INT);
-            SetShaderValue(grade, clockLocation, &time, SHADER_UNIFORM_FLOAT);
+        const int Width = GetScreenWidth(), Height = GetScreenHeight();
+        const float CurrentCover = std::max(Width / (float)CurrentImage.width, Height / (float)CurrentImage.height);
+        const float ArtWidth = std::max((float)Width, CurrentImage.width * CurrentCover * Zoom);
+        const float ArtHeight = std::max((float)Height, CurrentImage.height * CurrentCover * Zoom);
+        const float Phase = ViewIndex(CurrentPlace) * 1.19f;
+        const float PanX = Width * .014f * std::sin(CurrentTime * .35f + Phase);
+        const float PanY = Height * .006f * std::sin(CurrentTime * .27f + Phase * .6f);
+        if (CurrentGrade.id) {
+            const Color Pigment = GetMazePalette(MenuTheme::Current()).CurrentWall;
+            const float CurrentWall[] = {Pigment.r / 255.0f, Pigment.g / 255.0f, Pigment.b / 255.0f};
+            const float Aspect = CurrentImage.width / (float)CurrentImage.height;
+            const int Mirror = CurrentPlace == MenuPlace::Controls ? 1 : 0;
+            BeginShaderMode(CurrentGrade);
+            SetShaderValue(CurrentGrade, WallLocation, CurrentWall, SHADER_UNIFORM_VEC3);
+            SetShaderValue(CurrentGrade, YawLocation, &Yaw, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(CurrentGrade, AspectLocation, &Aspect, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(CurrentGrade, MirrorLocation, &Mirror, SHADER_UNIFORM_INT);
+            SetShaderValue(CurrentGrade, ClockLocation, &CurrentTime, SHADER_UNIFORM_FLOAT);
         }
-        DrawTexturePro(image, {0, 0, (float)image.width, (float)image.height},
-                       {(width - artWidth) * .5f + panX, (height - artHeight) * .5f + panY,
-                        artWidth, artHeight},
-                       {0, 0}, 0, Fade(WHITE, alpha));
-        if (grade.id)
+        DrawTexturePro(CurrentImage, {0, 0, (float)CurrentImage.width, (float)CurrentImage.height},
+                       {(Width - ArtWidth) * .5f + PanX, (Height - ArtHeight) * .5f + PanY,
+                        ArtWidth, ArtHeight},
+                       {0, 0}, 0, Fade(WHITE, Alpha));
+        if (CurrentGrade.id)
             EndShaderMode();
     }
 };
@@ -167,121 +167,121 @@ struct MenuBackground::Scene {
 // owns one. Each backdrop keeps a shared_ptr so textures and journey state survive until the
 // final owner is destroyed.
 MenuBackground::MenuBackground() {
-    static std::weak_ptr<Scene> shared;
-    scene = shared.lock();
-    if (!scene) {
-        scene = std::make_shared<Scene>();
-        shared = scene;
+    static std::weak_ptr<Scene> CurrentShared;
+    CurrentScene = CurrentShared.lock();
+    if (!CurrentScene) {
+        CurrentScene = std::make_shared<Scene>();
+        CurrentShared = CurrentScene;
     }
 }
 
 // Render the shared corridor at its current journey position, blending source and destination
 // artwork and applying the route's zoom and turn. Drawing reads animation state; update is
 // responsible for advancing time.
-void MenuBackground::draw(float time) const {
-    if (scene->suppressBackdrop)
+void MenuBackground::Draw(float CurrentTime) const {
+    if (CurrentScene->SuppressBackdrop)
         return;
-    const int width = GetScreenWidth(), height = GetScreenHeight();
+    const int Width = GetScreenWidth(), Height = GetScreenHeight();
     ClearBackground(MenuTheme::Ink);
-    const MenuJourney& path = scene->journey;
-    const float clock = std::isfinite(time) ? std::max(0.0f, time) : 0.0f;
+    const MenuJourney& Path = CurrentScene->Journey;
+    const float Clock = std::isfinite(CurrentTime) ? std::max(0.0f, CurrentTime) : 0.0f;
     // Bounded idle movement continues for as long as the menu is open, with overscan at each edge.
-    const float base = 1.12f + .014f * std::sin(clock * .22f) + .06f * path.detailAmount();
-    const float idleYaw = -.010f * std::sin(clock * .23f);
-    const float t = path.progress(), eased = MenuJourney::smooth(t);
+    const float Base = 1.12f + .014f * std::sin(Clock * .22f) + .06f * Path.DetailAmount();
+    const float IdleYaw = -.010f * std::sin(Clock * .23f);
+    const float CurrentT = Path.Progress(), Eased = MenuJourney::Smooth(CurrentT);
     // Derive a small depth offset from the corridor artwork index for route zooming. This
     // deterministic presentation value does not change the journey's destination or timing.
-    auto depth = [](MenuPlace place) { return viewIndex(place) * .025f; };
-    if (!path.moving() || path.detailMove()) {
-        scene->drawView(path.to(), base + depth(path.to()), path.detailAmount() * .025f + idleYaw,
-                        1, clock);
+    auto Depth = [](MenuPlace CurrentPlace) { return ViewIndex(CurrentPlace) * .025f; };
+    if (!Path.Moving() || Path.DetailMove()) {
+        CurrentScene->DrawView(Path.To(), Base + Depth(Path.To()), Path.DetailAmount() * .025f + IdleYaw,
+                        1, Clock);
     } else {
-        const float departing = path.backwards() ? -.05f : .22f;
-        const float arriving = path.backwards() ? .20f : -.035f;
-        scene->drawView(path.from(), base + depth(path.from()) + departing * eased,
-                        path.turn() * .14f * eased + idleYaw, 1, clock);
-        if (path.to() != MenuPlace::Exit)
-            scene->drawView(path.to(), base + depth(path.to()) + arriving * (1 - eased),
-                            -path.turn() * .14f * (1 - eased) + idleYaw,
-                            MenuJourney::smooth((t - .30f) / .45f), clock);
+        const float Departing = Path.Backwards() ? -.05f : .22f;
+        const float Arriving = Path.Backwards() ? .20f : -.035f;
+        CurrentScene->DrawView(Path.From(), Base + Depth(Path.From()) + Departing * Eased,
+                        Path.Turn() * .14f * Eased + IdleYaw, 1, Clock);
+        if (Path.To() != MenuPlace::Exit)
+            CurrentScene->DrawView(Path.To(), Base + Depth(Path.To()) + Arriving * (1 - Eased),
+                            -Path.Turn() * .14f * (1 - Eased) + IdleYaw,
+                            MenuJourney::Smooth((CurrentT - .30f) / .45f), Clock);
     }
     // Quiet the extremities for headings and navigation without washing out the architecture.
-    DrawRectangleGradientV(0, 0, width, height / 3, Fade(MenuTheme::Ink, .30f), BLANK);
-    DrawRectangleGradientV(0, height * 2 / 3, width, height - height * 2 / 3, BLANK,
+    DrawRectangleGradientV(0, 0, Width, Height / 3, Fade(MenuTheme::Ink, .30f), BLANK);
+    DrawRectangleGradientV(0, Height * 2 / 3, Width, Height - Height * 2 / 3, BLANK,
                            Fade(MenuTheme::Ink, .64f));
-    if (path.to() == MenuPlace::Exit)
-        DrawRectangle(0, 0, width, height,
-                      Fade(MenuTheme::Ink, MenuJourney::smooth((t - .45f) / .55f)));
+    if (Path.To() == MenuPlace::Exit)
+        DrawRectangle(0, 0, Width, Height,
+                      Fade(MenuTheme::Ink, MenuJourney::Smooth((CurrentT - .45f) / .55f)));
 }
 
 // Request a route to a destination through the shared MenuJourney. Return whether the trip was
 // accepted so Application can defer publishing its pending screen until travel finishes.
-bool MenuBackground::navigate(MenuPlace destination) {
-    return scene->journey.goTo(destination);
+bool MenuBackground::Navigate(MenuPlace Destination) {
+    return CurrentScene->Journey.GoTo(Destination);
 }
 // Request an opening or closing detail animation on the shared journey. Existing active travel
 // and redundant requests are ignored by MenuJourney to keep navigation deterministic.
-void MenuBackground::detail(bool open) {
-    scene->journey.showDetail(open);
+void MenuBackground::Detail(bool CurrentOpen) {
+    CurrentScene->Journey.ShowDetail(CurrentOpen);
 }
 // Immediately select a corridor stop through the shared journey, clearing its detail and travel
 // state. Use this when returning from a run so the backdrop agrees with the visible menu.
-void MenuBackground::snap(MenuPlace place) {
-    scene->journey.snap(place);
+void MenuBackground::Snap(MenuPlace CurrentPlace) {
+    CurrentScene->Journey.Snap(CurrentPlace);
 }
 // Advance the shared journey using a frame duration in seconds. Invalid or nonpositive durations
 // are ignored by MenuJourney, and screen code controls when animation time is allowed to pass.
-void MenuBackground::update(float delta) {
-    scene->journey.update(delta);
+void MenuBackground::Update(float Delta) {
+    CurrentScene->Journey.Update(Delta);
 }
 // Expose whether the shared journey is active without modifying it. Application uses this to keep
 // page input frozen during route or detail animations.
-bool MenuBackground::moving() const {
-    return scene->journey.moving();
+bool MenuBackground::Moving() const {
+    return CurrentScene->Journey.Moving();
 }
 // Expose the journey's midpoint decision for choosing which foreground menu to draw. This does
 // not finish navigation or advance animation timing.
-bool MenuBackground::destinationVisible() const {
-    return scene->journey.destinationVisible();
+bool MenuBackground::DestinationVisible() const {
+    return CurrentScene->Journey.DestinationVisible();
 }
 
 // Capture foreground UI into a reusable render target and composite it with the journey's
 // opacity. Keep corridor artwork outside that capture so its turn and grade continue
 // independently behind text.
-void MenuBackground::drawOverlay(const std::function<void()>& drawUi) const {
-    const float opacity = scene->journey.uiOpacity();
-    if (opacity <= 0)
+void MenuBackground::DrawOverlay(const std::function<void()>& DrawUi) const {
+    const float Opacity = CurrentScene->Journey.UiOpacity();
+    if (Opacity <= 0)
         return;
     rlDrawRenderBatchActive();
-    const unsigned int destination = rlGetActiveFramebuffer();
-    const int width = destination ? GetScreenWidth() : GetRenderWidth();
-    const int height = destination ? GetScreenHeight() : GetRenderHeight();
-    if (width <= 0 || height <= 0)
+    const unsigned int Destination = rlGetActiveFramebuffer();
+    const int Width = Destination ? GetScreenWidth() : GetRenderWidth();
+    const int Height = Destination ? GetScreenHeight() : GetRenderHeight();
+    if (Width <= 0 || Height <= 0)
         return;
-    const Matrix projection = rlGetMatrixProjection(), modelview = rlGetMatrixModelview();
-    if (scene->overlay.texture.width != width || scene->overlay.texture.height != height) {
-        if (scene->overlay.id)
-            UnloadRenderTexture(scene->overlay);
-        scene->overlay = LoadRenderTexture(width, height);
-        if (scene->overlay.texture.id)
-            SetTextureFilter(scene->overlay.texture, TEXTURE_FILTER_BILINEAR);
+    const Matrix Projection = rlGetMatrixProjection(), Modelview = rlGetMatrixModelview();
+    if (CurrentScene->Overlay.texture.width != Width || CurrentScene->Overlay.texture.height != Height) {
+        if (CurrentScene->Overlay.id)
+            UnloadRenderTexture(CurrentScene->Overlay);
+        CurrentScene->Overlay = LoadRenderTexture(Width, Height);
+        if (CurrentScene->Overlay.texture.id)
+            SetTextureFilter(CurrentScene->Overlay.texture, TEXTURE_FILTER_BILINEAR);
     }
-    if (!scene->overlay.id || !scene->overlay.texture.id) {
-        rlEnableFramebuffer(destination);
-        drawUi();
+    if (!CurrentScene->Overlay.id || !CurrentScene->Overlay.texture.id) {
+        rlEnableFramebuffer(Destination);
+        DrawUi();
         return;
     }
-    BeginTextureMode(scene->overlay);
+    BeginTextureMode(CurrentScene->Overlay);
     ClearBackground(BLANK);
-    scene->suppressBackdrop = true;
-    drawUi();
-    scene->suppressBackdrop = false;
+    CurrentScene->SuppressBackdrop = true;
+    DrawUi();
+    CurrentScene->SuppressBackdrop = false;
     EndTextureMode();
-    rlEnableFramebuffer(destination);
-    rlViewport(0, 0, width, height);
-    rlSetMatrixProjection(projection);
-    rlSetMatrixModelview(modelview);
-    DrawTexturePro(scene->overlay.texture, {0, 0, (float)width, -(float)height},
+    rlEnableFramebuffer(Destination);
+    rlViewport(0, 0, Width, Height);
+    rlSetMatrixProjection(Projection);
+    rlSetMatrixModelview(Modelview);
+    DrawTexturePro(CurrentScene->Overlay.texture, {0, 0, (float)Width, -(float)Height},
                    {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {0, 0}, 0,
-                   Fade(WHITE, opacity));
+                   Fade(WHITE, Opacity));
 }

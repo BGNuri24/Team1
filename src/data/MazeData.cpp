@@ -7,128 +7,128 @@ namespace {
 // Find the exit route with breadth-first search and score its branches, turns, and length.
 // Penalize routes longer than six times the side-length distance so difficulty does not come
 // mainly from consuming the level timer.
-int routeDifficulty(const MazeData& maze) {
-    const int n = maze.size();
-    const int dr[] = {-1, 1, 0, 0}, dc[] = {0, 0, -1, 1};
-    std::vector<int> previous(n * n, -1), pending{0};
-    previous[0] = 0;
-    for (std::size_t head = 0; head < pending.size(); ++head) {
-        const int cell = pending[head];
-        for (int direction = 0; direction < 4; ++direction) {
-            const int row = cell / n + dr[direction], col = cell % n + dc[direction];
-            if (maze.cell(row, col) == '#')
+int RouteDifficulty(const MazeData& Maze) {
+    const int N = Maze.Size();
+    const int Dr[] = {-1, 1, 0, 0}, Dc[] = {0, 0, -1, 1};
+    std::vector<int> Previous(N * N, -1), Pending{0};
+    Previous[0] = 0;
+    for (std::size_t Head = 0; Head < Pending.size(); ++Head) {
+        const int CurrentCell = Pending[Head];
+        for (int Direction = 0; Direction < 4; ++Direction) {
+            const int Row = CurrentCell / N + Dr[Direction], Col = CurrentCell % N + Dc[Direction];
+            if (Maze.Cell(Row, Col) == '#')
                 continue;
-            const int next = row * n + col;
-            if (previous[next] < 0) {
-                previous[next] = cell;
-                pending.push_back(next);
+            const int Next = Row * N + Col;
+            if (Previous[Next] < 0) {
+                Previous[Next] = CurrentCell;
+                Pending.push_back(Next);
             }
         }
     }
 
-    int length = 0, turns = 0, choices = 0, lastDirection = 0;
-    for (int cell = n * n - 1; cell != 0; cell = previous[cell]) {
-        const int direction = cell - previous[cell];
-        turns += lastDirection != 0 && direction != lastDirection;
-        lastDirection = direction;
-        ++length;
-        int neighbors = 0;
-        for (int side = 0; side < 4; ++side)
-            neighbors += maze.cell(cell / n + dr[side], cell % n + dc[side]) != '#';
-        choices += neighbors > 2;
+    int Length = 0, Turns = 0, Choices = 0, LastDirection = 0;
+    for (int CurrentCell = N * N - 1; CurrentCell != 0; CurrentCell = Previous[CurrentCell]) {
+        const int Direction = CurrentCell - Previous[CurrentCell];
+        Turns += LastDirection != 0 && Direction != LastDirection;
+        LastDirection = Direction;
+        ++Length;
+        int Neighbors = 0;
+        for (int CurrentSide = 0; CurrentSide < 4; ++CurrentSide)
+            Neighbors += Maze.Cell(CurrentCell / N + Dr[CurrentSide], CurrentCell % N + Dc[CurrentSide]) != '#';
+        Choices += Neighbors > 2;
     }
-    if (length > 6 * (n - 1))
-        return -length;
-    return choices * 12 + turns + length / 4;
+    if (Length > 6 * (N - 1))
+        return -Length;
+    return Choices * 12 + Turns + Length / 4;
 }
 } // namespace
 
 // Generate a square maze from the supplied size and random seed, retaining the strongest of six
 // scored layouts and its matching carving history. Callers supply a supported size; identical
 // size and seed reproduce the layout.
-MazeData::MazeData(int size, std::uint32_t seed) : n(size), grid(size * size, '#') {
-    std::mt19937 random(seed);
-    int bestScore = std::numeric_limits<int>::min();
-    std::vector<char> bestGrid;
-    std::vector<MazeStep> bestSteps;
-    for (int attempt = 0; attempt < 6; ++attempt) {
-        std::fill(grid.begin(), grid.end(), '#');
-        steps.clear();
-        carve(random);
+MazeData::MazeData(int CurrentSize, std::uint32_t CurrentSeed) : N(CurrentSize), Grid(CurrentSize * CurrentSize, '#') {
+    std::mt19937 Random(CurrentSeed);
+    int BestScore = std::numeric_limits<int>::min();
+    std::vector<char> BestGrid;
+    std::vector<MazeStep> BestSteps;
+    for (int Attempt = 0; Attempt < 6; ++Attempt) {
+        std::fill(Grid.begin(), Grid.end(), '#');
+        Steps.clear();
+        Carve(Random);
 
         // For even dimensions, join the two-cell carving pattern to the bottom-right exit.
-        if (n % 2 == 0) {
-            grid[(n - 2) * n + n - 1] = '.';
-            steps.push_back({n - 2, n - 1});
+        if (N % 2 == 0) {
+            Grid[(N - 2) * N + N - 1] = '.';
+            Steps.push_back({N - 2, N - 1});
         }
-        grid[n * n - 1] = 'E';
-        steps.push_back({n - 1, n - 1});
+        Grid[N * N - 1] = 'E';
+        Steps.push_back({N - 1, N - 1});
 
-        const int score = routeDifficulty(*this);
-        if (score > bestScore) {
-            bestScore = score;
-            bestGrid = grid;
-            bestSteps = steps;
+        const int CurrentScore = RouteDifficulty(*this);
+        if (CurrentScore > BestScore) {
+            BestScore = CurrentScore;
+            BestGrid = Grid;
+            BestSteps = Steps;
         }
     }
-    grid = std::move(bestGrid);
-    steps = std::move(bestSteps);
+    Grid = std::move(BestGrid);
+    Steps = std::move(BestSteps);
 }
 
 // Carve a connected layout using a growing collection of frontier cells and the supplied
 // generator. Move two cells at a time, opening the intervening wall and recording both openings;
 // occasional older-frontier choices create more branches.
-void MazeData::carve(std::mt19937& random) {
-    const int dr[] = {-2, 2, 0, 0}, dc[] = {0, 0, -2, 2};
-    std::vector<int> active{0};
-    grid[0] = '.';
-    steps.push_back({0, 0});
-    while (!active.empty()) {
-        const int newest = (int)active.size() - 1;
-        const int index = std::uniform_int_distribution<int>(0, 15)(random) == 0
-                              ? std::uniform_int_distribution<int>(0, newest)(random)
-                              : newest;
-        const int row = active[index] / n, col = active[index] % n;
-        int order[] = {0, 1, 2, 3};
-        std::shuffle(std::begin(order), std::end(order), random);
-        bool carved = false;
-        for (int direction : order) {
-            const int nextRow = row + dr[direction], nextCol = col + dc[direction];
-            if (nextRow < 0 || nextRow >= n || nextCol < 0 || nextCol >= n ||
-                grid[nextRow * n + nextCol] != '#')
+void MazeData::Carve(std::mt19937& Random) {
+    const int Dr[] = {-2, 2, 0, 0}, Dc[] = {0, 0, -2, 2};
+    std::vector<int> Active{0};
+    Grid[0] = '.';
+    Steps.push_back({0, 0});
+    while (!Active.empty()) {
+        const int Newest = (int)Active.size() - 1;
+        const int Index = std::uniform_int_distribution<int>(0, 15)(Random) == 0
+                              ? std::uniform_int_distribution<int>(0, Newest)(Random)
+                              : Newest;
+        const int Row = Active[Index] / N, Col = Active[Index] % N;
+        int Order[] = {0, 1, 2, 3};
+        std::shuffle(std::begin(Order), std::end(Order), Random);
+        bool Carved = false;
+        for (int Direction : Order) {
+            const int NextRow = Row + Dr[Direction], NextCol = Col + Dc[Direction];
+            if (NextRow < 0 || NextRow >= N || NextCol < 0 || NextCol >= N ||
+                Grid[NextRow * N + NextCol] != '#')
                 continue;
-            const int wallRow = row + dr[direction] / 2;
-            const int wallCol = col + dc[direction] / 2;
-            grid[wallRow * n + wallCol] = '.';
-            steps.push_back({wallRow, wallCol});
-            grid[nextRow * n + nextCol] = '.';
-            steps.push_back({nextRow, nextCol});
-            active.push_back(nextRow * n + nextCol);
-            carved = true;
+            const int WallRow = Row + Dr[Direction] / 2;
+            const int WallCol = Col + Dc[Direction] / 2;
+            Grid[WallRow * N + WallCol] = '.';
+            Steps.push_back({WallRow, WallCol});
+            Grid[NextRow * N + NextCol] = '.';
+            Steps.push_back({NextRow, NextCol});
+            Active.push_back(NextRow * N + NextCol);
+            Carved = true;
             break;
         }
-        if (!carved)
-            active.erase(active.begin() + index);
+        if (!Carved)
+            Active.erase(Active.begin() + Index);
     }
 }
 
 // Return the number of rows and columns in this square maze. This reads the stored dimension
 // without generating cells or copying the grid.
-int MazeData::size() const {
-    return n;
+int MazeData::Size() const {
+    return N;
 }
 // Borrow the recorded cell-opening sequence for the selected layout so the loading screen can
 // animate generation without regenerating the maze. The reference remains valid only while this
 // MazeData object exists.
-const std::vector<MazeStep>& MazeData::generationSteps() const {
-    return steps;
+const std::vector<MazeStep>& MazeData::GenerationSteps() const {
+    return Steps;
 }
 
 // Read a cell using row-major indexing: row * size + column. Return '#' for walls and
 // out-of-bounds positions, '.' for passages, and 'E' for the exit, allowing callers to treat the
 // maze boundary as solid.
-char MazeData::cell(int r, int c) const {
-    if (r < 0 || r >= n || c < 0 || c >= n)
+char MazeData::Cell(int CurrentR, int CurrentC) const {
+    if (CurrentR < 0 || CurrentR >= N || CurrentC < 0 || CurrentC >= N)
         return '#';
-    return grid[r * n + c];
+    return Grid[CurrentR * N + CurrentC];
 }
