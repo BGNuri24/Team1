@@ -15,84 +15,84 @@ namespace {
 // Restore the initial grounded movement state, clearing horizontal momentum, vertical speed, jump
 // height, and buffered input. Gravity transfers use this to prevent a previous jump from carrying
 // into a new surface.
-void JumpMovement::reset() { *this = JumpMovement{}; }
+void JumpMovement::Reset() { *this = JumpMovement{}; }
 // Refresh the jump-request buffer for JumpBuffer seconds. A request made shortly before landing
 // can trigger the next takeoff when step observes ground contact.
-void JumpMovement::requestJump() { bufferedJump = JumpBuffer; }
+void JumpMovement::RequestJump() { BufferedJump = JumpBuffer; }
 // Discard horizontal velocity along X after a wall prevents that component of movement. Keep Z
 // velocity and vertical jump state so the player can continue sliding along the free axis.
-void JumpMovement::blockX() { vx = 0; }
+void JumpMovement::BlockX() { Vx = 0; }
 // Discard horizontal velocity along Z after a wall prevents that component of movement. Keep X
 // velocity and vertical jump state so the player can continue sliding along the free axis.
-void JumpMovement::blockZ() { vz = 0; }
+void JumpMovement::BlockZ() { Vz = 0; }
 
 // Advance movement for a positive finite duration: normalize wish input, consume buffered
 // takeoff, apply ground friction or air acceleration, and integrate jump height. Respect ceiling
 // headroom, landing, and MaxSpeed while preserving chained-hop momentum.
-void JumpMovement::step(float wishX, float wishZ, float dt) {
-    if (!std::isfinite(dt) || dt <= 0) return;
-    const float length = std::hypot(wishX, wishZ);
-    if (length > 1) { wishX /= length; wishZ /= length; }
+void JumpMovement::Step(float WishX, float WishZ, float Dt) {
+    if (!std::isfinite(Dt) || Dt <= 0) return;
+    const float Length = std::hypot(WishX, WishZ);
+    if (Length > 1) { WishX /= Length; WishZ /= Length; }
 
     // Project current momentum onto the normalized wish direction and add only the remaining
     // allowed speed along it. Ground and air branches share this acceleration rule with different
     // limits.
-    auto accelerate = [&](float wishSpeed, float acceleration) {
-        const float remaining = wishSpeed - (vx * wishX + vz * wishZ);
-        if (remaining <= 0)
+    auto Accelerate = [&](float WishSpeed, float Acceleration) {
+        const float Remaining = WishSpeed - (Vx * WishX + Vz * WishZ);
+        if (Remaining <= 0)
             return;
-        const float amount = std::min(remaining, acceleration * TakeoffSpeed * dt);
-        vx += wishX * amount;
-        vz += wishZ * amount;
+        const float Amount = std::min(Remaining, Acceleration * TakeoffSpeed * Dt);
+        Vx += WishX * Amount;
+        Vz += WishZ * Amount;
     };
 
-    if (onGround) {
-        const bool takingOff = bufferedJump > 0;
-        const bool walking = std::fabs(vx - wishX * MazeGeometry::MovementSpeed) < .001f &&
-                             std::fabs(vz - wishZ * MazeGeometry::MovementSpeed) < .001f;
-        if (!momentum || (takingOff && walking)) {
+    if (OnGround) {
+        const bool TakingOff = BufferedJump > 0;
+        const bool Walking = std::fabs(Vx - WishX * MazeGeometry::MovementSpeed) < .001f &&
+                             std::fabs(Vz - WishZ * MazeGeometry::MovementSpeed) < .001f;
+        if (!Momentum || (TakingOff && Walking)) {
             // Ordinary walking is slower, but a fresh jump from walking starts at the original
             // takeoff speed. Chained hops retain their existing momentum without rescaling.
-            const float baseSpeed = takingOff ? TakeoffSpeed : MazeGeometry::MovementSpeed;
-            vx = wishX * baseSpeed;
-            vz = wishZ * baseSpeed;
+            const float BaseSpeed = TakingOff ? TakeoffSpeed : MazeGeometry::MovementSpeed;
+            Vx = WishX * BaseSpeed;
+            Vz = WishZ * BaseSpeed;
         }
-        if (takingOff) {
-            verticalSpeed = JumpImpulse;
-            onGround = false;
-            momentum = true;
-            bufferedJump = 0;
-        } else if (momentum) {
-            const float speed = std::hypot(vx, vz);
-            if (speed > 0) {
-                const float kept = std::max(0.0f, speed - std::max(speed, 1.0f) * GroundFriction * dt) / speed;
-                vx *= kept;
-                vz *= kept;
+        if (TakingOff) {
+            VerticalSpeed = JumpImpulse;
+            OnGround = false;
+            Momentum = true;
+            BufferedJump = 0;
+        } else if (Momentum) {
+            const float Speed = std::hypot(Vx, Vz);
+            if (Speed > 0) {
+                const float Kept = std::max(0.0f, Speed - std::max(Speed, 1.0f) * GroundFriction * Dt) / Speed;
+                Vx *= Kept;
+                Vz *= Kept;
             }
-            accelerate(MazeGeometry::MovementSpeed, GroundAcceleration);
-            if (wishX == 0 && wishZ == 0 && std::hypot(vx, vz) < .001f) {
-                vx = vz = 0;
-                momentum = false;
+            Accelerate(MazeGeometry::MovementSpeed, GroundAcceleration);
+            if (WishX == 0 && WishZ == 0 && std::hypot(Vx, Vz) < .001f) {
+                Vx = Vz = 0;
+                Momentum = false;
             }
         }
     }
-    if (!onGround) {
+    if (!OnGround) {
         // Add air acceleration along the requested movement direction while retaining the existing
         // velocity vector.
         // Changing the view alone does not redirect momentum; steering through strafing can increase
         // speed up to MaxSpeed.
-        accelerate(AirWishSpeed, AirAcceleration);
-        offset += verticalSpeed * dt - 0.5f * Gravity * dt * dt;
-        verticalSpeed -= Gravity * dt;
-        const float headroom = MazeGeometry::CeilingHeight - MazeGeometry::SurfaceOffset
+        Accelerate(AirWishSpeed, AirAcceleration);
+        CurrentOffset += VerticalSpeed * Dt - 0.5f * Gravity * Dt * Dt;
+        VerticalSpeed -= Gravity * Dt;
+        const float Headroom = MazeGeometry::CeilingHeight - MazeGeometry::SurfaceOffset
             - MazeGeometry::StandingEyeHeight;
-        if (offset > headroom) { offset = headroom; verticalSpeed = std::min(0.0f, verticalSpeed); }
-        if (offset <= 0 && verticalSpeed <= 0) {
-            offset = verticalSpeed = 0;
-            onGround = true;
+        if (CurrentOffset > Headroom) { CurrentOffset = Headroom; VerticalSpeed = std::min(0.0f, VerticalSpeed); }
+        if (CurrentOffset <= 0 && VerticalSpeed <= 0) {
+            CurrentOffset = VerticalSpeed = 0;
+            OnGround = true;
         }
     }
-    const float speed = std::hypot(vx, vz);
-    if (speed > MaxSpeed) { vx *= MaxSpeed / speed; vz *= MaxSpeed / speed; }
-    bufferedJump = std::max(0.0f, bufferedJump - dt);
+    const float Speed = std::hypot(Vx, Vz);
+    if (Speed > MaxSpeed) { Vx *= MaxSpeed / Speed; Vz *= MaxSpeed / Speed; }
+    BufferedJump = std::max(0.0f, BufferedJump - Dt);
 }

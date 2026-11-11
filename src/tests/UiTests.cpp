@@ -6,15 +6,15 @@
 // Exercise exclusive texture ownership, move construction, move assignment, and replacement of an
 // already loaded set inside a live graphics context. Verify moved-from objects become empty and
 // cleanup does not double-unload handles.
-void runResourceTests();
+void RunResourceTests();
 // Run lighting, batching, HDR, bloom, material, and surface-effect checks inside the UI suite's
 // hidden graphics context. Inspect rendered results without updating gameplay or writing player
 // saves.
-void runLightingTests();
+void RunLightingTests();
 // Check journey behavior, scaled option targets, keyboard-pointer interaction, and packaged menu
 // artwork in the hidden UI graphics context. Synthetic input avoids changing desktop focus or
 // sending real clicks.
-void runMainMenuTests();
+void RunMainMenuTests();
 
 namespace {
 // Use a hidden graphics context so measurements match the default font used by real menu drawing.
@@ -34,125 +34,125 @@ struct Window {
 // Measure text using the actual drawing font and assert its fitted size respects the available
 // pixel width. Include very narrow labels to cover sizes below the usual ten-pixel drawing
 // baseline.
-void checkFit(const char* text, float maximum, float width) {
-    const float size = fittedMenuFontSize(text, maximum, width);
-    if (!(size > 0 && size <= maximum))
+void CheckFit(const char* CurrentText, float Maximum, float Width) {
+    const float CurrentSize = FittedMenuFontSize(CurrentText, Maximum, Width);
+    if (!(CurrentSize > 0 && CurrentSize <= Maximum))
         throw std::runtime_error("fitted font must be positive and bounded");
-    const float measured = MeasureTextEx(GetFontDefault(), text, size, size / 10).x;
-    if (measured > width + .001f)
+    const float Measured = MeasureTextEx(GetFontDefault(), CurrentText, CurrentSize, CurrentSize / 10).x;
+    if (Measured > Width + .001f)
         throw std::runtime_error("fitted glyphs overflow their available width");
 }
 
 // Compare all four byte channels of two colors exactly. Palette tests use this for values that
 // should remain identical rather than relying on approximate brightness comparisons.
-bool sameColor(Color a, Color b) {
-    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+bool SameColor(Color CurrentA, Color B) {
+    return CurrentA.r == B.r && CurrentA.g == B.g && CurrentA.b == B.b && CurrentA.a == B.a;
 }
 
 // Convert sRGB color channels into linear light and combine them with standard luminance weights.
 // Contrast checks use this perceptual brightness estimate instead of averaging encoded RGB bytes.
-float luminance(Color color) {
+float Luminance(Color CurrentColor) {
     // Decode an sRGB byte into linear-light intensity using the piecewise transfer curve.
     // Luminance comparisons must combine linear channels rather than encoded display values.
-    auto channel = [](unsigned char value) {
-        const float x = value / 255.0f;
-        return x <= .04045f ? x / 12.92f : std::pow((x + .055f) / 1.055f, 2.4f);
+    auto Channel = [](unsigned char Value) {
+        const float CurrentX = Value / 255.0f;
+        return CurrentX <= .04045f ? CurrentX / 12.92f : std::pow((CurrentX + .055f) / 1.055f, 2.4f);
     };
-    return .2126f * channel(color.r) + .7152f * channel(color.g) + .0722f * channel(color.b);
+    return .2126f * Channel(CurrentColor.r) + .7152f * Channel(CurrentColor.g) + .0722f * Channel(CurrentColor.b);
 }
 
 // Exercise a single live UI across theme switches, checking rendered panels, default text colors
 // and readable normal/selected states rather than reconstructing the palette formulas in the
 // test.
-void checkRunPalettes() {
-    const MazeTheme saved = MenuTheme::current();
-    const Color& livePanel = MenuTheme::Panel;
-    std::array<Color, MazeThemeCount> backgrounds{};
-    RenderTexture2D canvas = LoadRenderTexture(80, 80);
-    for (int index = 0; index < MazeThemeCount; ++index) {
-        const MazeTheme theme = static_cast<MazeTheme>(index);
-        MenuTheme::apply(theme);
-        const MenuTheme::Colors colors = MenuTheme::colorsFor(mazePalette(theme));
-        if (MenuTheme::current() != theme || !sameColor(livePanel, colors.panel))
+void CheckRunPalettes() {
+    const MazeTheme Saved = MenuTheme::Current();
+    const Color& LivePanel = MenuTheme::Panel;
+    std::array<Color, MazeThemeCount> Backgrounds{};
+    RenderTexture2D Canvas = LoadRenderTexture(80, 80);
+    for (int Index = 0; Index < MazeThemeCount; ++Index) {
+        const MazeTheme Theme = static_cast<MazeTheme>(Index);
+        MenuTheme::Apply(Theme);
+        const MenuTheme::Colors CurrentColors = MenuTheme::ColorsFor(GetMazePalette(Theme));
+        if (MenuTheme::Current() != Theme || !SameColor(LivePanel, CurrentColors.CurrentPanel))
             throw std::runtime_error("existing screens must read the newly applied theme");
-        backgrounds[index] = MenuTheme::Ink;
-        for (int previous = 0; previous < index; ++previous)
-            if (sameColor(backgrounds[previous], backgrounds[index]))
+        Backgrounds[Index] = MenuTheme::Ink;
+        for (int Previous = 0; Previous < Index; ++Previous)
+            if (SameColor(Backgrounds[Previous], Backgrounds[Index]))
                 throw std::runtime_error("each maze theme must produce a distinct UI background");
-        for (Color foreground :
-             {colors.paper, colors.muted, colors.accent, colors.secondary, colors.danger})
-            for (Color background :
-                 {colors.ink, colors.panel, colors.selected, colors.badge, colors.keycap}) {
-                const float a = luminance(foreground), b = luminance(background);
-                const float contrast = (std::max(a, b) + .05f) / (std::min(a, b) + .05f);
-                if (contrast < 4.5f)
-                    throw std::runtime_error(std::string(mazePalette(theme).name) +
+        for (Color Foreground :
+             {CurrentColors.CurrentPaper, CurrentColors.CurrentMuted, CurrentColors.CurrentAccent, CurrentColors.CurrentSecondary, CurrentColors.CurrentDanger})
+            for (Color Background :
+                 {CurrentColors.CurrentInk, CurrentColors.CurrentPanel, CurrentColors.CurrentSelected, CurrentColors.CurrentBadge, CurrentColors.CurrentKeycap}) {
+                const float CurrentA = Luminance(Foreground), B = Luminance(Background);
+                const float CurrentContrast = (std::max(CurrentA, B) + .05f) / (std::min(CurrentA, B) + .05f);
+                if (CurrentContrast < 4.5f)
+                    throw std::runtime_error(std::string(GetMazePalette(Theme).CurrentName) +
                                              " UI text contrast is too low");
             }
         BeginDrawing();
-        BeginTextureMode(canvas);
+        BeginTextureMode(Canvas);
         ClearBackground(MenuTheme::Ink);
-        drawMenuPanel({8, 8, 64, 64});
-        drawMenuText("X", 16, 16, 20);
+        DrawMenuPanel({8, 8, 64, 64});
+        DrawMenuText("X", 16, 16, 20);
         EndTextureMode();
         EndDrawing();
-        Image rendered = LoadImageFromTexture(canvas.texture);
-        ImageFlipVertical(&rendered);
-        if (!sameColor(GetImageColor(rendered, 40, 40), colors.panel))
+        Image Rendered = LoadImageFromTexture(Canvas.texture);
+        ImageFlipVertical(&Rendered);
+        if (!SameColor(GetImageColor(Rendered, 40, 40), CurrentColors.CurrentPanel))
             throw std::runtime_error("rendered panel retained an earlier theme");
-        bool foundText = false;
-        for (int y = 20; y < 40; ++y)
-            for (int x = 8; x < 32; ++x)
-                foundText |= sameColor(GetImageColor(rendered, x, y), colors.paper);
-        UnloadImage(rendered);
-        if (!foundText)
+        bool FoundText = false;
+        for (int CurrentY = 20; CurrentY < 40; ++CurrentY)
+            for (int CurrentX = 8; CurrentX < 32; ++CurrentX)
+                FoundText |= SameColor(GetImageColor(Rendered, CurrentX, CurrentY), CurrentColors.CurrentPaper);
+        UnloadImage(Rendered);
+        if (!FoundText)
             throw std::runtime_error("default text color retained an earlier theme");
     }
-    UnloadRenderTexture(canvas);
-    MenuTheme::apply(static_cast<MazeTheme>(-1));
-    if (MenuTheme::current() != ActiveMazeTheme)
+    UnloadRenderTexture(Canvas);
+    MenuTheme::Apply(static_cast<MazeTheme>(-1));
+    if (MenuTheme::Current() != ActiveMazeTheme)
         throw std::runtime_error("unsupported UI themes must fall back to the active palette");
-    MenuTheme::apply(saved);
+    MenuTheme::Apply(Saved);
 }
 }
 
 // Create the hidden graphics context and run font-fitting, palette, resource, menu, and lighting
 // checks. Export the small-window preview within the test output while keeping real gameplay and
 // saves untouched.
-void runUiTests() {
-    Window window;
+void RunUiTests() {
+    Window CurrentWindow;
     if (!IsWindowReady())
         throw std::runtime_error("hidden UI test context unavailable");
-    runResourceTests();
-    runLightingTests();
-    runMainMenuTests();
-    checkRunPalettes();
-    for (float width : {12.0f, 50.0f, 120.0f, 300.0f}) {
-        checkFit("A deliberately long menu label with several words", 25, width);
-        checkFit("mrtakethatri", 22, width);
-        checkFit("Change player", 16, width);
+    RunResourceTests();
+    RunLightingTests();
+    RunMainMenuTests();
+    CheckRunPalettes();
+    for (float Width : {12.0f, 50.0f, 120.0f, 300.0f}) {
+        CheckFit("A deliberately long menu label with several words", 25, Width);
+        CheckFit("mrtakethatri", 22, Width);
+        CheckFit("Change player", 16, Width);
     }
-    if (fittedMenuFontSize("text", 20, 0) != 0 || fittedMenuFontSize("", 20, 100) != 0 ||
-        fittedMenuFontSize(nullptr, 20, 100) != 0)
+    if (FittedMenuFontSize("text", 20, 0) != 0 || FittedMenuFontSize("", 20, 100) != 0 ||
+        FittedMenuFontSize(nullptr, 20, 100) != 0)
         throw std::runtime_error("empty text bounds must skip drawing");
-    if (!(fittedMenuFontSize("A very long label", 20, 20) < 10))
+    if (!(FittedMenuFontSize("A very long label", 20, 20) < 10))
         throw std::runtime_error(
             "fitting must support font sizes below DrawText's ten-pixel clamp");
-    RenderTexture2D preview = LoadRenderTexture(640, 480);
-    BeginTextureMode(preview);
+    RenderTexture2D Preview = LoadRenderTexture(640, 480);
+    BeginTextureMode(Preview);
     ClearBackground(MenuTheme::Ink);
-    drawMenuHeading("TEXT FIT / SMALL WINDOW", "Menu sizing check",
+    DrawMenuHeading("TEXT FIT / SMALL WINDOW", "Menu sizing check",
                     "Long labels should remain inside their panels.");
-    drawMenuButton(uiRect(64, 250, 414, 66), "Change player", true,
+    DrawMenuButton(UiRect(64, 250, 414, 66), "Change player", true,
                    "Keyboard and mouse navigation");
-    drawMenuButton(uiRect(64, 335, 414, 66), "A deliberately long menu label with several words",
+    DrawMenuButton(UiRect(64, 335, 414, 66), "A deliberately long menu label with several words",
                    false);
-    drawMenuTextFit("VeryLongPlayerNameForCheckingBounds", 550, 270, 350, 30, MenuTheme::Accent);
+    DrawMenuTextFit("VeryLongPlayerNameForCheckingBounds", 550, 270, 350, 30, MenuTheme::Accent);
     EndTextureMode();
-    Image image = LoadImageFromTexture(preview.texture);
-    ImageFlipVertical(&image);
+    Image CurrentImage = LoadImageFromTexture(Preview.texture);
+    ImageFlipVertical(&CurrentImage);
     std::filesystem::create_directories("docs/assets");
-    ExportImage(image, "docs/assets/ui-text-small.png");
-    UnloadImage(image);
-    UnloadRenderTexture(preview);
+    ExportImage(CurrentImage, "docs/assets/UiTextSmall.png");
+    UnloadImage(CurrentImage);
+    UnloadRenderTexture(Preview);
 }

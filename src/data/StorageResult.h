@@ -8,11 +8,11 @@ enum class StorageStatus { Success, Invalid, NotFound, Duplicate, Full, Unavaila
 enum class RecordResult { Updated, Unchanged, Invalid, StorageError };
 
 struct ProfileResult {
-    StorageStatus status = StorageStatus::Unavailable;
-    std::vector<std::string> players;
+    StorageStatus Status = StorageStatus::Unavailable;
+    std::vector<std::string> CurrentPlayers;
 };
 
 struct BestTimeResult {
-    StorageStatus status = StorageStatus::Unavailable;
-    std::optional<float> seconds;
+    StorageStatus Status = StorageStatus::Unavailable;
+    std::optional<float> Seconds;
 };

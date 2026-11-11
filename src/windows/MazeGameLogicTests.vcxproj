@@ -39,7 +39,7 @@
     <ClCompile Include="..\data\MazeData.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="raylib.vcxproj">
+    <ProjectReference Include="Raylib.vcxproj">
       <Project>{69AE195E-2FF5-44DB-8691-B9807CD47C68}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>

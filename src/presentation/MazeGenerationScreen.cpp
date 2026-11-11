@@ -4,145 +4,145 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float BUILD_DURATION = 4.5f;
+static constexpr float BuildDuration = 4.5f;
 
 namespace {
 // Draw a thin line for the hotel-directory generation layout using shared UI scaling. Enforce a
 // one-pixel minimum so separators remain visible at small resolutions.
-void directoryRule(int x1, int y1, int x2, int y2, Color color) {
-    DrawLineEx({(float)uiX(x1), (float)uiY(y1)}, {(float)uiX(x2), (float)uiY(y2)},
-               std::max(1.0f, uiScale()), color);
+void DirectoryRule(int X1, int Y1, int X2, int Y2, Color CurrentColor) {
+    DrawLineEx({(float)UiX(X1), (float)UiY(Y1)}, {(float)UiX(X2), (float)UiY(Y2)},
+               std::max(1.0f, UiScale()), CurrentColor);
 }
 } // namespace
 
 // Initialize the preview for a fresh Game by resetting its displayed carving progress and
 // generation timing. The maze is already generated; this screen animates its recorded opening
 // sequence.
-void MazeGenerationScreen::begin(const Game& game) {
-    elapsed = 0;
-    shownSteps = 0;
-    const int size = game.maze().size();
-    revealed.assign(size * size, 0);
+void MazeGenerationScreen::Begin(const Game& CurrentGame) {
+    Elapsed = 0;
+    ShownSteps = 0;
+    const int CurrentSize = CurrentGame.Maze().Size();
+    Revealed.assign(CurrentSize * CurrentSize, 0);
 }
 
 // Advance the generation preview from elapsed frame time and the run's recorded steps. Return
 // whether its presentation has completed so Application can enter gameplay and capture the
 // cursor.
-bool MazeGenerationScreen::update(const Game& game) {
-    const float delta = GetFrameTime();
-    if (std::isfinite(delta) && delta > 0)
-        elapsed = std::min(elapsed + delta, BUILD_DURATION);
-    const std::vector<MazeStep>& steps = game.maze().generationSteps();
-    const float progress = elapsed / BUILD_DURATION;
-    const int targetSteps = (int)(progress * steps.size());
-    while (shownSteps < targetSteps) {
-        const MazeStep& step = steps[shownSteps++];
-        revealed[step.row * game.maze().size() + step.col] = 1;
+bool MazeGenerationScreen::Update(const Game& CurrentGame) {
+    const float Delta = GetFrameTime();
+    if (std::isfinite(Delta) && Delta > 0)
+        Elapsed = std::min(Elapsed + Delta, BuildDuration);
+    const std::vector<MazeStep>& Steps = CurrentGame.Maze().GenerationSteps();
+    const float Progress = Elapsed / BuildDuration;
+    const int TargetSteps = (int)(Progress * Steps.size());
+    while (ShownSteps < TargetSteps) {
+        const MazeStep& Step = Steps[ShownSteps++];
+        Revealed[Step.Row * CurrentGame.Maze().Size() + Step.Col] = 1;
     }
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-    return elapsed >= BUILD_DURATION && shownSteps == (int)steps.size();
+    return Elapsed >= BuildDuration && ShownSteps == (int)Steps.size();
 }
 
 // Render the preparation directory and current generation progress for the supplied Game. This
 // reads the chosen run and preview state without changing the maze or starting its gameplay
 // timer.
-void MazeGenerationScreen::draw(const Game& game) const {
+void MazeGenerationScreen::Draw(const Game& CurrentGame) const {
     using namespace MenuTheme;
-    const int size = game.maze().size();
-    const float progress = std::clamp(elapsed / BUILD_DURATION, 0.0f, 1.0f);
-    const float s = uiScale();
-    const Color wood = ColorLerp(Panel, Ink, .28f);
-    const Color bronze = ColorLerp(Accent, Panel, .50f);
-    const Color face = ColorLerp(Ink, Panel, .22f);
-    const Color well = ColorLerp(Ink, Panel, .06f);
-    const Color lettering = ColorLerp(Paper, Accent, .30f);
-    const Color line = ColorLerp(bronze, Paper, .10f);
-    const float stroke = std::max(1.0f, s);
+    const int CurrentSize = CurrentGame.Maze().Size();
+    const float Progress = std::clamp(Elapsed / BuildDuration, 0.0f, 1.0f);
+    const float CurrentS = UiScale();
+    const Color Wood = ColorLerp(Panel, Ink, .28f);
+    const Color Bronze = ColorLerp(Accent, Panel, .50f);
+    const Color CurrentFace = ColorLerp(Ink, Panel, .22f);
+    const Color Well = ColorLerp(Ink, Panel, .06f);
+    const Color Lettering = ColorLerp(Paper, Accent, .30f);
+    const Color Line = ColorLerp(Bronze, Paper, .10f);
+    const float Stroke = std::max(1.0f, CurrentS);
 
-    background.draw((float)GetTime());
+    Background.Draw((float)GetTime());
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(Ink, .18f));
 
-    const Rectangle frame = uiRect(205, 64, 590, 578);
-    DrawRectangleRec(uiRect(213, 75, 590, 578), Fade(Ink, .65f));
-    DrawRectangleGradientV((int)frame.x, (int)frame.y, (int)frame.width, (int)frame.height, wood,
-                           ColorLerp(wood, Ink, .60f));
-    DrawRectangleLinesEx(frame, stroke, ColorLerp(wood, bronze, .30f));
-    DrawRectangleRec(uiRect(218, 77, 564, 552), face);
-    DrawRectangleLinesEx(uiRect(214, 73, 572, 560), stroke, bronze);
-    DrawRectangleLinesEx(uiRect(219, 78, 562, 550), stroke, Fade(bronze, .28f));
+    const Rectangle Frame = UiRect(205, 64, 590, 578);
+    DrawRectangleRec(UiRect(213, 75, 590, 578), Fade(Ink, .65f));
+    DrawRectangleGradientV((int)Frame.x, (int)Frame.y, (int)Frame.width, (int)Frame.height, Wood,
+                           ColorLerp(Wood, Ink, .60f));
+    DrawRectangleLinesEx(Frame, Stroke, ColorLerp(Wood, Bronze, .30f));
+    DrawRectangleRec(UiRect(218, 77, 564, 552), CurrentFace);
+    DrawRectangleLinesEx(UiRect(214, 73, 572, 560), Stroke, Bronze);
+    DrawRectangleLinesEx(UiRect(219, 78, 562, 550), Stroke, Fade(Bronze, .28f));
 
     // Mitered frame edges and flush brass fixings keep the finish architectural.
-    directoryRule(205, 64, 218, 77, Fade(bronze, .45f));
-    directoryRule(795, 64, 782, 77, Fade(bronze, .45f));
-    directoryRule(205, 642, 218, 629, Fade(bronze, .24f));
-    directoryRule(795, 642, 782, 629, Fade(bronze, .24f));
-    for (int x : {211, 789})
-        for (int y : {70, 636})
-            DrawCircleV({(float)uiX(x), (float)uiY(y)}, std::max(1.0f, 1.3f * s), bronze);
+    DirectoryRule(205, 64, 218, 77, Fade(Bronze, .45f));
+    DirectoryRule(795, 64, 782, 77, Fade(Bronze, .45f));
+    DirectoryRule(205, 642, 218, 629, Fade(Bronze, .24f));
+    DirectoryRule(795, 642, 782, 629, Fade(Bronze, .24f));
+    for (int CurrentX : {211, 789})
+        for (int CurrentY : {70, 636})
+            DrawCircleV({(float)UiX(CurrentX), (float)UiY(CurrentY)}, std::max(1.0f, 1.3f * CurrentS), Bronze);
 
-    type.draw("FLOOR PLAN", 244, 96, 19, lettering, true, 300);
-    type.centered(TextFormat("%d x %d", size, size), 714, 99, 15, line, true, 84);
-    directoryRule(244, 135, 756, 135, Fade(bronze, .60f));
+    Type.Draw("FLOOR PLAN", 244, 96, 19, Lettering, true, 300);
+    Type.Centered(TextFormat("%d x %d", CurrentSize, CurrentSize), 714, 99, 15, Line, true, 84);
+    DirectoryRule(244, 135, 756, 135, Fade(Bronze, .60f));
 
-    const Rectangle inset = uiRect(284, 153, 432, 432);
-    DrawRectangleGradientV((int)inset.x, (int)inset.y, (int)inset.width, (int)inset.height, well,
-                           ColorLerp(well, face, .35f));
-    DrawRectangleLinesEx(inset, stroke, Fade(bronze, .38f));
+    const Rectangle Inset = UiRect(284, 153, 432, 432);
+    DrawRectangleGradientV((int)Inset.x, (int)Inset.y, (int)Inset.width, (int)Inset.height, Well,
+                           ColorLerp(Well, CurrentFace, .35f));
+    DrawRectangleLinesEx(Inset, Stroke, Fade(Bronze, .38f));
 
-    const float board = (float)uiSize(400);
-    const float cell = board / size;
-    const float originX = (float)uiX(300), originY = (float)uiY(169);
+    const float Board = (float)UiSize(400);
+    const float CurrentCell = Board / CurrentSize;
+    const float OriginX = (float)UiX(300), OriginY = (float)UiY(169);
     // Test whether a maze cell has been reached by the current recorded-generation preview.
     // Neighbor drawing uses this to avoid displaying passages before their animation step.
-    auto visible = [&](int row, int col) {
-        return row >= 0 && row < size && col >= 0 && col < size &&
-               (int)revealed.size() == size * size && revealed[row * size + col] != 0;
+    auto Visible = [&](int Row, int Col) {
+        return Row >= 0 && Row < CurrentSize && Col >= 0 && Col < CurrentSize &&
+               (int)Revealed.size() == CurrentSize * CurrentSize && Revealed[Row * CurrentSize + Col] != 0;
     };
 
-    const Color passage = ColorLerp(well, bronze, .18f);
-    const auto& steps = game.maze().generationSteps();
-    const int current = shownSteps > 0 ? shownSteps - 1 : -1;
-    for (int row = 0; row < size; ++row) {
-        for (int col = 0; col < size; ++col) {
-            if (!visible(row, col))
+    const Color Passage = ColorLerp(Well, Bronze, .18f);
+    const auto& Steps = CurrentGame.Maze().GenerationSteps();
+    const int Current = ShownSteps > 0 ? ShownSteps - 1 : -1;
+    for (int Row = 0; Row < CurrentSize; ++Row) {
+        for (int Col = 0; Col < CurrentSize; ++Col) {
+            if (!Visible(Row, Col))
                 continue;
-            const float x = std::round(originX + col * cell);
-            const float y = std::round(originY + row * cell);
-            const float right = std::round(originX + (col + 1) * cell);
-            const float bottom = std::round(originY + (row + 1) * cell);
-            const bool active = progress < 1 && current >= 0 && current < (int)steps.size() &&
-                                steps[current].row == row && steps[current].col == col;
-            DrawRectangleRec({x, y, right - x, bottom - y},
-                             active ? ColorLerp(passage, bronze, .26f) : passage);
+            const float CurrentX = std::round(OriginX + Col * CurrentCell);
+            const float CurrentY = std::round(OriginY + Row * CurrentCell);
+            const float CurrentRight = std::round(OriginX + (Col + 1) * CurrentCell);
+            const float Bottom = std::round(OriginY + (Row + 1) * CurrentCell);
+            const bool Active = Progress < 1 && Current >= 0 && Current < (int)Steps.size() &&
+                                Steps[Current].Row == Row && Steps[Current].Col == Col;
+            DrawRectangleRec({CurrentX, CurrentY, CurrentRight - CurrentX, Bottom - CurrentY},
+                             Active ? ColorLerp(Passage, Bronze, .26f) : Passage);
         }
     }
 
     // Continuous passage edges read as an engraved plan, including on the largest grids.
-    for (int row = 0; row < size; ++row) {
-        for (int col = 0; col < size; ++col) {
-            if (!visible(row, col))
+    for (int Row = 0; Row < CurrentSize; ++Row) {
+        for (int Col = 0; Col < CurrentSize; ++Col) {
+            if (!Visible(Row, Col))
                 continue;
-            const float x = std::round(originX + col * cell);
-            const float y = std::round(originY + row * cell);
-            const float right = std::round(originX + (col + 1) * cell);
-            const float bottom = std::round(originY + (row + 1) * cell);
-            if (!visible(row - 1, col))
-                DrawLineEx({x, y}, {right, y}, stroke, line);
-            if (!visible(row + 1, col))
-                DrawLineEx({x, bottom}, {right, bottom}, stroke, line);
-            if (!visible(row, col - 1))
-                DrawLineEx({x, y}, {x, bottom}, stroke, line);
-            if (!visible(row, col + 1))
-                DrawLineEx({right, y}, {right, bottom}, stroke, line);
+            const float CurrentX = std::round(OriginX + Col * CurrentCell);
+            const float CurrentY = std::round(OriginY + Row * CurrentCell);
+            const float CurrentRight = std::round(OriginX + (Col + 1) * CurrentCell);
+            const float Bottom = std::round(OriginY + (Row + 1) * CurrentCell);
+            if (!Visible(Row - 1, Col))
+                DrawLineEx({CurrentX, CurrentY}, {CurrentRight, CurrentY}, Stroke, Line);
+            if (!Visible(Row + 1, Col))
+                DrawLineEx({CurrentX, Bottom}, {CurrentRight, Bottom}, Stroke, Line);
+            if (!Visible(Row, Col - 1))
+                DrawLineEx({CurrentX, CurrentY}, {CurrentX, Bottom}, Stroke, Line);
+            if (!Visible(Row, Col + 1))
+                DrawLineEx({CurrentRight, CurrentY}, {CurrentRight, Bottom}, Stroke, Line);
         }
     }
 
-    type.draw(progress < 1 ? "Preparing" : "Ready", 244, 601, 15, lettering, true, 170);
-    if (game.mode() == GameMode::ZeroGravity)
-        type.centered("Zero gravity", 500, 603, 13, line, true, 160);
-    type.centered(TextFormat("%d%%", (int)std::round(progress * 100)), 718, 592, 26, lettering,
+    Type.Draw(Progress < 1 ? "Preparing" : "Ready", 244, 601, 15, Lettering, true, 170);
+    if (CurrentGame.Mode() == GameMode::ZeroGravity)
+        Type.Centered("Zero gravity", 500, 603, 13, Line, true, 160);
+    Type.Centered(TextFormat("%d%%", (int)std::round(Progress * 100)), 718, 592, 26, Lettering,
                   true, 80);
-    const Rectangle track = uiRect(244, 627, 512, 2);
-    DrawRectangleRec(track, ColorLerp(face, bronze, .20f));
-    DrawRectangleRec({track.x, track.y, track.width * progress, track.height}, bronze);
+    const Rectangle CurrentTrack = UiRect(244, 627, 512, 2);
+    DrawRectangleRec(CurrentTrack, ColorLerp(CurrentFace, Bronze, .20f));
+    DrawRectangleRec({CurrentTrack.x, CurrentTrack.y, CurrentTrack.width * Progress, CurrentTrack.height}, Bronze);
 }

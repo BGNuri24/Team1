@@ -7,71 +7,71 @@ namespace MazeLighting {
 inline constexpr const char* Fragment = R"glsl(#version 330
 in vec2 fragTexCoord;
 in vec4 fragColor;
-in vec3 worldPosition;
+in vec3 WorldPosition;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
-uniform vec3 eyePosition;
-uniform vec3 viewDirection;
-uniform float emission;
-uniform float hdrOutput;
-uniform vec4 materialParams; // perceptual roughness, metalness, relief height, clear coat
-uniform int wallSurface;
-uniform vec3 fogColor;
-uniform vec3 fixtureColor;
-uniform vec3 bounceColor;
-uniform float roomHeight;
-uniform vec4 lightPositions[16];
-uniform vec4 lightDirections[16];
-uniform vec4 lightExtents[16];
-uniform int lightCount;
-uniform ivec2 wallRows[50];
-uniform int mazeSize;
-uniform float cellSize;
-layout(location = 0) out vec4 finalColor;
-layout(location = 1) out vec4 surfaceData;
-const float PI = 3.14159265359;
+uniform vec3 EyePosition;
+uniform vec3 ViewDirection;
+uniform float Emission;
+uniform float HdrOutput;
+uniform vec4 MaterialParams; // perceptual roughness, metalness, relief height, clear coat
+uniform int WallSurface;
+uniform vec3 FogColor;
+uniform vec3 FixtureColor;
+uniform vec3 BounceColor;
+uniform float RoomHeight;
+uniform vec4 LightPositions[16];
+uniform vec4 LightDirections[16];
+uniform vec4 LightExtents[16];
+uniform int LightCount;
+uniform ivec2 WallRows[50];
+uniform int MazeSize;
+uniform float CellSize;
+layout(location = 0) out vec4 FinalColor;
+layout(location = 1) out vec4 SurfaceData;
+const float Pi = 3.14159265359;
 
 // Decode sRGB material color into linear-light RGB using the standard piecewise transfer curve.
 // Lighting calculations operate on this result so additions and attenuation represent light
 // energy.
-vec3 linearColor(vec3 c) {
-    return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+vec3 LinearColor(vec3 C) {
+    return mix(C / 12.92, pow((C + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), C));
 }
 
 // Compress linear HDR radiance with the fitted tone curve and encode it to display sRGB. Use this
 // only for direct output; the HDR path defers display conversion to the final composite pass.
-vec3 displayColor(vec3 c) {
-    c = clamp((c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14), 0.0, 1.0);
-    return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055,
-               step(vec3(0.0031308), c));
+vec3 DisplayColor(vec3 C) {
+    C = clamp((C * (2.51 * C + 0.03)) / (C * (2.43 * C + 0.59) + 0.14), 0.0, 1.0);
+    return mix(C * 12.92, 1.055 * pow(C, vec3(1.0 / 2.4)) - 0.055,
+               step(vec3(0.0031308), C));
 }
 
 // Read one maze-wall bit from the uploaded row masks, including columns beyond the first 32-bit
 // word. Treat cells outside mazeSize as solid to keep light rays inside the maze.
-bool solid(ivec2 cell) {
-    if (cell.x < 0 || cell.y < 0 || cell.x >= mazeSize || cell.y >= mazeSize) return true;
-    uint bits = uint(wallRows[cell.y][cell.x / 32]);
-    return (bits & (1u << uint(cell.x % 32))) != 0u;
+bool Solid(ivec2 Cell) {
+    if (Cell.x < 0 || Cell.y < 0 || Cell.x >= MazeSize || Cell.y >= MazeSize) return true;
+    uint Bits = uint(WallRows[Cell.y][Cell.x / 32]);
+    return (Bits & (1u << uint(Cell.x % 32))) != 0u;
 }
 
 // Traverse maze cells along a world-space X/Z segment using grid-boundary distances. Stop at the
 // first solid cell; conservatively report occlusion when the bounded traversal cannot reach the
 // destination.
-bool occluded(vec3 from, vec3 to) {
-    vec2 start = from.xz / cellSize + 0.5;
-    vec2 finish = to.xz / cellSize + 0.5;
-    vec2 ray = finish - start;
-    ivec2 cell = ivec2(floor(start)), end = ivec2(floor(finish));
-    ivec2 advance = ivec2(sign(ray));
-    vec2 stride = 1.0 / max(abs(ray), vec2(0.00001));
-    vec2 edge = mix(start - vec2(cell), vec2(cell + 1) - start, step(vec2(0), ray)) * stride;
-    if (abs(ray.x) < 0.00001) edge.x = 1e10;
-    if (abs(ray.y) < 0.00001) edge.y = 1e10;
-    for (int index = 0; index < 8; ++index) {
-        if (solid(cell)) return true;
-        if (all(equal(cell, end))) return false;
-        if (edge.x < edge.y) { cell.x += advance.x; edge.x += stride.x; }
-        else { cell.y += advance.y; edge.y += stride.y; }
+bool Occluded(vec3 From, vec3 To) {
+    vec2 Start = From.xz / CellSize + 0.5;
+    vec2 Finish = To.xz / CellSize + 0.5;
+    vec2 Ray = Finish - Start;
+    ivec2 Cell = ivec2(floor(Start)), End = ivec2(floor(Finish));
+    ivec2 Advance = ivec2(sign(Ray));
+    vec2 Stride = 1.0 / max(abs(Ray), vec2(0.00001));
+    vec2 Edge = mix(Start - vec2(Cell), vec2(Cell + 1) - Start, step(vec2(0), Ray)) * Stride;
+    if (abs(Ray.x) < 0.00001) Edge.x = 1e10;
+    if (abs(Ray.y) < 0.00001) Edge.y = 1e10;
+    for (int Index = 0; Index < 8; ++Index) {
+        if (Solid(Cell)) return true;
+        if (all(equal(Cell, End))) return false;
+        if (Edge.x < Edge.y) { Cell.x += Advance.x; Edge.x += Stride.x; }
+        else { Cell.y += Advance.y; Edge.y += Stride.y; }
     }
     return true;
 }
@@ -79,218 +79,218 @@ bool occluded(vec3 from, vec3 to) {
 // Estimate local ambient darkening from nearby walls and floor or ceiling edges. Ignore edges
 // parallel to the tested surface normal and return full visibility when maze dimensions are
 // unavailable.
-float ambientVisibility(vec3 p, vec3 n) {
-    if (cellSize <= 0.0 || mazeSize <= 0) return 1.0;
-    vec2 grid = p.xz / cellSize + 0.5;
-    ivec2 cell = ivec2(floor(grid));
-    vec2 local = fract(grid) * cellSize;
-    float edge = cellSize;
-    if (abs(n.x) < 0.7) {
-        if (solid(cell + ivec2(-1, 0))) edge = min(edge, local.x);
-        if (solid(cell + ivec2(1, 0))) edge = min(edge, cellSize - local.x);
+float AmbientVisibility(vec3 P, vec3 N) {
+    if (CellSize <= 0.0 || MazeSize <= 0) return 1.0;
+    vec2 Grid = P.xz / CellSize + 0.5;
+    ivec2 Cell = ivec2(floor(Grid));
+    vec2 Local = fract(Grid) * CellSize;
+    float Edge = CellSize;
+    if (abs(N.x) < 0.7) {
+        if (Solid(Cell + ivec2(-1, 0))) Edge = min(Edge, Local.x);
+        if (Solid(Cell + ivec2(1, 0))) Edge = min(Edge, CellSize - Local.x);
     }
-    if (abs(n.z) < 0.7) {
-        if (solid(cell + ivec2(0, -1))) edge = min(edge, local.y);
-        if (solid(cell + ivec2(0, 1))) edge = min(edge, cellSize - local.y);
+    if (abs(N.z) < 0.7) {
+        if (Solid(Cell + ivec2(0, -1))) Edge = min(Edge, Local.y);
+        if (Solid(Cell + ivec2(0, 1))) Edge = min(Edge, CellSize - Local.y);
     }
-    if (abs(n.y) < 0.7 && roomHeight > 0.0)
-        edge = min(edge, min(max(p.y, 0.0), max(roomHeight - p.y, 0.0)));
-    return 0.52 + 0.48 * smoothstep(0.015, 0.30, edge);
+    if (abs(N.y) < 0.7 && RoomHeight > 0.0)
+        Edge = min(Edge, min(max(P.y, 0.0), max(RoomHeight - P.y, 0.0)));
+    return 0.52 + 0.48 * smoothstep(0.015, 0.30, Edge);
 }
 
 // Derive a small surface-normal perturbation from world-position and height derivatives. Guard
 // near-degenerate determinants and clamp the slope so texture relief cannot create unstable
 // extreme normals.
-vec3 reliefNormal(vec3 n, float height) {
-    vec3 dx = dFdx(worldPosition), dy = dFdy(worldPosition);
-    vec3 a = cross(dy, n), b = cross(n, dx);
-    float determinant = dot(dx, a);
-    vec3 slope = (dFdx(height) * a + dFdy(height) * b)
+vec3 ReliefNormal(vec3 N, float Height) {
+    vec3 Dx = dFdx(WorldPosition), Dy = dFdy(WorldPosition);
+    vec3 A = cross(Dy, N), B = cross(N, Dx);
+    float determinant = dot(Dx, A);
+    vec3 Slope = (dFdx(Height) * A + dFdy(Height) * B)
         * sign(determinant) / max(abs(determinant), 0.000001);
-    slope *= min(1.0, 0.18 / max(length(slope), 0.0001));
-    return normalize(n - slope);
+    Slope *= min(1.0, 0.18 / max(length(Slope), 0.0001));
+    return normalize(N - Slope);
 }
 
 // Approximate angle-dependent reflectance with Schlick's fifth-power curve. f0 is reflectance at
 // normal incidence and v is the clamped view/half-vector alignment.
-vec3 fresnel(vec3 f0, float v) {
-    return f0 + (1.0 - f0) * pow(1.0 - clamp(v, 0.0, 1.0), 5.0);
+vec3 Fresnel(vec3 F0, float V) {
+    return F0 + (1.0 - F0) * pow(1.0 - clamp(V, 0.0, 1.0), 5.0);
 }
 
 // Pack a unit normal into two normalized channels with octahedral encoding. The material
 // attachment uses the remaining channels for roughness and reflectance read by surface effects.
-vec2 encodeNormal(vec3 n) {
-    n /= abs(n.x) + abs(n.y) + abs(n.z);
-    vec2 encoded = n.xy;
-    if (n.z < 0.0) encoded = (1.0 - abs(encoded.yx)) * sign(encoded + 0.000001);
-    return encoded * 0.5 + 0.5;
+vec2 EncodeNormal(vec3 N) {
+    N /= abs(N.x) + abs(N.y) + abs(N.z);
+    vec2 Encoded = N.xy;
+    if (N.z < 0.0) Encoded = (1.0 - abs(Encoded.yx)) * sign(Encoded + 0.000001);
+    return Encoded * 0.5 + 0.5;
 }
 
 // Evaluate the microfacet specular response from a GGX distribution, Smith visibility, and
 // Schlick Fresnel. Clamp small denominators to keep grazing-angle highlights finite.
-vec3 specularBrdf(vec3 n, vec3 v, vec3 l, float roughness, vec3 f0) {
-    float nv = max(dot(n, v), 0.001), nl = max(dot(n, l), 0.001);
-    vec3 h = (v + l) / max(length(v + l), 0.0001);
-    float nh = max(dot(n, h), 0.0), vh = max(dot(v, h), 0.0);
-    float a = roughness * roughness, a2 = a * a;
-    float denominator = nh * nh * (a2 - 1.0) + 1.0;
-    float distribution = a2 / max(PI * denominator * denominator, 0.000001);
-    float smithV = nl * sqrt(nv * nv * (1.0 - a2) + a2);
-    float smithL = nv * sqrt(nl * nl * (1.0 - a2) + a2);
-    return fresnel(f0, vh) * distribution * 0.5 / max(smithV + smithL, 0.0001);
+vec3 SpecularBrdf(vec3 N, vec3 V, vec3 L, float Roughness, vec3 F0) {
+    float Nv = max(dot(N, V), 0.001), Nl = max(dot(N, L), 0.001);
+    vec3 H = (V + L) / max(length(V + L), 0.0001);
+    float Nh = max(dot(N, H), 0.0), Vh = max(dot(V, H), 0.0);
+    float A = Roughness * Roughness, A2 = A * A;
+    float Denominator = Nh * Nh * (A2 - 1.0) + 1.0;
+    float Distribution = A2 / max(Pi * Denominator * Denominator, 0.000001);
+    float SmithV = Nl * sqrt(Nv * Nv * (1.0 - A2) + A2);
+    float SmithL = Nv * sqrt(Nl * Nl * (1.0 - A2) + A2);
+    return Fresnel(F0, Vh) * Distribution * 0.5 / max(SmithV + SmithL, 0.0001);
 }
 
 // Find the point on a finite rectangular light nearest the supplied target by projecting onto its
 // two half-axes. Clamp each projection to the emitter bounds instead of treating the lamp as an
 // infinite plane.
-vec3 emitterPoint(vec3 target, vec3 center, vec3 along, vec3 across) {
-    vec3 delta = target - center;
-    return center + along * clamp(dot(delta, along) / max(dot(along, along), 0.00001), -1.0, 1.0)
-        + across * clamp(dot(delta, across) / max(dot(across, across), 0.00001), -1.0, 1.0);
+vec3 EmitterPoint(vec3 Target, vec3 Center, vec3 Along, vec3 Across) {
+    vec3 Delta = Target - Center;
+    return Center + Along * clamp(dot(Delta, Along) / max(dot(Along, Along), 0.00001), -1.0, 1.0)
+        + Across * clamp(dot(Delta, Across) / max(dot(Across, Across), 0.00001), -1.0, 1.0);
 }
 
 // Estimate a rectangular emitter's visibility with bounded wall-occlusion samples. Use a cheaper
 // nearest-point test for weak contributions and combine several samples for brighter lights to
 // soften shadow transitions.
-float softVisibility(vec3 p, vec3 center, vec3 nearest, vec3 along, vec3 across, float power) {
-    ivec2 cell = ivec2(floor(p.xz / cellSize + 0.5));
-    ivec2 sourceCell = ivec2(floor(center.xz / cellSize + 0.5));
-    if (all(equal(cell, sourceCell)) && !solid(cell)) return 1.0;
-    float visible = occluded(p, nearest) ? 0.0 : 1.0;
-    if (power < 0.065) return visible;
-    visible *= 0.40;
-    visible += occluded(p, center + along * 0.7 + across * 0.7) ? 0.0 : 0.15;
-    visible += occluded(p, center - along * 0.7 + across * 0.7) ? 0.0 : 0.15;
-    visible += occluded(p, center + along * 0.7 - across * 0.7) ? 0.0 : 0.15;
-    visible += occluded(p, center - along * 0.7 - across * 0.7) ? 0.0 : 0.15;
-    return visible;
+float SoftVisibility(vec3 P, vec3 Center, vec3 Nearest, vec3 Along, vec3 Across, float Power) {
+    ivec2 Cell = ivec2(floor(P.xz / CellSize + 0.5));
+    ivec2 SourceCell = ivec2(floor(Center.xz / CellSize + 0.5));
+    if (all(equal(Cell, SourceCell)) && !Solid(Cell)) return 1.0;
+    float Visible = Occluded(P, Nearest) ? 0.0 : 1.0;
+    if (Power < 0.065) return Visible;
+    Visible *= 0.40;
+    Visible += Occluded(P, Center + Along * 0.7 + Across * 0.7) ? 0.0 : 0.15;
+    Visible += Occluded(P, Center - Along * 0.7 + Across * 0.7) ? 0.0 : 0.15;
+    Visible += Occluded(P, Center + Along * 0.7 - Across * 0.7) ? 0.0 : 0.15;
+    Visible += Occluded(P, Center - Along * 0.7 - Across * 0.7) ? 0.0 : 0.15;
+    return Visible;
 }
 
 // Estimate light scattering along the camera ray near a fixture's emission axis. Restrict the
 // contribution to the visible segment and lamp reach, rejecting haze blocked by maze walls.
-float lampHaze(int i, vec3 ray, float rayLength) {
-    vec3 center = lightPositions[i].xyz, axis = lightDirections[i].xyz;
-    float reach = axis.y < -0.5 ? max(roomHeight, 1.0) * 0.90 : 0.85;
-    float projected = dot(center - eyePosition, ray);
-    if (projected < -reach - 0.5 || projected > rayLength + reach + 0.5) return 0.0;
-    vec3 delta = eyePosition - center;
-    float alignment = dot(ray, axis);
-    float alongRay = clamp((alignment * dot(delta, axis) - dot(delta, ray))
-        / max(1.0 - alignment * alignment, 0.015), 0.0, rayLength);
-    float alongLamp = clamp(dot(delta + ray * alongRay, axis), 0.0, reach);
-    alongRay = clamp(dot(center + axis * alongLamp - eyePosition, ray), 0.0, rayLength);
-    vec3 air = eyePosition + ray * alongRay;
-    vec3 fromLamp = air - center;
-    float depth = dot(fromLamp, axis), width = 0.10 + max(depth, 0.0) * 0.23;
-    float radial2 = max(dot(fromLamp, fromLamp) - depth * depth, 0.0);
-    float density = exp(-radial2 / (width * width));
-    density *= smoothstep(-0.03, 0.10, depth) * (1.0 - smoothstep(reach * 0.55, reach, depth));
-    density *= smoothstep(0.0, 0.20, alongRay) * smoothstep(0.0, 0.12, rayLength - alongRay);
-    if (density < 0.025 || occluded(air, center)) return 0.0;
-    float phase = 0.8775 / pow(max(1.1225 - 0.7 * dot(-ray, axis), 0.1), 1.5);
-    return density * lightDirections[i].w * phase * 0.008;
+float LampHaze(int I, vec3 Ray, float RayLength) {
+    vec3 Center = LightPositions[I].xyz, Axis = LightDirections[I].xyz;
+    float Reach = Axis.y < -0.5 ? max(RoomHeight, 1.0) * 0.90 : 0.85;
+    float Projected = dot(Center - EyePosition, Ray);
+    if (Projected < -Reach - 0.5 || Projected > RayLength + Reach + 0.5) return 0.0;
+    vec3 Delta = EyePosition - Center;
+    float Alignment = dot(Ray, Axis);
+    float AlongRay = clamp((Alignment * dot(Delta, Axis) - dot(Delta, Ray))
+        / max(1.0 - Alignment * Alignment, 0.015), 0.0, RayLength);
+    float AlongLamp = clamp(dot(Delta + Ray * AlongRay, Axis), 0.0, Reach);
+    AlongRay = clamp(dot(Center + Axis * AlongLamp - EyePosition, Ray), 0.0, RayLength);
+    vec3 Air = EyePosition + Ray * AlongRay;
+    vec3 FromLamp = Air - Center;
+    float Depth = dot(FromLamp, Axis), Width = 0.10 + max(Depth, 0.0) * 0.23;
+    float Radial2 = max(dot(FromLamp, FromLamp) - Depth * Depth, 0.0);
+    float Density = exp(-Radial2 / (Width * Width));
+    Density *= smoothstep(-0.03, 0.10, Depth) * (1.0 - smoothstep(Reach * 0.55, Reach, Depth));
+    Density *= smoothstep(0.0, 0.20, AlongRay) * smoothstep(0.0, 0.12, RayLength - AlongRay);
+    if (Density < 0.025 || Occluded(Air, Center)) return 0.0;
+    float Phase = 0.8775 / pow(max(1.1225 - 0.7 * dot(-Ray, Axis), 0.1), 1.5);
+    return Density * LightDirections[I].w * Phase * 0.008;
 }
 
 // Shade a material using linear-light textures, geometric and relief normals, bounded area
 // lights, wall shadows, fog, and haze. Write material data for screen-space effects and either
 // HDR radiance or display-converted color.
 void main() {
-    surfaceData = vec4(0.5, 0.5, 1.0, 0.0);
-    vec4 texel = texture(texture0, fragTexCoord);
-    vec4 surface = texel * fragColor * colDiffuse;
-    vec3 albedo = linearColor(surface.rgb);
-    vec3 offset = worldPosition - eyePosition;
-    float distance = max(length(offset), 0.001);
-    vec3 view = -offset / distance;
-    float fog = 1.0 - exp(-0.045 * max(distance - 4.0, 0.0));
-    vec3 fogRadiance = linearColor(fogColor);
-    if (emission > 0.5) {
-        vec3 radiance = mix(albedo * 4.5, fogRadiance, fog);
-        finalColor = vec4(hdrOutput > 0.5 ? radiance : displayColor(radiance), surface.a);
+    SurfaceData = vec4(0.5, 0.5, 1.0, 0.0);
+    vec4 Texel = texture(texture0, fragTexCoord);
+    vec4 Surface = Texel * fragColor * colDiffuse;
+    vec3 Albedo = LinearColor(Surface.rgb);
+    vec3 Offset = WorldPosition - EyePosition;
+    float distance = max(length(Offset), 0.001);
+    vec3 View = -Offset / distance;
+    float Fog = 1.0 - exp(-0.045 * max(distance - 4.0, 0.0));
+    vec3 FogRadiance = LinearColor(FogColor);
+    if (Emission > 0.5) {
+        vec3 Radiance = mix(Albedo * 4.5, FogRadiance, Fog);
+        FinalColor = vec4(HdrOutput > 0.5 ? Radiance : DisplayColor(Radiance), Surface.a);
         return;
     }
 
-    vec4 material = materialParams.x > 0.0 ? materialParams : vec4(0.75, 0.0, 0.0, 0.0);
-    vec3 geometricNormal = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
-    if (dot(geometricNormal, view) < 0.0) geometricNormal = -geometricNormal;
-    float paneling = (1.0 - smoothstep(0.29, 0.34,
-        worldPosition.y / max(roomHeight, 0.01))) * (1.0 - abs(geometricNormal.y));
+    vec4 Material = MaterialParams.x > 0.0 ? MaterialParams : vec4(0.75, 0.0, 0.0, 0.0);
+    vec3 GeometricNormal = normalize(cross(dFdx(WorldPosition), dFdy(WorldPosition)));
+    if (dot(GeometricNormal, View) < 0.0) GeometricNormal = -GeometricNormal;
+    float Paneling = (1.0 - smoothstep(0.29, 0.34,
+        WorldPosition.y / max(RoomHeight, 0.01))) * (1.0 - abs(GeometricNormal.y));
     // Wall wallpaper transitions to polished lower marble; carpet and ceiling keep their profiles.
-    float wallMaterial = float(wallSurface);
-    float roughness = mix(material.x, 0.32, paneling * wallMaterial);
-    float coat = max(material.w, paneling * wallMaterial * 0.32);
-    float relief = dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722)) * material.z;
-    relief *= 1.0 - smoothstep(2.0, 8.0, distance);
-    vec3 normal = reliefNormal(geometricNormal, relief);
-    float variation = dot(dFdx(normal), dFdx(normal)) + dot(dFdy(normal), dFdy(normal));
-    roughness = clamp(sqrt(roughness * roughness + min(variation, 0.15)), 0.14, 0.98);
-    vec3 samplePoint = worldPosition + geometricNormal * 0.015;
-    float ao = ambientVisibility(samplePoint, geometricNormal);
-    float viewer = smoothstep(0.48, 0.98, dot(-view, viewDirection));
-    vec3 ambient = vec3(0.030, 0.027, 0.024) + vec3(0.012) * (0.5 + 0.5 * normal.y)
-        + vec3(0.006) * viewer * exp(-distance * 0.16);
-    vec3 f0 = mix(vec3(0.04), albedo, material.y);
-    surfaceData = vec4(encodeNormal(normal), roughness,
-                       clamp(max(max(f0.r, f0.g), f0.b) + coat * 0.02, 0.0, 1.0));
-    vec3 lit = albedo * ambient * ao * (1.0 - material.y);
-    lit += fresnel(f0, max(dot(normal, view), 0.0)) * vec3(0.018, 0.014, 0.010) * ao;
-    vec3 fixture = linearColor(fixtureColor), bounce = linearColor(bounceColor);
-    vec3 haze = vec3(0.0);
-    vec3 reflected = reflect(-view, normal);
+    float WallMaterial = float(WallSurface);
+    float Roughness = mix(Material.x, 0.32, Paneling * WallMaterial);
+    float Coat = max(Material.w, Paneling * WallMaterial * 0.32);
+    float Relief = dot(Texel.rgb, vec3(0.2126, 0.7152, 0.0722)) * Material.z;
+    Relief *= 1.0 - smoothstep(2.0, 8.0, distance);
+    vec3 Normal = ReliefNormal(GeometricNormal, Relief);
+    float Variation = dot(dFdx(Normal), dFdx(Normal)) + dot(dFdy(Normal), dFdy(Normal));
+    Roughness = clamp(sqrt(Roughness * Roughness + min(Variation, 0.15)), 0.14, 0.98);
+    vec3 SamplePoint = WorldPosition + GeometricNormal * 0.015;
+    float Ao = AmbientVisibility(SamplePoint, GeometricNormal);
+    float Viewer = smoothstep(0.48, 0.98, dot(-View, ViewDirection));
+    vec3 Ambient = vec3(0.030, 0.027, 0.024) + vec3(0.012) * (0.5 + 0.5 * Normal.y)
+        + vec3(0.006) * Viewer * exp(-distance * 0.16);
+    vec3 F0 = mix(vec3(0.04), Albedo, Material.y);
+    SurfaceData = vec4(EncodeNormal(Normal), Roughness,
+                       clamp(max(max(F0.r, F0.g), F0.b) + Coat * 0.02, 0.0, 1.0));
+    vec3 Lit = Albedo * Ambient * Ao * (1.0 - Material.y);
+    Lit += Fresnel(F0, max(dot(Normal, View), 0.0)) * vec3(0.018, 0.014, 0.010) * Ao;
+    vec3 Fixture = LinearColor(FixtureColor), Bounce = LinearColor(BounceColor);
+    vec3 Haze = vec3(0.0);
+    vec3 Reflected = reflect(-View, Normal);
 
-    for (int i = 0; i < lightCount; ++i) {
-        haze += fixture * lampHaze(i, -view, distance);
-        vec3 center = lightPositions[i].xyz, facing = lightDirections[i].xyz;
-        vec3 along = lightExtents[i].xyz;
-        vec3 across = normalize(cross(facing, along)) * lightExtents[i].w;
-        vec3 nearest = emitterPoint(samplePoint, center, along, across);
-        vec3 delta = nearest - samplePoint;
-        float distance2 = dot(delta, delta), range2 = lightPositions[i].w * lightPositions[i].w;
-        if (distance2 >= range2) continue;
-        vec3 direction = delta * inversesqrt(max(distance2, 0.0001));
-        float nl = max(dot(normal, direction), 0.0);
-        float window = max(1.0 - distance2 * distance2 / (range2 * range2), 0.0);
-        float falloff = window * window / (distance2 + 0.30);
-        float spread = facing.y < -0.5
-            ? 0.15 + 0.85 * smoothstep(-0.25, 0.65, dot(facing, -direction))
-            : 0.65 + 0.35 * max(dot(facing, -direction), 0.0);
-        float power = lightDirections[i].w * falloff * spread;
-        if (power < 0.004) continue;
-        float horizon = dot(normal, center - samplePoint);
-        if (horizon + abs(dot(normal, along)) + abs(dot(normal, across)) <= 0.0) continue;
-        float visibility = softVisibility(samplePoint, center, nearest, along, across, power);
-        if (visibility <= 0.0) continue;
-        vec3 radiance = fixture * power * visibility * 2.9;
-        vec3 halfVector = (view + direction) / max(length(view + direction), 0.0001);
-        vec3 f = fresnel(f0, max(dot(view, halfVector), 0.0));
-        float fd90 = 0.5 + 2.0 * roughness * pow(max(dot(direction, halfVector), 0.0), 2.0);
-        float diffuse = mix(1.0, fd90, pow(1.0 - nl, 5.0))
-            * mix(1.0, fd90, pow(1.0 - max(dot(normal, view), 0.0), 5.0));
-        lit += albedo * (1.0 - f) * (1.0 - material.y) * diffuse * nl / PI * radiance;
+    for (int I = 0; I < LightCount; ++I) {
+        Haze += Fixture * LampHaze(I, -View, distance);
+        vec3 Center = LightPositions[I].xyz, Facing = LightDirections[I].xyz;
+        vec3 Along = LightExtents[I].xyz;
+        vec3 Across = normalize(cross(Facing, Along)) * LightExtents[I].w;
+        vec3 Nearest = EmitterPoint(SamplePoint, Center, Along, Across);
+        vec3 Delta = Nearest - SamplePoint;
+        float Distance2 = dot(Delta, Delta), Range2 = LightPositions[I].w * LightPositions[I].w;
+        if (Distance2 >= Range2) continue;
+        vec3 Direction = Delta * inversesqrt(max(Distance2, 0.0001));
+        float Nl = max(dot(Normal, Direction), 0.0);
+        float Window = max(1.0 - Distance2 * Distance2 / (Range2 * Range2), 0.0);
+        float Falloff = Window * Window / (Distance2 + 0.30);
+        float Spread = Facing.y < -0.5
+            ? 0.15 + 0.85 * smoothstep(-0.25, 0.65, dot(Facing, -Direction))
+            : 0.65 + 0.35 * max(dot(Facing, -Direction), 0.0);
+        float Power = LightDirections[I].w * Falloff * Spread;
+        if (Power < 0.004) continue;
+        float Horizon = dot(Normal, Center - SamplePoint);
+        if (Horizon + abs(dot(Normal, Along)) + abs(dot(Normal, Across)) <= 0.0) continue;
+        float Visibility = SoftVisibility(SamplePoint, Center, Nearest, Along, Across, Power);
+        if (Visibility <= 0.0) continue;
+        vec3 Radiance = Fixture * Power * Visibility * 2.9;
+        vec3 HalfVector = (View + Direction) / max(length(View + Direction), 0.0001);
+        vec3 F = Fresnel(F0, max(dot(View, HalfVector), 0.0));
+        float Fd90 = 0.5 + 2.0 * Roughness * pow(max(dot(Direction, HalfVector), 0.0), 2.0);
+        float Diffuse = mix(1.0, Fd90, pow(1.0 - Nl, 5.0))
+            * mix(1.0, Fd90, pow(1.0 - max(dot(Normal, View), 0.0), 5.0));
+        Lit += Albedo * (1.0 - F) * (1.0 - Material.y) * Diffuse * Nl / Pi * Radiance;
 
         // The reflected view ray chooses a point on the finite diffuser, yielding broad source
         // reflections on stone and crisp warm highlights on metal without a reflection texture.
-        float denom = dot(reflected, facing);
-        float rayT = dot(center - samplePoint, facing) / (abs(denom) > 0.001 ? denom : 0.001);
-        vec3 target = rayT > 0.0 ? samplePoint + reflected * rayT : center;
-        vec3 specPoint = emitterPoint(target, center, along, across);
-        vec3 specDirection = normalize(specPoint - samplePoint);
-        float sourceSize = sqrt(dot(along, along) + dot(across, across));
-        float specRoughness = clamp(roughness + sourceSize * 0.16 / sqrt(distance2 + 0.1), 0.14, 0.98);
-        float energy = pow(roughness / specRoughness, 2.0);
-        lit += specularBrdf(normal, view, specDirection, specRoughness, f0)
-            * max(dot(normal, specDirection), 0.0) * radiance * energy;
-        if (coat > 0.0)
-            lit += specularBrdf(normal, view, specDirection, max(0.19, specRoughness * 0.75), vec3(0.04))
-                * max(dot(normal, specDirection), 0.0) * radiance * coat * 0.25;
-        lit += albedo * bounce * power * visibility * 0.035 * ao * (1.0 - material.y);
+        float Denom = dot(Reflected, Facing);
+        float RayT = dot(Center - SamplePoint, Facing) / (abs(Denom) > 0.001 ? Denom : 0.001);
+        vec3 Target = RayT > 0.0 ? SamplePoint + Reflected * RayT : Center;
+        vec3 SpecPoint = EmitterPoint(Target, Center, Along, Across);
+        vec3 SpecDirection = normalize(SpecPoint - SamplePoint);
+        float SourceSize = sqrt(dot(Along, Along) + dot(Across, Across));
+        float SpecRoughness = clamp(Roughness + SourceSize * 0.16 / sqrt(Distance2 + 0.1), 0.14, 0.98);
+        float Energy = pow(Roughness / SpecRoughness, 2.0);
+        Lit += SpecularBrdf(Normal, View, SpecDirection, SpecRoughness, F0)
+            * max(dot(Normal, SpecDirection), 0.0) * Radiance * Energy;
+        if (Coat > 0.0)
+            Lit += SpecularBrdf(Normal, View, SpecDirection, max(0.19, SpecRoughness * 0.75), vec3(0.04))
+                * max(dot(Normal, SpecDirection), 0.0) * Radiance * Coat * 0.25;
+        Lit += Albedo * Bounce * Power * Visibility * 0.035 * Ao * (1.0 - Material.y);
         // A broad, weak grazing sheen suggests wool without turning the carpet into a mirror.
-        if (material.x > 0.90)
-            lit += albedo * radiance * pow(1.0 - max(dot(normal, view), 0.0), 5.0) * nl * 0.025;
+        if (Material.x > 0.90)
+            Lit += Albedo * Radiance * pow(1.0 - max(dot(Normal, View), 0.0), 5.0) * Nl * 0.025;
     }
-    lit *= 0.85 + 0.15 * ao;
-    vec3 result = max(mix(lit, fogRadiance, fog) + haze, vec3(0.0));
-    finalColor = vec4(hdrOutput > 0.5 ? result : displayColor(result), surface.a);
+    Lit *= 0.85 + 0.15 * Ao;
+    vec3 Result = max(mix(Lit, FogRadiance, Fog) + Haze, vec3(0.0));
+    FinalColor = vec4(HdrOutput > 0.5 ? Result : DisplayColor(Result), Surface.a);
 }
 )glsl";
 }

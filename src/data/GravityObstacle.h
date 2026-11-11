@@ -2,8 +2,8 @@
 
 // Describe a barrier spanning a straight passage, independently of its rendered decoration.
 struct GravityObstacle {
-    int row;
-    int col;
-    bool acrossX;
-    bool ceiling;
+    int Row;
+    int Col;
+    bool AcrossX;
+    bool Ceiling;
 };

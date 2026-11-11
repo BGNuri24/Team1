@@ -10,24 +10,24 @@ static_assert(std::is_nothrow_move_constructible_v<Textures> &&
 // Exercise exclusive texture ownership, move construction, move assignment, and replacement of an
 // already loaded set inside a live graphics context. Verify moved-from objects become empty and
 // cleanup does not double-unload handles.
-void runResourceTests() {
-    Textures original = createTextures(mazePalette(MazeTheme::Teal));
-    if (!original.valid())
+void RunResourceTests() {
+    Textures Original = CreateTextures(GetMazePalette(MazeTheme::Teal));
+    if (!Original.Valid())
         throw std::runtime_error("resource fixture must create every material");
-    const unsigned int wall = original.wall().id;
-    const unsigned int marble = original.marble().id;
-    Textures moved(std::move(original));
-    if (original.valid() || original.wall().id || original.marble().id || !moved.valid() ||
-        moved.wall().id != wall || moved.marble().id != marble)
+    const unsigned int CurrentWall = Original.GetWall().id;
+    const unsigned int Marble = Original.Marble().id;
+    Textures Moved(std::move(Original));
+    if (Original.Valid() || Original.GetWall().id || Original.Marble().id || !Moved.Valid() ||
+        Moved.GetWall().id != CurrentWall || Moved.Marble().id != Marble)
         throw std::runtime_error(
             "moving textures must transfer their handles and empty the source");
-    Textures replacement = createTextures(mazePalette(MazeTheme::Sage));
-    replacement = std::move(moved);
-    if (moved.wall().id || moved.marble().id || !replacement.valid() ||
-        replacement.wall().id != wall || replacement.marble().id != marble)
+    Textures Replacement = CreateTextures(GetMazePalette(MazeTheme::Sage));
+    Replacement = std::move(Moved);
+    if (Moved.GetWall().id || Moved.Marble().id || !Replacement.Valid() ||
+        Replacement.GetWall().id != CurrentWall || Replacement.Marble().id != Marble)
         throw std::runtime_error(
             "move assignment must replace owned resources without duplicating them");
-    replacement = std::move(replacement);
-    if (!replacement.valid())
+    Replacement = std::move(Replacement);
+    if (!Replacement.Valid())
         throw std::runtime_error("self-move must preserve the owned texture set");
 }

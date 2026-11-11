@@ -22,21 +22,21 @@ public:
     // Process keyboard and pointer navigation for the main options and return a requested
     // application screen. Maintain selection between frames without starting a game or changing
     // shared application ownership directly.
-    Screen update();
+    Screen Update();
     // Render the main-menu foreground, wordmark, selectable options, and supporting decorations
     // over the shared corridor. Refresh scale-dependent fonts as needed while leaving navigation
     // decisions to update.
-    void draw() const;
+    void Draw() const;
 
 private:
     // Rebuild title and supporting font atlases when the effective menu scale changes. Reuse
     // cached fonts at an unchanged size and release old custom atlases before replacement.
-    void refreshFonts() const;
-    int selected;
-    MenuBackground background;
+    void RefreshFonts() const;
+    int CurrentSelected;
+    MenuBackground Background;
     // Rebuild glyphs only when their displayed pixel sizes change during a window resize.
-    mutable std::array<int, 3> fontPixels{};
-    mutable Font titleFont{};
-    mutable Font menuFont{};
-    mutable Font detailFont{};
+    mutable std::array<int, 3> FontPixels{};
+    mutable Font TitleFont{};
+    mutable Font MenuFont{};
+    mutable Font DetailFont{};
 };

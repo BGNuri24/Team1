@@ -47,7 +47,7 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="ValidateRaylibSource" BeforeTargets="PrepareForBuild">
-    <Exec Condition="'$(RaylibAutoRestore)'=='true'" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)Restore-Raylib.ps1&quot; -Destination &quot;$(RaylibSource)&quot;" />
+    <Exec Condition="'$(RaylibAutoRestore)'=='true'" Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)RestoreRaylib.ps1&quot; -Destination &quot;$(RaylibSource)&quot;" />
     <Error Condition="!Exists('$(RaylibSource)\src\raylib.h')" Text="raylib 5.5 was not found at '$(RaylibSource)'. If you configured RAYLIB_SOURCE or RaylibSource, point it at a complete source checkout or remove the override to use automatic setup." />
     <Error Condition="!Exists('$(RaylibSource)\src\external\glfw\include\GLFW\glfw3.h')" Text="The raylib source directory is incomplete: expected src\external\glfw\include\GLFW\glfw3.h." />
   </Target>

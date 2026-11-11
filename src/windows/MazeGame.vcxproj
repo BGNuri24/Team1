@@ -28,7 +28,7 @@
     <Import Project="Build.props" />
   </ImportGroup>
   <ItemGroup>
-    <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\Main.cpp" />
     <ClCompile Include="..\data\PlayerStore.cpp" />
     <ClCompile Include="..\data\GameDatabase.cpp" />
     <ClCompile Include="..\data\DatabaseQueries.cpp" />
@@ -107,26 +107,26 @@
     <ClInclude Include="..\data\MazeData.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="raylib.vcxproj">
+    <ProjectReference Include="Raylib.vcxproj">
       <Project>{69AE195E-2FF5-44DB-8691-B9807CD47C68}</Project>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="MazeGame.rc" />
-    <None Include="T1_.ico" />
-    <None Include="..\assets\menu-corridor.png" />
-    <None Include="..\assets\menu-players.png" />
-    <None Include="..\assets\menu-levels.png" />
-    <None Include="..\assets\menu-preparing.png" />
-    <None Include="..\assets\wall-damask.png" />
-    <None Include="..\assets\carpet-persian-field.png" />
-    <None Include="..\assets\carpet-persian-border.png" />
-    <None Include="..\assets\hotel-wall-panels.png" />
-    <None Include="..\assets\hotel-marble.png" />
+    <None Include="T1.ico" />
+    <None Include="..\assets\MenuCorridor.png" />
+    <None Include="..\assets\MenuPlayers.png" />
+    <None Include="..\assets\MenuLevels.png" />
+    <None Include="..\assets\MenuPreparing.png" />
+    <None Include="..\assets\WallDamask.png" />
+    <None Include="..\assets\CarpetPersianField.png" />
+    <None Include="..\assets\CarpetPersianBorder.png" />
+    <None Include="..\assets\HotelWallPanels.png" />
+    <None Include="..\assets\HotelMarble.png" />
     <None Include="..\assets\fonts\Ballet.ttf" />
-    <None Include="..\assets\fonts\Ballet-OFL.txt" />
-    <None Include="T1_.png">
+    <None Include="..\assets\fonts\BalletOfl.txt" />
+    <None Include="T1.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
