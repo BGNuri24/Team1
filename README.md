@@ -221,6 +221,8 @@ Team1/
 `main.cpp` creates `Application`, which coordinates the screens and owns the current run.
 The logic layer advances gameplay; the presentation layer reads that state to draw it.
 Storage keeps profiles and records independently of the rendering code.
+See the [project documentation](docs/T1Documentation.docx) and [presentation](docs/T1Presentation.pptx)
+for the full project materials.
 
 <details>
 <summary><strong>Build and run the three test suites</strong></summary>
