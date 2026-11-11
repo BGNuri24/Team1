@@ -1,5 +1,10 @@
 {
     "C_Cpp.default.cppStandard": "c++20",
     "debug.hideSlowPreLaunchWarning": true,
-    "debug.onTaskErrors": "showErrors"
+    "debug.onTaskErrors": "showErrors",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/src/**",
+        "${env:LOCALAPPDATA}/MazeGame/Dependencies/raylib-5.5/src"
+    ],
+    "C_Cpp.default.intelliSenseMode": "windows-msvc-x64"
 }
